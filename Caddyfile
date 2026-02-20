@@ -1,0 +1,49 @@
+# =============================================================================
+# Caddyfile — Reverse Proxy for AI Hub
+# =============================================================================
+# When DOMAIN is set in .env: automatic HTTPS via Let's Encrypt
+# When DOMAIN is empty: HTTP on port 80 (access via IP address)
+# =============================================================================
+
+{$DOMAIN::80} {
+
+	# =========================================================================
+	# Security Headers
+	# =========================================================================
+	header {
+		# Prevent clickjacking
+		X-Frame-Options "SAMEORIGIN"
+		# XSS protection
+		X-XSS-Protection "1; mode=block"
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Referrer policy
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Remove server identification
+		-Server
+	}
+
+	# =========================================================================
+	# LiteLLM API Gateway — /api/litellm/*
+	# =========================================================================
+	handle_path /api/litellm/* {
+		reverse_proxy litellm:4000
+	}
+
+	# =========================================================================
+	# Open WebUI — Everything else (main frontend)
+	# =========================================================================
+	handle {
+		reverse_proxy open-webui:8080
+	}
+
+	# =========================================================================
+	# Logging
+	# =========================================================================
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 3
+		}
+	}
+}

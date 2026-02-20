@@ -1,0 +1,42 @@
+# Dependencies & secrets
+.env
+.env.*
+!.env.example
+
+# SSH keys
+*.pem
+*.key
+id_rsa*
+
+# Docker volumes & data
+data/
+ollama-data/
+webui-data/
+caddy-data/
+caddy-config/
+litellm-data/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Editor
+.vscode/
+.idea/
+*.sublime-*
+
+# Python (OpenClaw/LiteLLM)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (if any frontends)
+node_modules/

@@ -1,0 +1,179 @@
+###############################################################################
+# LiteLLM Proxy Configuration — Cost-Tiered Model Routing
+###############################################################################
+# Models are organized by cost tier. Open WebUI shows all available models.
+# Use the cheapest model that fits your task to maximize your $10/month budget.
+#
+# Tier 1 (FREE):  Local Ollama models — daily coding & chat
+# Tier 2 (FREE):  Groq API — fast cloud inference, 1K req/day
+# Tier 3 (CHEAP): DeepSeek V2, GPT-4o-mini — $0.14-0.60/1M tokens
+# Tier 4 (MID):   Claude Haiku, MiniMax M2.5 — $0.80-1.20/1M tokens
+# Tier 5 (PREM):  Claude Sonnet, GPT-4o — use sparingly
+###############################################################################
+
+model_list:
+
+  # ===========================================================================
+  # TIER 1: FREE — Local Ollama Models (via Oracle Cloud)
+  # ===========================================================================
+  # These cost $0. Use for daily coding, chat, and routine tasks.
+  # Requires OLLAMA_BASE_URL to be set in .env
+
+  - model_name: "qwen2.5-coder:14b"
+    litellm_params:
+      model: "ollama/qwen2.5-coder:14b"
+      api_base: "os.environ/OLLAMA_BASE_URL"
+      stream: true
+    model_info:
+      description: "FREE — Best local coding model. Rivals GPT-4o for code."
+
+  - model_name: "deepseek-coder-v2:16b"
+    litellm_params:
+      model: "ollama/deepseek-coder-v2:16b"
+      api_base: "os.environ/OLLAMA_BASE_URL"
+      stream: true
+    model_info:
+      description: "FREE — Strong coder. 300+ languages. Great for debugging."
+
+  - model_name: "llama3.2:8b"
+    litellm_params:
+      model: "ollama/llama3.2:latest"
+      api_base: "os.environ/OLLAMA_BASE_URL"
+      stream: true
+    model_info:
+      description: "FREE — Fast general-purpose chat. Good all-rounder."
+
+  # ===========================================================================
+  # TIER 2: FREE — Groq API (1,000 requests/day free)
+  # ===========================================================================
+  # Fast cloud inference at no cost. Great when local models are slow.
+
+  - model_name: "groq/llama-3.3-70b"
+    litellm_params:
+      model: "groq/llama-3.3-70b-versatile"
+      api_key: "os.environ/GROQ_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE (1K/day) — 70B model on Groq. Very fast."
+
+  - model_name: "groq/mixtral-8x7b"
+    litellm_params:
+      model: "groq/mixtral-8x7b-32768"
+      api_key: "os.environ/GROQ_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE (1K/day) — Mixtral on Groq. 32K context."
+
+  # ===========================================================================
+  # TIER 3: CHEAP — $0.14-0.60 per 1M tokens
+  # ===========================================================================
+  # Use when you need speed + quality beyond local models.
+
+  - model_name: "deepseek-chat"
+    litellm_params:
+      model: "deepseek/deepseek-chat"
+      api_key: "os.environ/DEEPSEEK_API_KEY"
+      api_base: "https://api.deepseek.com"
+      stream: true
+    model_info:
+      description: "CHEAP ($0.14/1M in) — DeepSeek V2. Excellent value."
+
+  - model_name: "deepseek-coder"
+    litellm_params:
+      model: "deepseek/deepseek-coder"
+      api_key: "os.environ/DEEPSEEK_API_KEY"
+      api_base: "https://api.deepseek.com"
+      stream: true
+    model_info:
+      description: "CHEAP ($0.14/1M in) — DeepSeek Coder. Great for code."
+
+  - model_name: "gpt-4o-mini"
+    litellm_params:
+      model: "gpt-4o-mini"
+      api_key: "os.environ/OPENAI_API_KEY"
+      stream: true
+    model_info:
+      description: "CHEAP ($0.15/1M in) — Fast, capable. Good general use."
+
+  # ===========================================================================
+  # TIER 4: MID — $0.80-1.20 per 1M tokens
+  # ===========================================================================
+
+  - model_name: "claude-haiku"
+    litellm_params:
+      model: "anthropic/claude-haiku-4-5-20251001"
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+      stream: true
+    model_info:
+      description: "MID ($1.00/1M in) — Claude Haiku. Fast + smart."
+
+  # ===========================================================================
+  # TIER 5: PREMIUM — $3-15 per 1M tokens (use sparingly!)
+  # ===========================================================================
+  # Reserve for complex reasoning, architecture decisions, hard debugging.
+
+  - model_name: "claude-sonnet"
+    litellm_params:
+      model: "anthropic/claude-sonnet-4-20250514"
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+      stream: true
+    model_info:
+      description: "PREMIUM ($3/1M in) — Claude Sonnet. Complex reasoning."
+
+  - model_name: "claude-opus"
+    litellm_params:
+      model: "anthropic/claude-opus-4-20250514"
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+      stream: true
+    model_info:
+      description: "PREMIUM ($15/1M in) — Claude Opus. Best quality. Use rarely."
+
+  - model_name: "gpt-4o"
+    litellm_params:
+      model: "gpt-4o"
+      api_key: "os.environ/OPENAI_API_KEY"
+      stream: true
+    model_info:
+      description: "PREMIUM ($2.50/1M in) — GPT-4o. Strong all-around."
+
+  - model_name: "o1"
+    litellm_params:
+      model: "o1"
+      api_key: "os.environ/OPENAI_API_KEY"
+      stream: true
+    model_info:
+      description: "PREMIUM ($15/1M in) — OpenAI o1. Deep reasoning."
+
+  # ===========================================================================
+  # OPTIONAL — MiniMax M2.5 (uncomment when you have an API key)
+  # ===========================================================================
+  # - model_name: "minimax-m2.5"
+  #   litellm_params:
+  #     model: "openai/MiniMax-M2.5"
+  #     api_key: "os.environ/MINIMAX_API_KEY"
+  #     api_base: "https://api.minimax.io/v1"
+  #     stream: true
+  #   model_info:
+  #     description: "MID ($0.30/1M in) — MiniMax M2.5. Strong coder."
+
+# =============================================================================
+# General Settings
+# =============================================================================
+general_settings:
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  drop_params: true
+  # Allow connections from Open WebUI
+  allowed_origins: ["*"]
+
+litellm_settings:
+  # Enable streaming for all models
+  set_verbose: false
+  # Cache responses to save tokens on repeated queries
+  cache: true
+  cache_params:
+    type: "local"
+    ttl: 600  # Cache for 10 minutes
+  # Request timeout
+  request_timeout: 120
+  # Number of retries on failure
+  num_retries: 2
