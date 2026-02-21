@@ -159,13 +159,9 @@ ClientAliveCountMax 2
 LogLevel VERBOSE
 SSHEOF
 
-# Set the SSH port
-sed -i "s/^#Port 22/Port $SSH_PORT/" "$SSHD_CONFIG"
-sed -i "s/^Port 22/Port $SSH_PORT/" "$SSHD_CONFIG"
-# If neither exists, add it
-if ! grep -q "^Port " "$SSHD_CONFIG"; then
-    echo "Port $SSH_PORT" >> "$SSHD_CONFIG"
-fi
+# Set the SSH port (remove any existing Port line, then add the correct one)
+sed -i '/^#\?Port /d' "$SSHD_CONFIG"
+echo "Port $SSH_PORT" >> "$SSHD_CONFIG"
 
 # Validate SSH config before restarting (prevents lockouts)
 SSHD_TEST_OUTPUT=$(sshd -t 2>&1) || true
