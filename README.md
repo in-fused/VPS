@@ -388,14 +388,46 @@ When you open https://in-fused.org, you'll see a model dropdown at the top. Mode
 
 ### OpenClaw — Autonomous 24/7 Agent
 
-OpenClaw runs as a background service that can execute tasks autonomously. It connects to your LLM providers through LiteLLM.
+OpenClaw is an open-source autonomous AI agent that connects to your LLM providers and messaging platforms. It runs 24/7 in the background and can execute tasks, write code, send messages, and automate workflows autonomously.
+
+**First-run onboarding** (required — one-time interactive setup):
+
+After deploying the stack, you must run the onboarding wizard to configure OpenClaw:
+
+```bash
+# SSH into your EC2 server
+ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
+cd ~/VPS
+
+# Run the OpenClaw onboarding wizard
+docker compose exec -it openclaw openclaw
+```
+
+The wizard will walk you through:
+1. Choosing your default LLM provider (Claude, GPT, etc.)
+2. Connecting a messaging platform (pick one or more):
+   - **Telegram** — Create a bot via @BotFather, paste the token
+   - **Discord** — Create a bot in Discord Developer Portal, paste the token
+   - **WhatsApp** — Connect via WhatsApp Business API
+   - **Signal** — Connect via Signal CLI
+   - **Slack** — Create a Slack app, paste the OAuth token
+3. Setting autonomous behavior preferences
+
+After onboarding, OpenClaw runs continuously. You interact with it by messaging your connected bot.
 
 **Checking OpenClaw status**:
 ```bash
-docker compose logs openclaw
+docker compose logs -f openclaw
 ```
 
-**Configuring OpenClaw**: OpenClaw supports integration with messaging platforms (Telegram, Discord, Signal, WhatsApp). Configuration is done through the OpenClaw container. See the OpenClaw documentation for platform-specific setup.
+**OpenClaw web interface**: Available at `https://in-fused.org/openclaw/`
+
+**Restarting OpenClaw** (after config changes):
+```bash
+docker compose restart openclaw
+```
+
+**Security note**: OpenClaw can execute code and perform actions autonomously. Only connect it to trusted messaging accounts. Review the OpenClaw docs for security best practices: https://docs.openclaw.ai/
 
 > **Future**: Kimi Claw integration is planned for future exploration as an additional autonomous agent option.
 
@@ -527,3 +559,22 @@ After running setup-server.sh, SSH is on port **2222**, not 22:
 ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
 ```
 Make sure port 2222 is open in your AWS Security Group.
+
+### OpenClaw not starting / crashing
+```bash
+# Check logs
+docker compose logs openclaw
+
+# If it needs onboarding first:
+docker compose exec -it openclaw openclaw
+
+# If it's out of memory, check:
+docker stats
+# OpenClaw has a 256M limit — if it's hitting that, you may need to
+# upgrade the instance or reduce other service memory limits
+```
+
+### OpenClaw web UI not loading at /openclaw/
+- Check OpenClaw is running: `docker compose ps openclaw`
+- Check Caddy routing: `docker compose logs caddy`
+- Try accessing directly (for debugging): `docker compose exec caddy wget -qO- http://openclaw:18789/ | head`
