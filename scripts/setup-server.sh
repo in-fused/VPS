@@ -267,7 +267,7 @@ systemctl start docker
 log_ok "Docker running"
 
 ###############################################################################
-# 7. Swap Space (critical for t2.micro with 1GB RAM)
+# 7. Swap Space (recommended safety net for small instances)
 ###############################################################################
 if swapon --show | grep -q "/swapfile"; then
     log_warn "Swap already configured, skipping"

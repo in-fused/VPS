@@ -8,7 +8,7 @@
 #   - openclaw:   Autonomous AI agent (24/7 background tasks)
 #
 # Optional profiles:
-#   - ollama (profile: local-models): Only if running Ollama on THIS server
+#   - ollama (profile: local-models): Only if running Ollama on THIS server (GPU instance recommended)
 #     Enable with: docker compose --profile local-models up -d
 #
 # Start core stack:  docker compose up -d
@@ -75,7 +75,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -183,7 +183,7 @@ services:
   # ===========================================================================
   # Ollama — Local LLM Server (OPTIONAL — for same-box deployment)
   # ===========================================================================
-  # Only enable if running Ollama on THIS server (not recommended for t2.micro).
+  # Only enable if running Ollama on THIS server (GPU instance recommended).
   # For Oracle Cloud deployment, use scripts/setup-ollama-server.sh instead.
   #
   # Enable with: docker compose --profile local-models up -d
