@@ -173,9 +173,8 @@ services:
       - openclaw-data:/root/.openclaw
       - agent-workspace:/workspace
     environment:
-      # OpenClaw reads standard provider API keys directly
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Route everything through LiteLLM — no direct provider keys needed
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
     networks:
       - ai-net
