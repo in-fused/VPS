@@ -159,7 +159,7 @@ services:
   # and messaging platforms (Telegram, Discord, WhatsApp, Signal, etc.)
   #
   # FIRST RUN: After 'docker compose up -d', run the onboarding wizard:
-  #   docker compose exec -it openclaw openclaw
+  #   docker compose exec -it openclaw node openclaw.mjs onboard
   #
   # Web interface available at /openclaw/ via Caddy reverse proxy.
   # Agent workspace served at /workspace/ — agents can create pages and features here.

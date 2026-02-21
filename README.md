@@ -443,7 +443,7 @@ ssh -i ~/Downloads/Infused-VPS-key.pem -p 2222 deploy@in-fused.org
 cd ~/VPS
 
 # Run the OpenClaw onboarding wizard
-docker compose exec -it openclaw openclaw
+docker compose exec -it openclaw node openclaw.mjs onboard
 ```
 
 The wizard will walk you through:
@@ -637,7 +637,7 @@ sudo bash scripts/setup-server.sh
 docker compose logs openclaw
 
 # If it needs onboarding first:
-docker compose exec -it openclaw openclaw
+docker compose exec -it openclaw node openclaw.mjs onboard
 
 # If it's out of memory, check:
 docker stats
