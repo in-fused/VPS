@@ -177,6 +177,7 @@ services:
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - NODE_OPTIONS=--max-old-space-size=384
     networks:
       - ai-net
     depends_on:
@@ -185,7 +186,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:18789/openclaw/ || exit 1"]
       interval: 30s
