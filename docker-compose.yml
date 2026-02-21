@@ -170,7 +170,7 @@ services:
     container_name: openclaw
     restart: unless-stopped
     volumes:
-      - openclaw-data:/root/.openclaw
+      - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
     environment:
       # Route everything through LiteLLM — no direct provider keys needed
