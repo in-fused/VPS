@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Workspace — in-fused.org</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 640px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+    .status {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .status-text {
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+    .nav {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: #60a5fa;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border: 1px solid #333;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+    }
+    .nav a:hover {
+      border-color: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Agent Workspace</h1>
+    <p class="subtitle">Autonomous agents create and deploy features here</p>
+    <div class="status">
+      <p class="status-text">
+        <span class="status-indicator"></span>
+        Workspace online. Agents can write to this space to publish pages, tools, and features.
+      </p>
+    </div>
+    <nav class="nav">
+      <a href="/">Open WebUI</a>
+      <a href="/openclaw/">OpenClaw Admin</a>
+      <a href="/api/litellm/">LiteLLM API</a>
+    </nav>
+  </div>
+</body>
+</html>

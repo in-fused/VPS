@@ -209,6 +209,18 @@ echo "  ── Configured Providers ──────────────�
 [ -n "${OLLAMA_BASE_URL:-}" ]   && echo "  ✓ Ollama ($OLLAMA_BASE_URL)" || echo "  ✗ Ollama (not connected — see README Part 2)"
 
 echo ""
+echo "  ── Services ───────────────────────────────────────────"
+if [ -n "$DOMAIN" ]; then
+    BASE="https://$DOMAIN"
+else
+    BASE="http://${PUBLIC_IP:-YOUR_IP}"
+fi
+echo "  Open WebUI:      $BASE/"
+echo "  OpenClaw Admin:  $BASE/openclaw/"
+echo "  Agent Workspace: $BASE/workspace/"
+echo "  LiteLLM API:     $BASE/api/litellm/"
+
+echo ""
 echo "  ── Useful Commands ────────────────────────────────────"
 echo "  View logs:       docker compose logs -f"
 echo "  Restart:         docker compose restart"
