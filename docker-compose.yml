@@ -187,7 +187,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:18789/openclaw/ || exit 1"]
       interval: 30s
