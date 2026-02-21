@@ -27,12 +27,12 @@ config.gateway.auth.mode = 'password';
 config.gateway.controlUi = config.gateway.controlUi || {};
 config.gateway.controlUi.basePath = '/openclaw/';
 
-// Trust reverse proxy (Caddy) for real client IP forwarding
-config.gateway.trustProxy = true;
+// Remove any unknown keys that cause config validation errors
+delete config.gateway.trustProxy;
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw gateway config updated: auth=password, basePath=/openclaw/, bind=lan, trustProxy=true');
+console.log('[entrypoint] OpenClaw gateway config updated: auth=password, basePath=/openclaw/, bind=lan');
 "
 
 exec node --max-old-space-size=1024 --disable-warning=ExperimentalWarning openclaw.mjs gateway --allow-unconfigured
