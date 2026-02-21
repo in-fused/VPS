@@ -172,6 +172,7 @@ services:
     volumes:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
+      - ./scripts:/opt/scripts:ro
     environment:
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
@@ -186,11 +187,11 @@ services:
         limits:
           memory: 256M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:18789/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:18789/openclaw/ || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 45s
 
   # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content

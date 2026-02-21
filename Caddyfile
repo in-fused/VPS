@@ -31,18 +31,14 @@
 	}
 
 	# =========================================================================
-	# OpenClaw Web UI — /openclaw/*
+	# OpenClaw Web UI + WebSocket Gateway — /openclaw/*
 	# =========================================================================
-	# Canvas web UI lives at /__openclaw__/canvas/ inside the container.
-	# Rewrite /openclaw/* so the browser URL stays clean.
-	handle_path /openclaw/* {
-		rewrite * /__openclaw__/canvas{uri}
-		reverse_proxy openclaw:18789
-	}
-
-	# OpenClaw internal routes (WebSocket gateway, API, assets)
-	# The canvas JS opens WebSocket connections to /__openclaw__/* paths.
-	handle /__openclaw__/* {
+	# OpenClaw's basePath is set to "/openclaw" in its config, so it expects
+	# the full /openclaw/ prefix in requests. Use handle (not handle_path)
+	# to preserve the path. Caddy auto-handles WebSocket upgrades.
+	@openclawbare path /openclaw
+	redir @openclawbare /openclaw/ 301
+	handle /openclaw/* {
 		reverse_proxy openclaw:18789
 	}
 
