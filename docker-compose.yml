@@ -116,7 +116,7 @@ services:
   # Routes requests to the cheapest adequate model.
   # Supports Claude, ChatGPT, DeepSeek, Groq, Ollama, and more.
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm
     restart: unless-stopped
     volumes:
@@ -126,6 +126,7 @@ services:
       - DATABASE_URL=postgresql://llmproxy:dbpassword9090@litellm-db:5432/litellm
       - STORE_MODEL_IN_DB=True
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}

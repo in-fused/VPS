@@ -107,6 +107,18 @@ if [ -z "${LITELLM_MASTER_KEY:-}" ]; then
     UPDATED_ENV=true
 fi
 
+if [ -z "${LITELLM_SALT_KEY:-}" ]; then
+    SALT=$(openssl rand -hex 32)
+    # Add LITELLM_SALT_KEY if not present in .env
+    if grep -q "^LITELLM_SALT_KEY=" .env; then
+        sed -i "s|^LITELLM_SALT_KEY=.*|LITELLM_SALT_KEY=sk-$SALT|" .env
+    else
+        echo "LITELLM_SALT_KEY=sk-$SALT" >> .env
+    fi
+    log_info "Generated LITELLM_SALT_KEY"
+    UPDATED_ENV=true
+fi
+
 if [ "$UPDATED_ENV" = true ]; then
     # Re-source after updates
     set -a
