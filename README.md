@@ -1,6 +1,6 @@
 # in-fused.org — Unified AI Hub
 
-A self-hosted, multi-agent AI workforce running on free-tier infrastructure. Access Claude, ChatGPT, DeepSeek, Groq, and local Ollama models through a single web interface at `https://in-fused.org`.
+A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Access Claude, ChatGPT, DeepSeek, Groq, and local Ollama models through a single web interface at `https://in-fused.org`.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ A self-hosted, multi-agent AI workforce running on free-tier infrastructure. Acc
 [Browser → https://in-fused.org]
        │
        ▼
-┌─── AWS EC2 t2.micro (FREE) ───────────────────┐
+┌─── AWS EC2 t3.micro ──────────────────────────┐
 │                                                  │
 │  Caddy ── reverse proxy + auto-HTTPS ── :443    │
 │    ├──► Open WebUI ── Chat Frontend             │
@@ -30,14 +30,14 @@ A self-hosted, multi-agent AI workforce running on free-tier infrastructure. Acc
 └───────────────────────────────────────────────────┘
 ```
 
-## Cost: $10/month Total
+## Cost: ~$18/month Total
 
 | Item | Monthly Cost |
 |------|-------------|
-| AWS EC2 t2.micro | $0 (free tier) |
+| AWS EC2 t3.micro (2 vCPU, 2GB RAM, 30GB gp3) | ~$8 |
 | Oracle Cloud ARM 24GB | $0 (free forever) |
 | API credits | ~$10 |
-| **Total** | **~$10** |
+| **Total** | **~$18** |
 
 ### Model Cost Tiers
 
@@ -170,7 +170,7 @@ This takes 2-5 minutes. You'll see colored `[OK]` and `[INFO]` messages as each 
 - Hardens SSH (key-only, port 2222, no root)
 - Installs firewall (UFW) and intrusion prevention (Fail2Ban)
 - Installs Docker
-- Creates 2GB swap (critical for 1GB instance)
+- Creates 4GB swap (extends effective memory for 2GB instance)
 - Enables automatic security updates
 
 When it finishes, you'll see a green **"Server setup complete!"** message.
@@ -530,7 +530,7 @@ docker compose up -d
 | AWS | Elastic IP | Stable IP, no exposure on restart |
 | TLS | Auto-HTTPS | Caddy + Let's Encrypt for in-fused.org |
 | Docker | Network isolation | Services on internal network only |
-| Docker | Memory limits | Prevents OOM crashes on 1GB instance |
+| Docker | Memory limits | Prevents OOM crashes on 2GB instance |
 | App | User auth | Open WebUI requires login (first user = admin) |
 | App | Security headers | HSTS, XSS protection, no-sniff |
 | Secrets | .env file | Never committed to git |
@@ -591,10 +591,10 @@ Services are still starting. Wait 30-60 seconds and refresh.
 - If Ollama models missing: check `OLLAMA_BASE_URL` in `.env`
 
 ### Out of memory / slow performance
-The t2.micro has only 1GB RAM + 2GB swap. This is tight but works. If you experience issues:
+The t3.micro has 2GB RAM + 4GB swap. This is sufficient but tight when all services are running. If you experience issues:
 - Check memory: `free -h`
 - Check what's using memory: `docker stats`
-- Consider upgrading to t3.small ($15/month) for 2GB RAM
+- Consider upgrading to t3.small (~$15/month) for 2GB RAM + burstable performance, or t3.medium (~$30/month) for 4GB RAM
 
 ### SSH connection refused after running setup-server.sh
 After running setup-server.sh, SSH is on port **2222**, not 22.

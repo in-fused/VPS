@@ -12,7 +12,7 @@
 #   4. Installs and configures UFW firewall
 #   5. Installs and configures Fail2Ban
 #   6. Installs Docker + Docker Compose
-#   7. Creates 2GB swap space (critical for t2.micro)
+#   7. Creates 4GB swap space (extends effective memory for t3.micro)
 #   8. Enables unattended security upgrades
 #   9. Configures log rotation
 ###############################################################################
@@ -272,8 +272,8 @@ log_ok "Docker running"
 if swapon --show | grep -q "/swapfile"; then
     log_warn "Swap already configured, skipping"
 else
-    log_info "Creating 2GB swap space..."
-    fallocate -l 2G /swapfile
+    log_info "Creating 4GB swap space..."
+    fallocate -l 4G /swapfile
     chmod 600 /swapfile
     mkswap /swapfile
     swapon /swapfile
@@ -289,7 +289,7 @@ else
     echo "vm.swappiness=10" >> /etc/sysctl.conf
     echo "vm.vfs_cache_pressure=50" >> /etc/sysctl.conf
 
-    log_ok "2GB swap configured"
+    log_ok "4GB swap configured"
 fi
 
 ###############################################################################
@@ -353,7 +353,7 @@ echo "============================================================"
 echo ""
 echo "  SSH port:     $SSH_PORT"
 echo "  Deploy user:  $DEPLOY_USER"
-echo "  Swap:         2GB"
+echo "  Swap:         4GB"
 echo "  Firewall:     UFW (ports $SSH_PORT, 80, 443)"
 echo "  Fail2Ban:     Active (SSH jail)"
 echo "  Docker:       Installed"

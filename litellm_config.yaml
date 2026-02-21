@@ -2,7 +2,7 @@
 # LiteLLM Proxy Configuration — Cost-Tiered Model Routing
 ###############################################################################
 # Models are organized by cost tier. Open WebUI shows all available models.
-# Use the cheapest model that fits your task to maximize your $10/month budget.
+# Use the cheapest model that fits your task to maximize your API budget.
 #
 # Tier 1 (FREE):  Local Ollama models — daily coding & chat
 # Tier 2 (FREE):  Groq API — fast cloud inference, 1K req/day
