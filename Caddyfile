@@ -35,11 +35,18 @@
 	# =========================================================================
 	# OpenClaw's basePath is set to "/openclaw" in its config, so it expects
 	# the full /openclaw/ prefix in requests. Use handle (not handle_path)
-	# to preserve the path. Caddy auto-handles WebSocket upgrades.
+	# to preserve the path.
+	# flush_interval -1 disables response buffering (required for WebSocket
+	# and SSE streams). header_up forwards real client IP for device pairing.
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
-		reverse_proxy openclaw:18789
+		reverse_proxy openclaw:18789 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			flush_interval -1
+		}
 	}
 
 	# =========================================================================
