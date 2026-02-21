@@ -122,40 +122,143 @@ It should resolve to your Elastic IP.
 
 ### Step 1.5 — SSH Into Your Server
 
-Open a terminal on your computer and run:
+> **What is SSH?** It's how you remotely control your server by typing commands. You'll use **PowerShell** on your Windows PC to connect.
 
-```bash
-# Replace YOUR-KEY with your actual .pem filename
-chmod 400 ~/Downloads/YOUR-KEY.pem
-ssh -i ~/Downloads/YOUR-KEY.pem ubuntu@in-fused.org
+**How to open PowerShell:**
+1. Press the **Windows key** on your keyboard
+2. Type `powershell`
+3. Click **Windows PowerShell** (the blue icon — NOT "ISE", NOT "Admin")
+
+A blue/black window will open with a blinking cursor. This is where you type commands.
+
+**Connect to your server** — type this command (replace `YOUR-KEY.pem` with your actual .pem filename from Downloads, and `YOUR_ELASTIC_IP` with the IP from Step 1.2):
+
+```powershell
+ssh -i $HOME\Downloads\YOUR-KEY.pem ubuntu@YOUR_ELASTIC_IP
 ```
 
-If DNS hasn't propagated yet, use the Elastic IP directly:
-```bash
-ssh -i ~/Downloads/YOUR-KEY.pem ubuntu@YOUR_ELASTIC_IP
-```
+> **Windows note**: Use `$HOME\Downloads\` with backslashes. The `chmod` command you may see in other guides is a Linux thing — Windows doesn't need it.
 
-You should see `ubuntu@ip-xxx-xxx:~$` — you're in!
+If it asks: `Are you sure you want to continue connecting (yes/no/[fingerprint])?`
+- Type `yes` and press **Enter**
+
+**You'll know it worked when the prompt changes to**: `ubuntu@ip-172-xx-xx-xx:~$`
+
+That means you are now **inside your EC2 server**. Everything you type from this point runs on the server, not on your PC. Your PowerShell window is now a remote control for the server.
+
+> **If it says "Connection refused" or "Permission denied"**: Double-check your .pem filename (it's case-sensitive), make sure port 22 is in your Security Group (Step 1.4), and verify the Elastic IP is correct.
 
 ### Step 1.6 — Clone the Repository and Run Setup
 
-```bash
-# Clone the repo
-git clone https://github.com/in-fused/VPS.git
-cd VPS
+You should still be inside the server (prompt shows `ubuntu@ip-...`). Type these commands **one at a time**, pressing Enter after each:
 
-# Run the server hardening + Docker installation
+```bash
+git clone https://github.com/in-fused/VPS.git
+```
+Wait for it to finish (you'll see "done"), then:
+```bash
+cd VPS
+```
+Then:
+```bash
 sudo bash scripts/setup-server.sh
 ```
 
-This takes 2-5 minutes. It will:
-- Update all packages
-- Create a `deploy` user
-- Harden SSH (key-only, port 2222, no root)
-- Install firewall (UFW) and intrusion prevention (Fail2Ban)
-- Install Docker
-- Create 2GB swap (critical for 1GB instance)
-- Enable automatic security updates
+This takes 2-5 minutes. You'll see colored `[OK]` and `[INFO]` messages as each step completes:
+- System update
+- Creates a `deploy` user
+- Hardens SSH (key-only, port 2222, no root)
+- Installs firewall (UFW) and intrusion prevention (Fail2Ban)
+- Installs Docker
+- Creates 2GB swap (critical for 1GB instance)
+- Enables automatic security updates
+
+When it finishes, you'll see a green **"Server setup complete!"** message.
+
+### Step 1.7 — CRITICAL: Test SSH on New Port
+
+**DO NOT CLOSE your current PowerShell window.** The setup script changed SSH to port 2222. If you close this window before testing, and something went wrong, you could lock yourself out.
+
+Open a **second PowerShell window**:
+1. Press **Windows key**
+2. Type `powershell`
+3. Click **Windows PowerShell** (opens a brand new window)
+
+In this **new** window, type:
+
+```powershell
+ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
+```
+
+Notice two differences from before:
+- `-p 2222` — uses the new secure port
+- `deploy@` — uses the new deploy user (not ubuntu)
+
+**If it works** (you see `deploy@ip-...`): Great! You can close the original window. Use this new connection going forward.
+
+**If it doesn't work**: Go back to your original window (still connected as ubuntu) and check what happened. Don't panic — you still have access.
+
+### Step 1.8 — Configure API Keys
+
+You should be connected to the server as `deploy` (from Step 1.7). Type these commands:
+
+```bash
+cd ~/VPS
+cp .env.example .env
+nano .env
+```
+
+`nano` is a text editor that runs inside the terminal. You'll see the file contents.
+
+**Use your arrow keys** to move the cursor to each line below and type your actual keys:
+
+```
+ANTHROPIC_API_KEY=sk-ant-PASTE-YOUR-ACTUAL-KEY-HERE
+OPENAI_API_KEY=sk-PASTE-YOUR-ACTUAL-KEY-HERE
+```
+
+Leave everything else as-is for now. The deploy script auto-generates the secret keys.
+
+**How to save and exit nano:**
+1. Press `Ctrl+O` (that's the letter O, not zero) — this saves
+2. Press `Enter` to confirm the filename
+3. Press `Ctrl+X` — this exits nano
+
+> **Tip**: To paste in PowerShell, just **right-click** anywhere in the window.
+
+### Step 1.9 — Deploy the Stack
+
+Still connected to the server as `deploy`, type:
+
+```bash
+bash scripts/deploy.sh
+```
+
+This will:
+1. Validate your `.env` has API keys
+2. Auto-generate security secrets
+3. Download Docker images (~1-2 minutes — you'll see progress bars)
+4. Start all services (Caddy, Open WebUI, LiteLLM, OpenClaw)
+5. Run health checks
+6. Print a status report showing what's running
+
+Wait for it to finish. You'll see **"AI Hub is running!"** in green when it's done.
+
+### Step 1.10 — Access Your AI Hub!
+
+On your Windows PC, open your web browser (Chrome, Edge, Firefox — any will work).
+
+Go to: **https://in-fused.org**
+
+> **If HTTPS isn't working yet** (DNS can take up to 24 hours to propagate), try: `http://YOUR_ELASTIC_IP` (using http, not https)
+
+1. You'll see the **Open WebUI** login page
+2. Click **Sign Up** — create a username and password
+3. **The first user to sign up becomes the admin** — that's you!
+4. After logging in, you'll see a chat interface (looks like ChatGPT)
+5. Click the **model dropdown** at the top
+6. Select `gpt-4o-mini` (cheapest cloud model) or `claude-haiku` (fast + smart)
+7. Type a message and hit Enter — you're live!
 
 ### Step 1.7 — CRITICAL: Test SSH on New Port
 
@@ -499,8 +602,8 @@ docker compose up -d
 ## Quick Reference
 
 ```bash
-# SSH into EC2
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
+# SSH into EC2 (from Windows PowerShell)
+ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
 
 # View running services
 docker compose ps
@@ -554,11 +657,13 @@ The t2.micro has only 1GB RAM + 2GB swap. This is tight but works. If you experi
 - Consider upgrading to t3.small ($15/month) for 2GB RAM
 
 ### SSH connection refused
-After running setup-server.sh, SSH is on port **2222**, not 22:
-```bash
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
+After running setup-server.sh, SSH is on port **2222**, not 22.
+
+From Windows PowerShell:
+```powershell
+ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
 ```
-Make sure port 2222 is open in your AWS Security Group.
+Make sure port 2222 is open in your AWS Security Group (Step 1.4).
 
 ### OpenClaw not starting / crashing
 ```bash
