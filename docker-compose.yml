@@ -173,9 +173,10 @@ services:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
       - ./scripts:/opt/scripts:ro
+    command: ["node", "--max-old-space-size=1536", "openclaw.mjs", "gateway", "--allow-unconfigured"]
     environment:
-      # Give Node.js 768 MB heap (default ~512 MB causes OOM inside the 1 GiB container)
-      - NODE_OPTIONS=--max-old-space-size=768
+      # Also set NODE_OPTIONS for any child processes spawned by the gateway
+      - NODE_OPTIONS=--max-old-space-size=1536
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
