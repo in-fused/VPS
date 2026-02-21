@@ -641,11 +641,10 @@ docker compose exec -it openclaw node openclaw.mjs onboard
 
 # If it's out of memory, check:
 docker stats
-# OpenClaw has a 256M limit — if it's hitting that, you may need to
-# upgrade the instance or reduce other service memory limits
 ```
 
 ### OpenClaw web UI not loading at /openclaw/
+- **401 Unauthorized?** You need the OpenClaw password. Find it with: `grep OPENCLAW_PASSWORD ~/VPS/.env`
 - Check OpenClaw is running: `docker compose ps openclaw`
 - Check Caddy routing: `docker compose logs caddy`
-- Try accessing directly (for debugging): `docker compose exec caddy wget -qO- http://openclaw:18789/ | head`
+- Test internal connectivity: `docker compose exec caddy wget -qO- http://openclaw:18789/openclaw/ | head`

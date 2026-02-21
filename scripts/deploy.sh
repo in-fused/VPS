@@ -119,6 +119,17 @@ if [ -z "${LITELLM_SALT_KEY:-}" ]; then
     UPDATED_ENV=true
 fi
 
+if [ -z "${OPENCLAW_PASSWORD:-}" ]; then
+    CLAWPASS=$(openssl rand -hex 8)
+    if grep -q "^OPENCLAW_PASSWORD=" .env; then
+        sed -i "s|^OPENCLAW_PASSWORD=.*|OPENCLAW_PASSWORD=$CLAWPASS|" .env
+    else
+        echo "OPENCLAW_PASSWORD=$CLAWPASS" >> .env
+    fi
+    log_info "Generated OPENCLAW_PASSWORD"
+    UPDATED_ENV=true
+fi
+
 if [ "$UPDATED_ENV" = true ]; then
     # Re-source after updates
     set -a
@@ -216,9 +227,14 @@ else
     BASE="http://${PUBLIC_IP:-YOUR_IP}"
 fi
 echo "  Open WebUI:      $BASE/"
-echo "  OpenClaw Admin:  $BASE/openclaw/"
+echo "  OpenClaw Agent:  $BASE/openclaw/"
 echo "  Agent Workspace: $BASE/workspace/"
 echo "  LiteLLM API:     $BASE/api/litellm/"
+if [ -n "${OPENCLAW_PASSWORD:-}" ]; then
+    echo ""
+    echo "  OpenClaw password: ${OPENCLAW_PASSWORD}"
+    echo "  (saved in .env — use this to log into the /openclaw/ web UI)"
+fi
 
 echo ""
 echo "  ── Useful Commands ────────────────────────────────────"
