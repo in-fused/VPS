@@ -50,6 +50,22 @@
 	}
 
 	# =========================================================================
+	# OpenClaw WebSocket — root path upgrade
+	# =========================================================================
+	# The Control UI JavaScript connects its WebSocket to wss://host/
+	# (root path, ignoring basePath). Route root-path WebSocket upgrades
+	# to OpenClaw. Open WebUI's WebSocket uses /socket.io/ so no conflict.
+	@openclawws {
+		path /
+		header Upgrade websocket
+	}
+	handle @openclawws {
+		reverse_proxy openclaw:18789 {
+			flush_interval -1
+		}
+	}
+
+	# =========================================================================
 	# Agent Workspace — /workspace/*
 	# =========================================================================
 	# Sandboxed file server for agent-created content. OpenClaw agents write
