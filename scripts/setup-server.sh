@@ -117,6 +117,12 @@ SSHD_CONFIG="/etc/ssh/sshd_config"
 # Backup original config
 cp "$SSHD_CONFIG" "${SSHD_CONFIG}.backup.$(date +%Y%m%d)"
 
+# Ensure sshd_config.d include exists (some AMIs lack it)
+if ! grep -q "^Include /etc/ssh/sshd_config.d/\*.conf" "$SSHD_CONFIG"; then
+    sed -i '1s|^|Include /etc/ssh/sshd_config.d/*.conf\n|' "$SSHD_CONFIG"
+fi
+mkdir -p /etc/ssh/sshd_config.d
+
 # Apply hardening
 cat > /etc/ssh/sshd_config.d/hardening.conf << 'SSHEOF'
 # VPS AI Hub — SSH Hardening
@@ -162,10 +168,12 @@ if ! grep -q "^Port " "$SSHD_CONFIG"; then
 fi
 
 # Validate SSH config before restarting (prevents lockouts)
+SSHD_TEST_OUTPUT=$(sshd -t 2>&1) || true
 if sshd -t 2>/dev/null; then
     log_ok "SSH config validation passed"
 else
     log_error "SSH config validation FAILED — restoring backup to prevent lockout"
+    log_error "sshd -t output: $SSHD_TEST_OUTPUT"
     cp "${SSHD_CONFIG}.backup."* "$SSHD_CONFIG" 2>/dev/null
     rm -f /etc/ssh/sshd_config.d/hardening.conf
     systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
