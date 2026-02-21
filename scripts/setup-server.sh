@@ -137,7 +137,7 @@ MaxAuthTries 3
 MaxSessions 3
 
 # Disable unused authentication methods
-ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
 KerberosAuthentication no
 GSSAPIAuthentication no
 
@@ -161,8 +161,20 @@ if ! grep -q "^Port " "$SSHD_CONFIG"; then
     echo "Port $SSH_PORT" >> "$SSHD_CONFIG"
 fi
 
-# Restart SSH
-systemctl restart sshd
+# Validate SSH config before restarting (prevents lockouts)
+if sshd -t 2>/dev/null; then
+    log_ok "SSH config validation passed"
+else
+    log_error "SSH config validation FAILED — restoring backup to prevent lockout"
+    cp "${SSHD_CONFIG}.backup."* "$SSHD_CONFIG" 2>/dev/null
+    rm -f /etc/ssh/sshd_config.d/hardening.conf
+    systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null
+    log_error "Original SSH config restored. Fix the hardening config and re-run."
+    exit 1
+fi
+
+# Restart SSH (Ubuntu uses 'ssh', other distros use 'sshd')
+systemctl restart ssh 2>/dev/null || systemctl restart sshd
 log_ok "SSH hardened (port $SSH_PORT, key-only, no root login)"
 
 ###############################################################################

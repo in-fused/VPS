@@ -131,10 +131,10 @@ It should resolve to your Elastic IP.
 
 A blue/black window will open with a blinking cursor. This is where you type commands.
 
-**Connect to your server** — type this command (replace `YOUR-KEY.pem` with your actual .pem filename from Downloads, and `YOUR_ELASTIC_IP` with the IP from Step 1.2):
+**Connect to your server** — type this command (your key file and Elastic IP are already filled in below):
 
 ```powershell
-ssh -i $HOME\Downloads\YOUR-KEY.pem ubuntu@YOUR_ELASTIC_IP
+ssh -i $HOME\Downloads\Infused-VPS-key.pem ubuntu@50.17.251.154
 ```
 
 > **Windows note**: Use `$HOME\Downloads\` with backslashes. The `chmod` command you may see in other guides is a Linux thing — Windows doesn't need it.
@@ -187,7 +187,7 @@ Open a **second PowerShell window**:
 In this **new** window, type:
 
 ```powershell
-ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
+ssh -i $HOME\Downloads\Infused-VPS-key.pem -p 2222 deploy@50.17.251.154
 ```
 
 Notice two differences from before:
@@ -250,7 +250,7 @@ On your Windows PC, open your web browser (Chrome, Edge, Firefox — any will wo
 
 Go to: **https://in-fused.org**
 
-> **If HTTPS isn't working yet** (DNS can take up to 24 hours to propagate), try: `http://YOUR_ELASTIC_IP` (using http, not https)
+> **If HTTPS isn't working yet** (DNS can take up to 24 hours to propagate), try: `http://50.17.251.154` (using http, not https)
 
 1. You'll see the **Open WebUI** login page
 2. Click **Sign Up** — create a username and password
@@ -259,66 +259,6 @@ Go to: **https://in-fused.org**
 5. Click the **model dropdown** at the top
 6. Select `gpt-4o-mini` (cheapest cloud model) or `claude-haiku` (fast + smart)
 7. Type a message and hit Enter — you're live!
-
-### Step 1.7 — CRITICAL: Test SSH on New Port
-
-**Do NOT close your current SSH session yet!** Open a **new terminal** and test:
-
-```bash
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
-```
-
-If this works, you're good. If not, go back to the original session and check `/etc/ssh/sshd_config`.
-
-From now on, always use port 2222:
-```bash
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
-```
-
-### Step 1.8 — Configure API Keys
-
-```bash
-cd ~/VPS
-
-# Create your .env from the template
-cp .env.example .env
-
-# Edit with your API keys
-nano .env
-```
-
-**Required** (you already have these):
-- `ANTHROPIC_API_KEY=sk-ant-...` — your Claude key
-- `OPENAI_API_KEY=sk-...` — your OpenAI key
-
-**Recommended** (sign up for free — see Part 3 below):
-- `GROQ_API_KEY=gsk_...` — 1,000 free requests/day
-- `DEEPSEEK_API_KEY=sk-...` — extremely cheap ($0.14/1M tokens)
-
-Leave `WEBUI_SECRET_KEY` and `LITELLM_MASTER_KEY` empty — the deploy script auto-generates them.
-
-Save and exit nano: `Ctrl+O` → `Enter` → `Ctrl+X`
-
-### Step 1.9 — Deploy the Stack
-
-```bash
-bash scripts/deploy.sh
-```
-
-This pulls Docker images (~1-2 minutes), starts all services, and runs health checks.
-
-### Step 1.10 — Access Your AI Hub!
-
-Open your browser and go to:
-
-**https://in-fused.org**
-
-1. You'll see the Open WebUI login page
-2. Click **Sign Up** to create your admin account (first user = admin)
-3. Choose a model from the dropdown (e.g., `gpt-4o-mini` or `claude-haiku`)
-4. Start chatting!
-
-> **If HTTPS isn't working yet** (domain DNS may take up to 24 hours), use `http://YOUR_ELASTIC_IP` temporarily.
 
 ---
 
@@ -394,7 +334,7 @@ Back on your EC2 server:
 
 ```bash
 # SSH into EC2
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
+ssh -i ~/Downloads/Infused-VPS-key.pem -p 2222 deploy@in-fused.org
 
 # Edit .env
 cd ~/VPS
@@ -499,7 +439,7 @@ After deploying the stack, you must run the onboarding wizard to configure OpenC
 
 ```bash
 # SSH into your EC2 server
-ssh -i ~/Downloads/YOUR-KEY.pem -p 2222 deploy@in-fused.org
+ssh -i ~/Downloads/Infused-VPS-key.pem -p 2222 deploy@in-fused.org
 cd ~/VPS
 
 # Run the OpenClaw onboarding wizard
@@ -603,7 +543,7 @@ docker compose up -d
 
 ```bash
 # SSH into EC2 (from Windows PowerShell)
-ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
+ssh -i $HOME\Downloads\Infused-VPS-key.pem -p 2222 deploy@50.17.251.154
 
 # View running services
 docker compose ps
@@ -656,14 +596,40 @@ The t2.micro has only 1GB RAM + 2GB swap. This is tight but works. If you experi
 - Check what's using memory: `docker stats`
 - Consider upgrading to t3.small ($15/month) for 2GB RAM
 
-### SSH connection refused
+### SSH connection refused after running setup-server.sh
 After running setup-server.sh, SSH is on port **2222**, not 22.
 
 From Windows PowerShell:
 ```powershell
-ssh -i $HOME\Downloads\YOUR-KEY.pem -p 2222 deploy@YOUR_ELASTIC_IP
+ssh -i $HOME\Downloads\Infused-VPS-key.pem -p 2222 deploy@50.17.251.154
 ```
 Make sure port 2222 is open in your AWS Security Group (Step 1.4).
+
+### SSH service crashed during setup (locked out)
+If `setup-server.sh` showed `Job for ssh.service failed` and you can't connect on any port:
+
+**Recovery via AWS Systems Manager (SSM) Session Manager:**
+1. Open AWS Console → **EC2** → select your instance
+2. Click **Connect** (top right) → **Session Manager** tab → **Connect**
+3. A browser-based shell opens — no SSH needed
+4. Fix the SSH config and restart:
+```bash
+sudo rm -f /etc/ssh/sshd_config.d/hardening.conf
+sudo sed -i 's/^Port 2222/Port 22/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+sudo systemctl status ssh
+```
+5. Once sshd is running again, SSH in from PowerShell on port 22:
+```powershell
+ssh -i $HOME\Downloads\Infused-VPS-key.pem ubuntu@50.17.251.154
+```
+6. Pull the fixed repo and re-run setup:
+```bash
+cd /home/ubuntu/VPS && git pull
+sudo bash scripts/setup-server.sh
+```
+
+> **If Session Manager isn't available**: The SSM Agent may not be installed. In that case, terminate the instance, launch a new one (same key pair + security group), re-associate the Elastic IP, and start fresh.
 
 ### OpenClaw not starting / crashing
 ```bash
