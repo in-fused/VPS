@@ -174,6 +174,8 @@ services:
       - agent-workspace:/workspace
       - ./scripts:/opt/scripts:ro
     environment:
+      # Give Node.js 768 MB heap (default ~512 MB causes OOM inside the 1 GiB container)
+      - NODE_OPTIONS=--max-old-space-size=768
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
@@ -191,7 +193,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 45s
+      start_period: 90s
 
   # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content
