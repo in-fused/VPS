@@ -84,6 +84,33 @@ services:
       start_period: 30s
 
   # ===========================================================================
+  # LiteLLM Database — PostgreSQL
+  # ===========================================================================
+  # Required by LiteLLM for Prisma migrations, virtual keys, and spend tracking.
+  litellm-db:
+    image: postgres:16-alpine
+    container_name: litellm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: llmproxy
+      POSTGRES_PASSWORD: dbpassword9090
+    volumes:
+      - litellm-db-data:/var/lib/postgresql/data
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmproxy -d litellm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================================================
   # LiteLLM — Multi-Provider API Gateway
   # ===========================================================================
   # Routes requests to the cheapest adequate model.
@@ -96,6 +123,8 @@ services:
       - ./litellm_config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
+      - DATABASE_URL=postgresql://llmproxy:dbpassword9090@litellm-db:5432/litellm
+      - STORE_MODEL_IN_DB=True
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -105,16 +134,19 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
     networks:
       - ai-net
+    depends_on:
+      litellm-db:
+        condition: service_healthy
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 40s
 
   # ===========================================================================
   # OpenClaw — Autonomous AI Agent (24/7)
@@ -186,5 +218,6 @@ volumes:
   caddy-data:
   caddy-config:
   webui-data:
+  litellm-db-data:
   openclaw-data:
   ollama-data:
