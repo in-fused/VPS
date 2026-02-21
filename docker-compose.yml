@@ -173,10 +173,11 @@ services:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
       - ./scripts:/opt/scripts:ro
-    command: ["node", "--max-old-space-size=1536", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+    command: ["node", "--max-old-space-size=1536", "--disable-warning=ExperimentalWarning", "openclaw.mjs", "gateway", "--allow-unconfigured"]
     environment:
-      # Also set NODE_OPTIONS for any child processes spawned by the gateway
-      - NODE_OPTIONS=--max-old-space-size=1536
+      # Skip entry.js respawn — we supply the V8 flags and warning suppression directly
+      - OPENCLAW_NODE_OPTIONS_READY=1
+      - NODE_OPTIONS=--max-old-space-size=1536 --disable-warning=ExperimentalWarning
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
