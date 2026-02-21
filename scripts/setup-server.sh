@@ -12,7 +12,7 @@
 #   4. Installs and configures UFW firewall
 #   5. Installs and configures Fail2Ban
 #   6. Installs Docker + Docker Compose
-#   7. Creates 4GB swap space (extends effective memory for t3.micro)
+#   7. Creates 4GB swap space (extends effective memory for t3.small)
 #   8. Enables unattended security upgrades
 #   9. Configures log rotation
 ###############################################################################

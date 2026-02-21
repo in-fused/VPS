@@ -8,7 +8,7 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 [Browser → https://in-fused.org]
        │
        ▼
-┌─── AWS EC2 t3.micro ──────────────────────────┐
+┌─── AWS EC2 t3.small ──────────────────────────┐
 │                                                  │
 │  Caddy ── reverse proxy + auto-HTTPS ── :443    │
 │    ├──► Open WebUI ── Chat Frontend             │
@@ -30,14 +30,14 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 └───────────────────────────────────────────────────┘
 ```
 
-## Cost: ~$18/month Total
+## Cost: ~$25/month Total
 
 | Item | Monthly Cost |
 |------|-------------|
-| AWS EC2 t3.micro (2 vCPU, 2GB RAM, 30GB gp3) | ~$8 |
+| AWS EC2 t3.small (2 vCPU, 2GB RAM, 30GB gp3) | ~$15 |
 | Oracle Cloud ARM 24GB | $0 (free forever) |
 | API credits | ~$10 |
-| **Total** | **~$18** |
+| **Total** | **~$25** |
 
 ### Model Cost Tiers
 
@@ -591,10 +591,10 @@ Services are still starting. Wait 30-60 seconds and refresh.
 - If Ollama models missing: check `OLLAMA_BASE_URL` in `.env`
 
 ### Out of memory / slow performance
-The t3.micro has 2GB RAM + 4GB swap. This is sufficient but tight when all services are running. If you experience issues:
+The t3.small has 2GB RAM + 4GB swap. This is sufficient but tight when all services are running. If you experience issues:
 - Check memory: `free -h`
 - Check what's using memory: `docker stats`
-- Consider upgrading to t3.small (~$15/month) for 2GB RAM + burstable performance, or t3.medium (~$30/month) for 4GB RAM
+- Consider upgrading to t3.medium (~$30/month) for 4GB RAM
 
 ### SSH connection refused after running setup-server.sh
 After running setup-server.sh, SSH is on port **2222**, not 22.
