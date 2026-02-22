@@ -30,6 +30,11 @@ config.gateway.controlUi.basePath = '/openclaw/';
 // Remove any unknown keys that cause config validation errors
 delete config.gateway.trustProxy;
 
+// Trust Caddy reverse proxy — Docker bridge subnets
+// Without this, OpenClaw ignores X-Forwarded-For headers and rejects
+// all WebSocket connections as untrusted ('1008 pairing required').
+config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'];
+
 // LLM provider — define custom 'litellm' provider pointing at our LiteLLM proxy.
 // Uses openai-completions wire format. This prevents subagents from falling back
 // to the hardcoded DEFAULT_PROVIDER 'anthropic' (openclaw#3237).
