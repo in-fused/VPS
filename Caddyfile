@@ -11,7 +11,7 @@
 	# Security Headers
 	# =========================================================================
 	header {
-		# Prevent clickjacking
+		# Prevent clickjacking (allow same-origin iframes for portal)
 		X-Frame-Options "SAMEORIGIN"
 		# XSS protection
 		X-XSS-Protection "1; mode=block"
@@ -38,6 +38,8 @@
 	# to preserve the path.
 	# flush_interval -1 disables response buffering (required for WebSocket
 	# and SSE streams). header_up forwards real client IP for device pairing.
+	# header_down strips upstream frame-blocking headers so Caddy's global
+	# SAMEORIGIN applies — allows embedding in the portal iframe.
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
@@ -45,6 +47,8 @@
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}
+			header_down -X-Frame-Options
+			header_down -Content-Security-Policy
 			flush_interval -1
 		}
 	}
@@ -79,8 +83,23 @@
 	}
 
 	# =========================================================================
+	# Miniverse Portal — exact root path
+	# =========================================================================
+	# Serves the 3D terrarium landing page at /. Only matches the exact
+	# root path (non-WebSocket) — all other paths fall through to Open WebUI.
+	@portal {
+		path /
+		not header Upgrade websocket
+	}
+	handle @portal {
+		root * /srv/portal
+		file_server
+	}
+
+	# =========================================================================
 	# Open WebUI — Everything else (main frontend)
 	# =========================================================================
+	# SPA routes: /chat, /chat/123, /auth, /_app/*, /static/*, etc.
 	handle {
 		reverse_proxy open-webui:8080
 	}
