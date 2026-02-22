@@ -55,7 +55,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
-      margin-bottom: 2.5rem;
+      margin-bottom: 1.5rem;
     }
 
     .card {
@@ -65,6 +65,8 @@
       gap: 0.5rem;
       padding: 1.5rem 1rem;
       text-decoration: none;
+      font: inherit;
+      cursor: pointer;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 12px;
@@ -90,55 +92,86 @@
       box-shadow: 0 8px 30px rgba(245, 158, 11, 0.12);
     }
 
-    .card-api .card-icon { color: var(--green); }
-    .card-api:hover {
+    .card-status .card-icon { color: var(--green); }
+    .card-status:hover,
+    .card-status.active {
       border-color: rgba(34, 197, 94, 0.3);
       box-shadow: 0 8px 30px rgba(34, 197, 94, 0.12);
     }
 
-    /* Status Section */
-    .status-heading {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #444;
-      text-align: center;
-      margin-bottom: 0.75rem;
+    /* Status Panel */
+    .status-panel {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: none;
     }
 
-    .status-row {
+    .status-panel.open { display: block; }
+
+    .panel-services {
       display: flex;
       justify-content: center;
       gap: 1.5rem;
       flex-wrap: wrap;
+      margin-bottom: 1rem;
     }
 
-    .status-item {
+    .svc {
       display: flex;
       align-items: center;
       gap: 0.4rem;
+      font-size: 0.75rem;
+      color: #888;
     }
 
-    .status-dot {
+    .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: #333;
+      flex-shrink: 0;
     }
 
-    .status-dot.online {
+    .dot.online {
       background: var(--green);
       box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
     }
 
-    .status-dot.offline {
+    .dot.offline {
       background: #ef4444;
       box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
     }
 
-    .status-name {
-      font-size: 0.75rem;
-      color: #666;
+    .panel-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #444;
+      margin-bottom: 0.5rem;
+    }
+
+    .model-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .model-tag {
+      font-size: 0.7rem;
+      color: #777;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 0.2rem 0.5rem;
+    }
+
+    .model-list .note {
+      font-size: 0.7rem;
+      color: #555;
+      font-style: italic;
     }
 
     /* Mobile */
@@ -166,28 +199,22 @@
         <span class="card-title">Agents</span>
         <span class="card-desc">OpenClaw</span>
       </a>
-      <a href="/api/litellm/ui" class="card card-api">
+      <button class="card card-status" id="status-btn" onclick="toggleStatus()">
         <span class="card-icon">&#9678;</span>
-        <span class="card-title">API</span>
-        <span class="card-desc">LiteLLM</span>
-      </a>
+        <span class="card-title">Status</span>
+        <span class="card-desc">Health & Models</span>
+      </button>
     </nav>
 
-    <section>
-      <p class="status-heading">Service Status</p>
-      <div class="status-row">
-        <div class="status-item">
-          <span class="status-dot" id="status-webui"></span>
-          <span class="status-name">Open WebUI</span>
-        </div>
-        <div class="status-item">
-          <span class="status-dot" id="status-litellm"></span>
-          <span class="status-name">LiteLLM</span>
-        </div>
-        <div class="status-item">
-          <span class="status-dot" id="status-openclaw"></span>
-          <span class="status-name">OpenClaw</span>
-        </div>
+    <section class="status-panel" id="status-panel">
+      <div class="panel-services">
+        <div class="svc"><span class="dot" id="dot-webui"></span> Open WebUI</div>
+        <div class="svc"><span class="dot" id="dot-litellm"></span> LiteLLM</div>
+        <div class="svc"><span class="dot" id="dot-openclaw"></span> OpenClaw</div>
+      </div>
+      <p class="panel-label">Available Models</p>
+      <div class="model-list" id="model-list">
+        <span class="note">Loading...</span>
       </div>
     </section>
   </main>
@@ -197,19 +224,49 @@
       const dot = document.getElementById(id);
       try {
         const res = await fetch(url, { cache: 'no-cache' });
-        dot.className = 'status-dot ' + (res.ok ? 'online' : 'offline');
+        dot.className = 'dot ' + (res.ok ? 'online' : 'offline');
       } catch {
-        dot.className = 'status-dot offline';
+        dot.className = 'dot offline';
+      }
+    }
+
+    async function loadModels() {
+      const el = document.getElementById('model-list');
+      try {
+        const res = await fetch('/api/litellm/v1/models', { cache: 'no-cache' });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const models = (data.data || []).map(m => m.id).sort();
+        if (models.length === 0) {
+          el.innerHTML = '<span class="note">No models available</span>';
+          return;
+        }
+        el.innerHTML = models.map(m => '<span class="model-tag">' + m + '</span>').join('');
+      } catch {
+        el.innerHTML = '<span class="note">Could not load models</span>';
       }
     }
 
     function checkAll() {
-      checkHealth('status-webui', '/chat');
-      checkHealth('status-litellm', '/api/litellm/health/liveliness');
-      checkHealth('status-openclaw', '/openclaw/');
+      checkHealth('dot-webui', '/health');
+      checkHealth('dot-litellm', '/api/litellm/health/liveliness');
+      checkHealth('dot-openclaw', '/openclaw/');
     }
 
+    function toggleStatus() {
+      const panel = document.getElementById('status-panel');
+      const btn = document.getElementById('status-btn');
+      const isOpen = panel.classList.toggle('open');
+      btn.classList.toggle('active', isOpen);
+      if (isOpen) {
+        checkAll();
+        loadModels();
+      }
+    }
+
+    // Run health checks on load so panel is pre-populated
     checkAll();
+    loadModels();
     setInterval(checkAll, 30000);
   </script>
 </body>
