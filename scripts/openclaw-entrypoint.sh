@@ -26,6 +26,10 @@ config.gateway.auth.mode = 'password';
 // Control UI basePath for reverse proxy at /openclaw/
 config.gateway.controlUi = config.gateway.controlUi || {};
 config.gateway.controlUi.basePath = '/openclaw/';
+// Disable per-device pairing — password auth is sufficient for self-hosted.
+// Without this, each new browser requires manual CLI approval even after
+// entering the correct password (device pairing is a separate auth layer).
+config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
 
 // Remove any unknown keys that cause config validation errors
 delete config.gateway.trustProxy;
