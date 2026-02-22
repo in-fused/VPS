@@ -105,6 +105,10 @@ if [ -z "${LITELLM_MASTER_KEY:-}" ]; then
     sed -i "s|^LITELLM_MASTER_KEY=.*|LITELLM_MASTER_KEY=sk-$MASTER|" .env
     log_info "Generated LITELLM_MASTER_KEY"
     UPDATED_ENV=true
+elif [[ "${LITELLM_MASTER_KEY}" != sk-* ]]; then
+    sed -i "s|^LITELLM_MASTER_KEY=.*|LITELLM_MASTER_KEY=sk-${LITELLM_MASTER_KEY}|" .env
+    log_info "Added required sk- prefix to LITELLM_MASTER_KEY"
+    UPDATED_ENV=true
 fi
 
 if [ -z "${LITELLM_SALT_KEY:-}" ]; then
