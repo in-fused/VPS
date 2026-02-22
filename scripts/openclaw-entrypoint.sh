@@ -30,9 +30,15 @@ config.gateway.controlUi.basePath = '/openclaw/';
 // Remove any unknown keys that cause config validation errors
 delete config.gateway.trustProxy;
 
+// LLM provider — route through LiteLLM (OpenAI-compatible endpoint)
+// This prevents the onboard wizard from defaulting to 'anthropic' provider
+config.agents = config.agents || {};
+config.agents.defaults = config.agents.defaults || {};
+config.agents.defaults.model = 'openai/gpt-4o-mini';
+
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw gateway config updated: auth=password, basePath=/openclaw/, bind=lan');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=openai/gpt-4o-mini');
 "
 
 exec node --max-old-space-size=1024 --disable-warning=ExperimentalWarning openclaw.mjs gateway --allow-unconfigured
