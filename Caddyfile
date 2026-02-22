@@ -84,9 +84,9 @@
 	}
 
 	# =========================================================================
-	# Miniverse Portal — exact root path
+	# Hub Portal — exact root path
 	# =========================================================================
-	# Serves the 3D terrarium landing page at /. Only matches the exact
+	# Serves the hub landing page at /. Only matches the exact
 	# root path (non-WebSocket) — all other paths fall through to Open WebUI.
 	@portal {
 		path /
