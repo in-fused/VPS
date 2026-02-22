@@ -78,6 +78,7 @@
 	# Sandboxed file server for agent-created content. OpenClaw agents write
 	# files to the shared volume; Caddy serves them read-only.
 	handle_path /workspace/* {
+		header Cache-Control "public, max-age=3600"
 		root * /srv/workspace
 		file_server
 	}
@@ -92,6 +93,7 @@
 		not header Upgrade websocket
 	}
 	handle @portal {
+		header Cache-Control "public, max-age=3600"
 		root * /srv/portal
 		file_server
 	}

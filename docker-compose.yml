@@ -96,7 +96,7 @@ services:
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: llmproxy
-      POSTGRES_PASSWORD: dbpassword9090
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dbpassword9090}
     volumes:
       - litellm-db-data:/var/lib/postgresql/data
     networks:
@@ -125,7 +125,7 @@ services:
       - ./litellm_config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
-      - DATABASE_URL=postgresql://llmproxy:dbpassword9090@litellm-db:5432/litellm
+      - DATABASE_URL=postgresql://llmproxy:${DB_PASSWORD:-dbpassword9090}@litellm-db:5432/litellm
       - STORE_MODEL_IN_DB=True
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
       - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}

@@ -61,9 +61,52 @@ config.agents.defaults.model = { primary: 'litellm/gpt-4o-mini' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
+// =========================================================================
+// Memory Optimizations (ref: https://x.com/ksimback/status/2024180197910864182)
+// =========================================================================
+
+// --- Memory Fix 1: Enable memory flush before compaction ---
+// Triggers a silent turn before context compaction to write durable memories
+// to disk. This is the single most impactful change for memory retention.
+config.compaction = config.compaction || {};
+config.compaction.memoryFlush = {
+  enabled: true,
+  softThresholdTokens: 40000,
+  prompt: 'Distill this session to memory/YYYY-MM-DD.md. Focus on decisions, state changes, lessons, blockers. If nothing: NO_FLUSH',
+  systemPrompt: 'Extract only what is worth remembering. No fluff.'
+};
+
+// --- Memory Fix 2: Configure context pruning ---
+// Cache-TTL mode keeps recent messages and preserves last 3 assistant responses.
+// Prevents the repeat-yourself problem after context flushes. Saves tokens.
+config.contextPruning = {
+  mode: 'cache-ttl',
+  ttl: '6h',
+  keepLastAssistants: 3
+};
+
+// --- Memory Fix 3: Enable hybrid search ---
+// Combines vector similarity (70%) with BM25 keyword search (30%).
+// BM25 catches exact matches (error codes, project names) that vector misses.
+config.memorySearch = config.memorySearch || {};
+config.memorySearch.enabled = true;
+config.memorySearch.sources = ['memory', 'sessions'];
+config.memorySearch.query = {
+  hybrid: {
+    enabled: true,
+    vectorWeight: 0.7,
+    textWeight: 0.3
+  }
+};
+
+// --- Memory Fix 4: Index past session transcripts ---
+// Makes past conversations searchable so the agent can recall decisions from days ago.
+config.experimental = config.experimental || {};
+config.experimental.sessionMemory = true;
+
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=litellm/gpt-4o-mini');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=litellm/gpt-4o-mini, memoryFlush=on, contextPruning=cache-ttl/6h, hybridSearch=on, sessionMemory=on');
 "
 
-exec node --max-old-space-size=1024 --disable-warning=ExperimentalWarning openclaw.mjs gateway --allow-unconfigured
+exec node openclaw.mjs gateway --allow-unconfigured

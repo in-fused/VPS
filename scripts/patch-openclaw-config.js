@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// DEPRECATED: Memory and gateway settings are now applied automatically by
+// openclaw-entrypoint.sh on every container start. This standalone script is
+// kept for reference only.
+// NOTE: This script writes to openclaw.json5 but the entrypoint uses openclaw.json.
+//
 // Patches the OpenClaw config for Docker reverse-proxy hosting and memory.
 //
 // Gateway fixes:

@@ -37,7 +37,7 @@ model_list:
 
   - model_name: "llama3.2:8b"
     litellm_params:
-      model: "ollama/llama3.2:latest"
+      model: "ollama/llama3.2:8b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
