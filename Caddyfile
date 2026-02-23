@@ -28,16 +28,14 @@
 	# =========================================================================
 	# Auth Verification Endpoint — /auth/verify
 	# =========================================================================
-	# Server-side password verification using Caddy basicauth with bcrypt.
-	# Auth pages send credentials via fetch() with Authorization header.
-	# Returns 200 on success, 401 on failure.
-	# The WWW-Authenticate header is suppressed to prevent browser native dialog.
+	# Server-side password verification via direct header comparison.
+	# No basicauth directive = no WWW-Authenticate header = no browser popup.
+	# Auth pages send credentials via fetch() with Authorization: Basic header.
+	# caddy-entrypoint.sh pre-computes the expected base64 token.
 	handle /auth/verify {
-		header -WWW-Authenticate
-		basicauth {
-			admin {$WORKSPACE_PASS_BCRYPT}
-		}
-		respond "OK" 200
+		@valid header Authorization "Basic {$WORKSPACE_AUTH_B64}"
+		respond @valid "OK" 200
+		respond "Unauthorized" 401
 	}
 
 	# =========================================================================
