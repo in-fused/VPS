@@ -153,6 +153,20 @@ services:
       start_period: 40s
 
   # ===========================================================================
+  # OpenClaw Init — Fix volume ownership on fresh deploys
+  # ===========================================================================
+  # Named volumes are root-owned when first created. OpenClaw runs as the
+  # 'node' user (UID 1000) and needs write access to its data directory.
+  # This one-shot container ensures correct ownership before OpenClaw starts.
+  openclaw-init:
+    image: alpine:3
+    container_name: openclaw-init
+    volumes:
+      - openclaw-data:/data
+    command: chown -R 1000:1000 /data
+    restart: "no"
+
+  # ===========================================================================
   # OpenClaw — Autonomous AI Agent (24/7)
   # ===========================================================================
   # Open-source autonomous AI agent (Node.js). Connects to LLM providers
@@ -186,6 +200,8 @@ services:
     networks:
       - ai-net
     depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
       litellm:
         condition: service_healthy
     deploy:

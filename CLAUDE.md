@@ -41,7 +41,7 @@ VPS/
 ├── .env.example                     ← Template for .env
 ├── .gitignore
 ├── Caddyfile                        ← Reverse proxy routing config
-├── docker-compose.yml               ← 7 services (6 core + 1 optional)
+├── docker-compose.yml               ← 8 services (7 core + 1 optional)
 ├── litellm_config.yaml              ← 15 models in 5 cost tiers
 ├── README.md                        ← 651-line setup guide (Windows/PowerShell focused)
 ├── portal/
@@ -64,6 +64,7 @@ VPS/
 | `open-webui` | ghcr.io/open-webui/open-webui:main | 768M | 8080 | ChatGPT-like frontend |
 | `litellm` | ghcr.io/berriai/litellm:main-stable | 512M | 4000 | Multi-provider API gateway |
 | `litellm-db` | postgres:16-alpine | 128M | 5432 | PostgreSQL for LiteLLM |
+| `openclaw-init` | alpine:3 | — | — | One-shot: fix openclaw-data volume ownership |
 | `openclaw` | ghcr.io/openclaw/openclaw:main | 1536M | 18789 | Autonomous AI agent (24/7) |
 | `workspace-init` | alpine:3 | — | — | One-shot: seeds workspace volume |
 | `ollama` (optional) | ollama/ollama:latest | 4G | — | Local LLM (profile: local-models) |
