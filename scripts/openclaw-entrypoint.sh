@@ -58,6 +58,7 @@ config.models.providers.litellm = {
     { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
     { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
     { id: 'groq/mixtral-8x7b', name: 'Mixtral 8x7B on Groq (free)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'minimax-m2.5', name: 'MiniMax M2.5 (mid)', contextWindow: 1000000, maxTokens: 16384 },
     { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B (free/local)', contextWindow: 32768, maxTokens: 8192 },
     { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 }
   ]
@@ -66,7 +67,7 @@ config.models.providers.litellm = {
 // Default model — object format with primary key (flat strings break subagents)
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/gpt-4o-mini' };
+config.agents.defaults.model = { primary: 'groq/llama-3.3-70b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -83,7 +84,7 @@ delete config.experimental;
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=litellm/gpt-4o-mini');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq/llama-3.3-70b');
 "
 
 exec node openclaw.mjs gateway --allow-unconfigured

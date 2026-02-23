@@ -145,16 +145,16 @@ model_list:
       description: "PREMIUM ($15/1M in) — OpenAI o1. Deep reasoning."
 
   # ===========================================================================
-  # OPTIONAL — MiniMax M2.5 (uncomment when you have an API key)
+  # MiniMax M2.5
   # ===========================================================================
-  # - model_name: "minimax-m2.5"
-  #   litellm_params:
-  #     model: "openai/MiniMax-M2.5"
-  #     api_key: "os.environ/MINIMAX_API_KEY"
-  #     api_base: "https://api.minimax.io/v1"
-  #     stream: true
-  #   model_info:
-  #     description: "MID ($0.30/1M in) — MiniMax M2.5. Strong coder."
+  - model_name: "minimax-m2.5"
+    litellm_params:
+      model: "openai/MiniMax-M2.5"
+      api_key: "os.environ/MINIMAX_API_KEY"
+      api_base: "https://api.minimax.io/v1"
+      stream: true
+    model_info:
+      description: "MID ($0.30/1M in) — MiniMax M2.5. Strong coder. 1M context."
 
 # =============================================================================
 # General Settings

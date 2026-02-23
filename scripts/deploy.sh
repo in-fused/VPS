@@ -152,7 +152,19 @@ log_ok "Cleanup complete"
 # 5. Pull latest images
 ###############################################################################
 log_info "Pulling latest container images..."
-docker compose pull
+PULL_ATTEMPTS=3
+for i in $(seq 1 $PULL_ATTEMPTS); do
+    if docker compose pull; then
+        break
+    fi
+    if [ "$i" -lt "$PULL_ATTEMPTS" ]; then
+        log_warn "Pull failed (attempt $i/$PULL_ATTEMPTS), retrying in 10s..."
+        sleep 10
+    else
+        log_error "Pull failed after $PULL_ATTEMPTS attempts"
+        exit 1
+    fi
+done
 log_ok "Images pulled"
 
 ###############################################################################
