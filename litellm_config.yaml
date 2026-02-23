@@ -48,21 +48,13 @@ model_list:
   # ===========================================================================
   # Fast cloud inference at no cost. Great when local models are slow.
 
-  - model_name: "groq/llama-3.3-70b"
+  - model_name: "groq-llama-3.3-70b"
     litellm_params:
       model: "groq/llama-3.3-70b-versatile"
       api_key: "os.environ/GROQ_API_KEY"
       stream: true
     model_info:
       description: "FREE (1K/day) — 70B model on Groq. Very fast."
-
-  - model_name: "groq/mixtral-8x7b"
-    litellm_params:
-      model: "groq/mixtral-8x7b-32768"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE (1K/day) — Mixtral on Groq. 32K context."
 
   # ===========================================================================
   # TIER 3: CHEAP — $0.14-0.60 per 1M tokens

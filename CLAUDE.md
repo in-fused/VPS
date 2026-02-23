@@ -23,7 +23,7 @@ Internet → https://in-fused.org
     ├── LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, MiniMax, Ollama
     │     └── PostgreSQL (litellm-db:5432)
     ├── OpenClaw → LiteLLM (NOT direct to providers)
-    │     └── Default model: litellm/gpt-4o-mini
+    │     └── Default model: groq-llama-3.3-70b
     └── Docker network: ai-hub-network (bridge)
 
 Oracle Cloud ARM (FREE FOREVER, separate server)
@@ -41,7 +41,7 @@ VPS/
 ├── .gitignore
 ├── Caddyfile                        ← Reverse proxy routing config
 ├── docker-compose.yml               ← 8 services (7 core + 1 optional)
-├── litellm_config.yaml              ← 15 models in 5 cost tiers
+├── litellm_config.yaml              ← 14 models in 5 cost tiers
 ├── README.md                        ← Setup guide (Windows/PowerShell focused)
 ├── workspace/
 │   └── index.html                   ← "Neural Fusion" agent workspace page (served at /workspace/)
@@ -85,7 +85,7 @@ Note: A miniverse portal page was built and served at `/` but was removed (commi
 | Tier | Models | Cost |
 |------|--------|------|
 | FREE (Tier 1) | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
-| FREE (Tier 2) | groq/llama-3.3-70b, groq/mixtral-8x7b | $0 (1K/day) |
+| FREE (Tier 2) | groq-llama-3.3-70b | $0 (1K/day) |
 | CHEAP (Tier 3) | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.14-0.15/1M in |
 | MID (Tier 4) | claude-haiku (claude-haiku-4-5-20251001) | $1.00/1M in |
 | PREMIUM (Tier 5) | claude-sonnet (claude-sonnet-4-6), claude-opus (claude-opus-4-6), gpt-4o, o1 | $2.50-15/1M in |
@@ -98,8 +98,8 @@ The entrypoint script patches `/home/node/.openclaw/openclaw.json` on every cont
 - Device auth: disabled (`dangerouslyDisableDeviceAuth: true`)
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
 - Custom "litellm" provider: points at http://litellm:4000/v1 using openai-completions wire format
-- Default model: `litellm/gpt-4o-mini`
-- Available models: all LiteLLM models (gpt-4o-mini, deepseek-chat/coder, claude-haiku/sonnet, gpt-4o, groq models, ollama models)
+- Default model: `groq-llama-3.3-70b`
+- Available models: all LiteLLM models (gpt-4o-mini, deepseek-chat/coder, claude-haiku/sonnet, gpt-4o, groq-llama-3.3-70b, ollama models)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
 
 ## Frontend Pages
