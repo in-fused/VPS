@@ -11,7 +11,7 @@
 	# Security Headers
 	# =========================================================================
 	header {
-		# Prevent clickjacking (allow same-origin iframes for portal)
+		# Prevent clickjacking
 		X-Frame-Options "SAMEORIGIN"
 		# XSS protection
 		X-XSS-Protection "1; mode=block"
@@ -84,24 +84,11 @@
 	}
 
 	# =========================================================================
-	# Hub Portal — exact root path
+	# Open WebUI — Everything else (main frontend + landing page)
 	# =========================================================================
-	# Serves the hub landing page at /. Only matches the exact
-	# root path (non-WebSocket) — all other paths fall through to Open WebUI.
-	@portal {
-		path /
-		not header Upgrade websocket
-	}
-	handle @portal {
-		header Cache-Control "public, max-age=3600"
-		root * /srv/portal
-		file_server
-	}
-
-	# =========================================================================
-	# Open WebUI — Everything else (main frontend)
-	# =========================================================================
-	# SPA routes: /chat, /chat/123, /auth, /_app/*, /static/*, etc.
+	# Open WebUI requires the root path (/) — its SvelteKit SPA has no
+	# /chat route; the chat interface IS the root page. All paths not
+	# matched above fall through here: /, /auth, /c/*, /_app/*, etc.
 	handle {
 		reverse_proxy open-webui:8080
 	}

@@ -34,7 +34,6 @@ services:
       - caddy-data:/data
       - caddy-config:/config
       - agent-workspace:/srv/workspace:ro
-      - ./portal:/srv/portal:ro
     environment:
       - DOMAIN=${DOMAIN:-}
     networks:
