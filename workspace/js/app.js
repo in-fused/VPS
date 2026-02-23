@@ -118,6 +118,11 @@ function timeAgo(ts) {
   return Math.floor(diff / 86400000) + 'd ago';
 }
 
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ----------------------------------------------------------------------------
 // WEBSOCKET CONNECTION MANAGER
 // ----------------------------------------------------------------------------
@@ -299,6 +304,51 @@ const ocConnection = new OpenClawConnection();
 // ----------------------------------------------------------------------------
 
 document.addEventListener('alpine:init', () => {
+
+  // --------------------------------------------------------------------------
+  // ALPINE.JS STORE: AUTH
+  // --------------------------------------------------------------------------
+
+  Alpine.store('auth', {
+    ok: false,
+
+    init() {
+      // No hash configured = no auth required (local dev / no password set)
+      if (!window.__AUTH_HASH) {
+        this.ok = true;
+        return;
+      }
+      // Check existing session
+      const stored = sessionStorage.getItem('mc-auth');
+      if (stored === window.__AUTH_HASH) {
+        this.ok = true;
+      }
+    },
+
+    async login(username, password) {
+      if (!username || !password) return false;
+      if (username.toLowerCase() !== 'admin') return false;
+
+      const hash = await sha256(password);
+      if (hash === window.__AUTH_HASH) {
+        sessionStorage.setItem('mc-auth', hash);
+        this.ok = true;
+        // Kick off boot sequence after auth
+        Alpine.store('app').boot();
+        return true;
+      }
+      return false;
+    },
+
+    logout() {
+      sessionStorage.removeItem('mc-auth');
+      this.ok = false;
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // ALPINE.JS STORE: APP (global state)
+  // --------------------------------------------------------------------------
 
   Alpine.store('app', {
     view: 'dashboard',
@@ -676,10 +726,13 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // BOOT
+  // BOOT — only auto-boot if already authenticated (from sessionStorage)
+  // Otherwise, auth.login() will call boot() after successful login.
   // --------------------------------------------------------------------------
 
-  Alpine.store('app').boot();
+  if (Alpine.store('auth').ok) {
+    Alpine.store('app').boot();
+  }
 });
 
 // Export for use in HTML

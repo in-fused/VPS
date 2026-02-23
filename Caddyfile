@@ -75,16 +75,15 @@
 	# =========================================================================
 	# Agent Workspace (Mission Control) — /workspace/*
 	# =========================================================================
-	# Protected by basicauth using the same password as OpenClaw.
-	# Hash is generated at container startup by caddy-entrypoint.sh.
-	# Bare /workspace redirects to /workspace/ for sidebar integration.
+	# Auth is handled client-side: caddy-entrypoint.sh computes a SHA-256
+	# hash of WORKSPACE_PASSWORD, Caddy templates injects it into index.html,
+	# and the login screen verifies user input against it.
+	# Bare /workspace redirects to /workspace/ for direct URL access.
 	@workspacebare path /workspace
 	redir @workspacebare /workspace/ 301
 	handle_path /workspace/* {
-		basicauth {
-			admin {$WORKSPACE_PASS_HASH}
-		}
-		header Cache-Control "public, max-age=3600"
+		templates
+		header Cache-Control "no-cache"
 		root * /srv/workspace
 		file_server
 	}

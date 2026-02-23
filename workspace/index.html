@@ -59,6 +59,9 @@
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
 
+  <!-- Auth hash injected by Caddy templates at serve time -->
+  <script>window.__AUTH_HASH = '{{env "WORKSPACE_PASS_SHA256"}}';</script>
+
   <!-- x-cloak: hide Alpine elements until initialized -->
   <style>[x-cloak] { display: none !important; }</style>
 </head>
@@ -66,9 +69,73 @@
 <body class="bg-mc-bg text-mc-text font-sans text-sm">
 
   <!-- ====================================================================
+       AUTH SCREEN — shown until user authenticates
+       ==================================================================== -->
+  <div x-data="{ username: '', password: '', error: '', loading: false }"
+       x-show="!$store.auth.ok"
+       class="fixed inset-0 z-[200] bg-mc-bg flex items-center justify-center mc-grid-bg">
+
+    <div class="w-full max-w-sm mx-4">
+      <!-- Branding -->
+      <div class="text-center mb-8">
+        <div class="text-5xl mb-4" style="filter: drop-shadow(0 0 20px rgba(6,182,212,0.3))">🛰️</div>
+        <div class="text-xl font-bold text-cyan-400 tracking-[0.2em]">MISSION CONTROL</div>
+        <div class="text-xs text-mc-text-muted mt-2 font-mono tracking-wider">in-fused.org</div>
+      </div>
+
+      <!-- Login Card -->
+      <div class="bg-mc-surface border border-mc-border rounded-2xl p-6 shadow-2xl shadow-black/50">
+        <div class="text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-5 text-center">Authentication Required</div>
+
+        <!-- Error -->
+        <div x-show="error" x-transition
+             class="mb-4 px-3 py-2 bg-mc-danger-dim border border-red-500/20 rounded-lg text-xs text-red-400 text-center"
+             x-text="error"></div>
+
+        <!-- Username -->
+        <div class="mb-4">
+          <label class="block text-[10px] font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Username</label>
+          <input type="text" x-model="username"
+                 placeholder="admin"
+                 class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus"
+                 @keydown.enter="$refs.passInput.focus()">
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label class="block text-[10px] font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Password</label>
+          <input type="password" x-model="password" x-ref="passInput"
+                 placeholder="Enter password"
+                 class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus"
+                 @keydown.enter="loading = true; error = ''; $store.auth.login(username, password).then(ok => { loading = false; if (!ok) { error = 'Invalid credentials'; password = ''; } })">
+        </div>
+
+        <!-- Submit -->
+        <button @click="loading = true; error = ''; $store.auth.login(username, password).then(ok => { loading = false; if (!ok) { error = 'Invalid credentials'; password = ''; } })"
+                :disabled="loading || !username.trim() || !password.trim()"
+                class="w-full py-2.5 bg-cyan-500 text-mc-bg rounded-lg text-sm font-semibold hover:brightness-110 transition-all shadow-lg shadow-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed">
+          <span x-show="!loading">Access Mission Control</span>
+          <span x-show="loading" class="flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Verifying...
+          </span>
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center mt-6 text-[10px] text-mc-text-muted font-mono opacity-50">
+        Secured access &middot; Session expires on tab close
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
        BOOT SCREEN
        ==================================================================== -->
-  <div x-data x-show="$store.app.booting"
+  <div x-data x-show="$store.auth.ok && $store.app.booting" x-cloak
        x-transition:leave="transition ease-in duration-500"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
@@ -90,7 +157,7 @@
   <!-- ====================================================================
        MAIN APPLICATION SHELL
        ==================================================================== -->
-  <div x-data x-show="!$store.app.booting" x-cloak
+  <div x-data x-show="$store.auth.ok && !$store.app.booting" x-cloak
        class="flex h-screen w-screen overflow-hidden">
 
     <!-- ==================================================================
