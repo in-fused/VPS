@@ -39,6 +39,7 @@ services:
     environment:
       - DOMAIN=${DOMAIN:-}
       - WORKSPACE_PASSWORD=${OPENCLAW_PASSWORD}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
     networks:
       - ai-net
     depends_on:

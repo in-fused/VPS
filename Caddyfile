@@ -39,6 +39,25 @@
 	}
 
 	# =========================================================================
+	# Mission Control API — /api/mc/* (cookie-gated LiteLLM proxy)
+	# =========================================================================
+	# Authenticated proxy for Mission Control to call LiteLLM's chat API.
+	# Requires the mc_oc auth cookie. Injects the LiteLLM master key so
+	# the browser never needs to know it. Supports streaming (SSE).
+	handle_path /api/mc/* {
+		@mc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @mc_authed {
+			reverse_proxy litellm:4000 {
+				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
+				flush_interval -1
+			}
+		}
+		handle {
+			respond "Unauthorized" 401
+		}
+	}
+
+	# =========================================================================
 	# LiteLLM API Gateway — /api/litellm/*
 	# =========================================================================
 	handle_path /api/litellm/* {

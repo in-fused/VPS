@@ -238,7 +238,7 @@
         <!-- Connection Status -->
         <div x-show="$store.app.sidebarOpen" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2">
           <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"></span>
-          <span class="text-mc-text-muted" x-text="$store.app.connected ? 'Connected' : 'Demo Mode'"></span>
+          <span class="text-mc-text-muted" x-text="$store.app.connected ? 'LiteLLM Connected' : 'Demo Mode'"></span>
         </div>
         <!-- Collapse Toggle -->
         <button @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"
@@ -322,8 +322,8 @@
             </div>
             <div class="mc-stat-border purple relative bg-mc-surface border border-mc-border rounded-xl p-5">
               <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Models</div>
-              <div class="text-2xl font-bold text-mc-text">10</div>
-              <div class="text-xs text-mc-text-muted mt-1">5 cost tiers</div>
+              <div class="text-2xl font-bold text-mc-text" x-text="$store.models.list.length"></div>
+              <div class="text-xs text-mc-text-muted mt-1">via LiteLLM</div>
             </div>
             <div class="mc-stat-border amber relative bg-mc-surface border border-mc-border rounded-xl p-5">
               <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Tokens Today</div>
@@ -626,8 +626,10 @@
                 <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                   <div class="max-w-[75%] rounded-xl px-4 py-3 text-sm leading-relaxed"
                        :class="msg.role === 'user' ? 'mc-bubble-user' : 'mc-bubble-agent'">
-                    <div class="whitespace-pre-wrap" x-text="msg.content"></div>
-                    <div class="text-[10px] mt-1 opacity-40" x-text="msg.time"></div>
+                    <div class="whitespace-pre-wrap" x-text="msg.content || (msg.streaming ? '' : '')"></div>
+                    <span x-show="msg.streaming && !msg.content" class="inline-block w-2 h-4 bg-cyan-400 animate-pulse rounded-sm"></span>
+                    <span x-show="msg.streaming && msg.content" class="inline-block w-1.5 h-3.5 bg-cyan-400 animate-pulse rounded-sm ml-0.5 align-text-bottom"></span>
+                    <div class="text-[10px] mt-1 opacity-40" x-text="msg.streaming ? 'typing...' : msg.time"></div>
                   </div>
                 </div>
               </template>
@@ -665,18 +667,19 @@
             <h2 class="text-sm font-semibold text-mc-text mb-4">System Health</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
-                <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
+                <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
                 <div>
                   <div class="text-xs text-mc-text-muted">OpenClaw</div>
-                  <div class="text-sm font-medium" :class="$store.app.connected ? 'text-emerald-400' : 'text-mc-text-muted'"
-                       x-text="$store.app.connected ? 'Connected' : 'Offline'"></div>
+                  <div class="text-sm font-medium" :class="$store.app.ocConnected ? 'text-emerald-400' : 'text-mc-text-muted'"
+                       x-text="$store.app.ocConnected ? 'Online' : 'Offline'"></div>
                 </div>
               </div>
               <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
-                <span class="mc-dot mc-dot-connected"></span>
+                <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
                 <div>
                   <div class="text-xs text-mc-text-muted">LiteLLM</div>
-                  <div class="text-sm font-medium text-emerald-400">Healthy</div>
+                  <div class="text-sm font-medium" :class="$store.app.connected ? 'text-emerald-400' : 'text-mc-text-muted'"
+                       x-text="$store.app.connected ? 'Healthy' : 'Offline'"></div>
                 </div>
               </div>
               <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
@@ -753,7 +756,7 @@
       <footer class="h-9 min-h-[36px] bg-mc-surface border-t border-mc-border flex items-center px-4 gap-4 text-[11px] font-mono text-mc-text-muted flex-shrink-0">
         <div class="flex items-center gap-1.5">
           <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
-          <span x-text="$store.app.connected ? 'OpenClaw Connected' : 'Demo Mode'"></span>
+          <span x-text="$store.app.connected ? 'LiteLLM Online' : 'Demo Mode'"></span>
         </div>
         <span class="opacity-30">|</span>
         <span x-text="$store.agents.list.length + ' agents'"></span>
@@ -846,7 +849,7 @@
         <div x-show="$store.agents.wizardStep === 2">
           <h3 class="text-sm font-semibold text-mc-text mb-4">Choose Model</h3>
           <div class="space-y-2 max-h-[50vh] overflow-y-auto">
-            <template x-for="model in MODELS" :key="model.id">
+            <template x-for="model in $store.models.list" :key="model.id">
               <button @click="$store.agents.wizard.model = model.id"
                       class="w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center gap-3"
                       :class="$store.agents.wizard.model === model.id ? 'border-cyan-500 bg-mc-primary-dim' : 'border-mc-border bg-mc-bg hover:border-mc-text-muted'">

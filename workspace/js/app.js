@@ -1,25 +1,12 @@
 // ============================================================================
 // Mission Control — app.js
-// Alpine.js stores, WebSocket client, and component logic
+// Alpine.js stores, health checks, and LiteLLM chat integration
 // in-fused.org
 // ============================================================================
 
 // ----------------------------------------------------------------------------
 // CONSTANTS
 // ----------------------------------------------------------------------------
-
-const MODELS = [
-  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K req/day)' },
-  { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B', provider: 'Ollama', tier: 'free', cost: '$0/1M', desc: 'Local coding model on Oracle ARM' },
-  { id: 'deepseek-coder-v2:16b', name: 'DS Coder V2 16B', provider: 'Ollama', tier: 'free', cost: '$0/1M', desc: 'Local coding model on Oracle ARM' },
-  { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.14/1M', desc: 'Excellent reasoning, very affordable' },
-  { id: 'deepseek-coder', name: 'DeepSeek Coder', provider: 'DeepSeek', tier: 'cheap', cost: '$0.14/1M', desc: 'Specialized coding model' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'cheap', cost: '$0.15/1M', desc: 'Fast and cheap general purpose' },
-  { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic', tier: 'mid', cost: '$1/1M', desc: 'Fast, capable, great for agents' },
-  { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic', tier: 'premium', cost: '$3/1M', desc: 'Best balance of speed and quality' },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', tier: 'premium', cost: '$2.50/1M', desc: 'Strong multimodal reasoning' },
-  { id: 'claude-opus', name: 'Claude Opus', provider: 'Anthropic', tier: 'premium', cost: '$15/1M', desc: 'Maximum capability, complex tasks' },
-];
 
 const AGENT_EMOJIS = [
   '🤖', '⚡', '🛡️', '📝', '🔬', '🎯', '🧠', '🚀',
@@ -36,64 +23,49 @@ const AGENT_TOOLS = [
   { id: 'api-calls', name: 'API Calls', desc: 'Make HTTP requests to external services', icon: '🔗' },
 ];
 
-// Demo data for when not connected to OpenClaw
+// Fallback models if LiteLLM is unreachable
+const FALLBACK_MODELS = [
+  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K req/day)' },
+  { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.14/1M', desc: 'Excellent reasoning, very affordable' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'cheap', cost: '$0.15/1M', desc: 'Fast and cheap general purpose' },
+  { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic', tier: 'mid', cost: '$1/1M', desc: 'Fast, capable, great for agents' },
+  { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic', tier: 'premium', cost: '$3/1M', desc: 'Best balance of speed and quality' },
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', tier: 'premium', cost: '$2.50/1M', desc: 'Strong multimodal reasoning' },
+  { id: 'claude-opus', name: 'Claude Opus', provider: 'Anthropic', tier: 'premium', cost: '$15/1M', desc: 'Maximum capability, complex tasks' },
+];
+
+// Model tier/cost mapping for models fetched from LiteLLM
+const MODEL_META = {
+  'groq-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
+  'qwen2.5-coder:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'deepseek-coder-v2:16b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'llama3.2:8b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'deepseek-chat': { tier: 'cheap', cost: '$0.14/1M', provider: 'DeepSeek' },
+  'deepseek-coder': { tier: 'cheap', cost: '$0.14/1M', provider: 'DeepSeek' },
+  'gpt-4o-mini': { tier: 'cheap', cost: '$0.15/1M', provider: 'OpenAI' },
+  'claude-haiku': { tier: 'mid', cost: '$1/1M', provider: 'Anthropic' },
+  'minimax-m2.5': { tier: 'mid', cost: '$0.30/1M', provider: 'MiniMax' },
+  'claude-sonnet': { tier: 'premium', cost: '$3/1M', provider: 'Anthropic' },
+  'claude-opus': { tier: 'premium', cost: '$15/1M', provider: 'Anthropic' },
+  'gpt-4o': { tier: 'premium', cost: '$2.50/1M', provider: 'OpenAI' },
+  'o1': { tier: 'premium', cost: '$15/1M', provider: 'OpenAI' },
+};
+
+// Demo data for when services are unreachable
 const DEMO_AGENTS = [
   {
     id: 'demo-1', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack development and code review',
-    model: 'groq-llama-3.3-70b', status: 'running',
-    currentTask: 'Refactoring auth module',
-    lastActive: 'Now', tasksCompleted: 12, tokensUsed: 45200,
+    model: 'groq-llama-3.3-70b', status: 'idle',
+    currentTask: null,
+    lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
+    systemPrompt: 'You are CodeCraft, a senior full-stack developer. Help with code review, debugging, and architecture decisions. Be concise and practical.',
   },
-  {
-    id: 'demo-2', name: 'Sentinel', emoji: '🛡️',
-    description: 'Security analysis and vulnerability scanning',
-    model: 'claude-haiku', status: 'idle',
-    currentTask: null,
-    lastActive: '5m ago', tasksCompleted: 8, tokensUsed: 23100,
-    tools: ['web-search', 'code-exec', 'shell'],
-  },
-  {
-    id: 'demo-3', name: 'Scribe', emoji: '📝',
-    description: 'Documentation, content writing, and reports',
-    model: 'deepseek-chat', status: 'idle',
-    currentTask: null,
-    lastActive: '22m ago', tasksCompleted: 23, tokensUsed: 67800,
-    tools: ['web-search', 'file-ops', 'browser'],
-  },
-];
-
-const DEMO_SESSIONS = [
-  {
-    id: 'sess-1', agentId: 'demo-1', agentName: 'CodeCraft', agentEmoji: '⚡',
-    title: 'Auth refactor discussion', lastMessage: 'Working on the JWT validation...',
-    updatedAt: Date.now() - 60000, unread: 2,
-  },
-  {
-    id: 'sess-2', agentId: 'demo-2', agentName: 'Sentinel', agentEmoji: '🛡️',
-    title: 'API security audit', lastMessage: 'Found 2 potential CSRF issues.',
-    updatedAt: Date.now() - 300000, unread: 0,
-  },
-];
-
-const DEMO_MESSAGES = [
-  { id: 'm1', role: 'user', content: 'Can you review the authentication module for security issues?', time: '12:31' },
-  { id: 'm2', role: 'agent', content: 'I\'ll analyze the auth module now. Let me look at the JWT validation, session management, and password hashing.\n\nStarting with `src/auth/jwt.ts`...', time: '12:31' },
-  { id: 'm3', role: 'agent', content: '**Analysis complete.** Here are my findings:\n\n1. JWT secret is hardcoded in `config.ts` — should use environment variable\n2. Token expiry is set to 30 days — recommend 24h with refresh tokens\n3. Password hashing uses bcrypt with cost 10 — good, but consider Argon2id\n\nShall I implement these fixes?', time: '12:32' },
-  { id: 'm4', role: 'user', content: 'Yes, go ahead and fix all three. Start with the JWT secret.', time: '12:33' },
-  { id: 'm5', role: 'agent', content: 'Working on the JWT validation changes now...', time: '12:33', streaming: true },
 ];
 
 const DEMO_LOGS = [
-  { time: '12:34:56', level: 'info', msg: 'Agent CodeCraft started task: Refactoring auth module' },
-  { time: '12:34:12', level: 'info', msg: 'WebSocket gateway connected (demo mode)' },
-  { time: '12:33:45', level: 'debug', msg: 'Session sess-1 message received (124 tokens)' },
-  { time: '12:32:01', level: 'info', msg: 'Agent Sentinel completed security scan' },
-  { time: '12:31:18', level: 'warn', msg: 'Groq rate limit at 87% — 870/1000 requests today' },
-  { time: '12:30:44', level: 'info', msg: 'LiteLLM health check passed — 10 models available' },
-  { time: '12:28:33', level: 'debug', msg: 'Agent Scribe session idle timeout (15m)' },
-  { time: '12:25:00', level: 'info', msg: 'Mission Control initialized' },
+  { time: new Date().toTimeString().slice(0, 8), level: 'info', msg: 'Mission Control initialized' },
 ];
 
 // ----------------------------------------------------------------------------
@@ -118,235 +90,195 @@ function timeAgo(ts) {
   return Math.floor(diff / 86400000) + 'd ago';
 }
 
+function timeNow() {
+  return new Date().toTimeString().slice(0, 5);
+}
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ----------------------------------------------------------------------------
-// WEBSOCKET CONNECTION MANAGER
+// SERVICE HEALTH CHECKER
 // ----------------------------------------------------------------------------
 
-class OpenClawConnection {
+class ServiceHealth {
   constructor() {
-    this.ws = null;
-    this.connected = false;
-    this.reconnectTimer = null;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 8; // stop after 8 tries (~4 min with backoff)
-    this.autoReconnect = true;
-    this.messageId = 0;
-    this.pendingRequests = new Map();
-    this.listeners = new Map();
-    this._url = null;
-    this._password = null;
+    this.litellm = false;
+    this.openclaw = false;
+    this._interval = null;
   }
 
-  connect(url, password) {
-    if (this.ws) this.disconnect();
-    this._url = url;
-    this._password = password;
-    this.autoReconnect = true;
-
-    try {
-      this.ws = new WebSocket(url);
-
-      this.ws.onopen = () => {
-        // Attempt authentication
-        if (password) {
-          this.send('auth', { password });
-        }
-        this.connected = true;
-        this.reconnectAttempts = 0; // reset backoff on success
-        this._emit('connected');
-        this._addLog('info', 'Connected to OpenClaw gateway');
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this._handleMessage(data);
-        } catch (e) {
-          // Non-JSON message, ignore
-        }
-      };
-
-      this.ws.onclose = () => {
-        const wasConnected = this.connected;
-        this.connected = false;
-        this._emit('disconnected');
-
-        if (!this.autoReconnect) return;
-
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          this._addLog('warn', 'Disconnected — gave up reconnecting after ' + this.reconnectAttempts + ' attempts');
-          this.autoReconnect = false;
-          return;
-        }
-
-        // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s cap
-        const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
-        this.reconnectAttempts++;
-        const delaySec = Math.round(delay / 1000);
-
-        if (wasConnected) {
-          this._addLog('warn', 'Disconnected from OpenClaw gateway — reconnecting in ' + delaySec + 's');
-        } else {
-          this._addLog('debug', 'Connection attempt ' + this.reconnectAttempts + '/' + this.maxReconnectAttempts + ' — retry in ' + delaySec + 's');
-        }
-
-        this.reconnectTimer = setTimeout(() => this.connect(url, password), delay);
-      };
-
-      this.ws.onerror = () => {
-        // Only log on first attempt to avoid spamming
-        if (this.reconnectAttempts === 0) {
-          this._addLog('error', 'WebSocket connection failed');
-        }
-      };
-
-    } catch (e) {
-      this._addLog('error', 'Failed to create WebSocket: ' + e.message);
-    }
+  async check() {
+    const results = await Promise.allSettled([
+      this._checkLiteLLM(),
+      this._checkOpenClaw(),
+    ]);
+    this.litellm = results[0].status === 'fulfilled' && results[0].value;
+    this.openclaw = results[1].status === 'fulfilled' && results[1].value;
+    return { litellm: this.litellm, openclaw: this.openclaw };
   }
 
-  disconnect() {
-    this.autoReconnect = false;
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.reconnectTimer = null;
-    if (this.ws) {
-      this.ws.onclose = null; // prevent reconnect
-      this.ws.close();
-      this.ws = null;
-    }
-    this.connected = false;
-  }
-
-  // Manual reconnect (resets backoff)
-  retry() {
-    if (this._url) {
-      this.reconnectAttempts = 0;
-      this.connect(this._url, this._password);
-    }
-  }
-
-  send(method, params = {}) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return null;
-    const id = ++this.messageId;
-    const msg = { id, method, params, type: 'request' };
-    this.ws.send(JSON.stringify(msg));
-
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
-      setTimeout(() => {
-        if (this.pendingRequests.has(id)) {
-          this.pendingRequests.delete(id);
-          reject(new Error('Request timeout'));
-        }
-      }, 30000);
+  async _checkLiteLLM() {
+    const r = await fetch('/api/litellm/health/liveliness', {
+      signal: AbortSignal.timeout(5000),
     });
+    return r.ok;
   }
 
-  on(event, callback) {
-    if (!this.listeners.has(event)) this.listeners.set(event, []);
-    this.listeners.get(event).push(callback);
+  async _checkOpenClaw() {
+    const r = await fetch('/openclaw/', {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000),
+    });
+    return r.ok;
   }
 
-  _emit(event, data) {
-    const cbs = this.listeners.get(event) || [];
-    cbs.forEach(cb => cb(data));
+  startPolling(callback, intervalMs = 30000) {
+    this.check().then(callback);
+    this._interval = setInterval(() => this.check().then(callback), intervalMs);
   }
 
-  _handleMessage(data) {
-    // Response to a request
-    if (data.id && this.pendingRequests.has(data.id)) {
-      const { resolve } = this.pendingRequests.get(data.id);
-      this.pendingRequests.delete(data.id);
-      resolve(data.result || data);
-      return;
-    }
-
-    // Streaming content
-    if (data.type === 'stream' || data.type === 'content') {
-      this._emit('stream', data);
-    }
-
-    // Agent status update
-    if (data.type === 'status' || data.method === 'agent.status') {
-      this._emit('agent-status', data);
-    }
-
-    // Session update
-    if (data.type === 'session' || data.method === 'sessions.update') {
-      this._emit('session-update', data);
-    }
-
-    // Generic event
-    this._emit('message', data);
-  }
-
-  _addLog(level, msg) {
-    const store = window.Alpine && Alpine.store('monitor');
-    if (store) {
-      const now = new Date();
-      const time = now.toTimeString().slice(0, 8);
-      store.logs.unshift({ time, level, msg });
-      if (store.logs.length > 200) store.logs.pop();
-    }
+  stop() {
+    if (this._interval) clearInterval(this._interval);
   }
 }
 
-// Singleton connection
-const ocConnection = new OpenClawConnection();
+const healthChecker = new ServiceHealth();
 
 // ----------------------------------------------------------------------------
-// ALPINE.JS STORE: APP (global state)
+// LITELLM API CLIENT
 // ----------------------------------------------------------------------------
+
+const litellmApi = {
+  // Fetch available models via authenticated proxy
+  async fetchModels() {
+    try {
+      const r = await fetch('/api/mc/v1/models', {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) return [];
+      const data = await r.json();
+      return (data.data || []).map(m => {
+        const meta = MODEL_META[m.id] || { tier: 'unknown', cost: '?', provider: 'Unknown' };
+        return {
+          id: m.id,
+          name: m.id,
+          provider: meta.provider,
+          tier: meta.tier,
+          cost: meta.cost,
+          desc: m.description || '',
+        };
+      });
+    } catch {
+      return [];
+    }
+  },
+
+  // Stream chat completion (returns an async generator of content deltas)
+  async *streamChat(model, messages) {
+    const resp = await fetch('/api/mc/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: true }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => resp.statusText);
+      throw new Error(`API ${resp.status}: ${text}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete last line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') return;
+        try {
+          const json = JSON.parse(payload);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) yield delta;
+        } catch { /* skip malformed chunks */ }
+      }
+    }
+  },
+
+  // Non-streaming chat (fallback)
+  async chat(model, messages) {
+    const resp = await fetch('/api/mc/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: false }),
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || '';
+  },
+};
+
+// ----------------------------------------------------------------------------
+// PERSISTENCE — save/load agents and sessions to localStorage
+// ----------------------------------------------------------------------------
+
+const storage = {
+  save(key, data) {
+    try { localStorage.setItem('mc-' + key, JSON.stringify(data)); } catch {}
+  },
+  load(key, fallback) {
+    try {
+      const raw = localStorage.getItem('mc-' + key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch { return fallback; }
+  },
+};
+
+// ============================================================================
+// ALPINE.JS STORES
+// ============================================================================
 
 document.addEventListener('alpine:init', () => {
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: AUTH
+  // STORE: AUTH
   // --------------------------------------------------------------------------
 
   Alpine.store('auth', {
     ok: false,
 
     init() {
-      // Check existing session token
-      const stored = sessionStorage.getItem('mc-auth');
-      if (stored) {
+      if (sessionStorage.getItem('mc-auth')) {
         this.ok = true;
       }
     },
 
     async login(username, password) {
       if (!username || !password) return false;
-
       try {
-        // Server-side verification via Caddy basicauth
         const resp = await fetch('/auth/verify', {
           method: 'GET',
-          headers: {
-            'Authorization': 'Basic ' + btoa(username + ':' + password),
-          },
+          headers: { 'Authorization': 'Basic ' + btoa(username + ':' + password) },
         });
-
         if (resp.ok) {
-          // Compute SHA-256 client-side for the OpenClaw cookie
           const hash = await sha256(password);
-          // Set cookie for OpenClaw WebSocket and /openclaw/* auth gate
           const secure = location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
-          // Session marker (no secrets stored — just a flag)
           sessionStorage.setItem('mc-auth', '1');
           this.ok = true;
           Alpine.store('app').boot();
           return true;
         }
-      } catch (e) {
-        // Network error — fall through to return false
-      }
+      } catch {}
       return false;
     },
 
@@ -358,101 +290,104 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: APP (global state)
+  // STORE: APP (global state)
   // --------------------------------------------------------------------------
 
   Alpine.store('app', {
     view: 'dashboard',
     booting: true,
     sidebarOpen: true,
-    connected: false,
-    demoMode: true,
+    connected: false,     // true if LiteLLM is reachable (chat works)
+    ocConnected: false,   // true if OpenClaw is reachable
+    demoMode: true,       // false when LiteLLM is reachable
 
     setView(v) {
       this.view = v;
-      // Initialize workflow canvas when switching to workflows
       if (v === 'workflows' && window.initWorkflowCanvas) {
         setTimeout(() => window.initWorkflowCanvas(), 100);
       }
     },
 
     async boot() {
-      // Show boot screen briefly
       await new Promise(r => setTimeout(r, 1800));
       this.booting = false;
 
-      // Try connecting to OpenClaw
-      this.tryConnect();
+      // Initial health check + model fetch
+      const health = await healthChecker.check();
+      this._applyHealth(health);
+
+      // Fetch models from LiteLLM
+      if (health.litellm) {
+        const models = await litellmApi.fetchModels();
+        if (models.length > 0) {
+          Alpine.store('models').list = models;
+          Alpine.store('monitor').systemHealth.modelsAvailable = models.length;
+          Alpine.store('monitor').addLog('info', `Loaded ${models.length} models from LiteLLM`);
+        }
+      }
+
+      // Start periodic health checks (every 30s)
+      healthChecker.startPolling(h => this._applyHealth(h), 30000);
     },
 
-    tryConnect() {
-      // Determine WebSocket URL
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = proto + '//' + location.host + '/';
+    _applyHealth(health) {
+      this.connected = health.litellm;
+      this.ocConnected = health.openclaw;
+      this.demoMode = !health.litellm;
 
-      ocConnection.on('connected', () => {
-        this.connected = true;
-        this.demoMode = false;
-      });
-
-      // On ANY disconnect: go to demo mode and stop. No auto-reconnect.
-      // This prevents the connect/disconnect loop that burns API credits.
-      ocConnection.on('disconnected', () => {
-        this.connected = false;
-        this.demoMode = true;
-        ocConnection.disconnect(); // cancel any pending reconnect timers
-      });
-
-      // Single connection attempt — no auto-reconnect
-      ocConnection.connect(wsUrl);
-
-      // If not connected after 5s, enter demo mode
-      setTimeout(() => {
-        if (!this.connected) {
-          this.demoMode = true;
-          ocConnection.disconnect();
-          Alpine.store('monitor').addLog('info', 'Running in demo mode — use Reconnect to try again');
-        }
-      }, 5000);
+      const monitor = Alpine.store('monitor');
+      monitor.systemHealth.litellm = health.litellm ? 'healthy' : 'offline';
+      monitor.systemHealth.openclaw = health.openclaw ? 'healthy' : 'offline';
     },
 
-    // Manual reconnect triggered from UI
-    reconnect() {
-      this.demoMode = false;
-      Alpine.store('monitor').addLog('info', 'Attempting to reconnect to OpenClaw...');
-      ocConnection.retry();
+    async reconnect() {
+      Alpine.store('monitor').addLog('info', 'Running health checks...');
+      const health = await healthChecker.check();
+      this._applyHealth(health);
 
-      // If still not connected after 8s, go back to demo mode
-      setTimeout(() => {
-        if (!this.connected) {
-          this.demoMode = true;
-          ocConnection.disconnect();
-          Alpine.store('monitor').addLog('warn', 'Reconnect failed — back to demo mode');
+      if (health.litellm) {
+        Alpine.store('monitor').addLog('info', 'LiteLLM connected — chat is live');
+        const models = await litellmApi.fetchModels();
+        if (models.length > 0) {
+          Alpine.store('models').list = models;
+          Alpine.store('monitor').systemHealth.modelsAvailable = models.length;
         }
-      }, 8000);
+      } else {
+        Alpine.store('monitor').addLog('warn', 'LiteLLM unreachable — staying in demo mode');
+      }
+
+      if (health.openclaw) {
+        Alpine.store('monitor').addLog('info', 'OpenClaw is online');
+      }
     },
   });
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: AGENTS
+  // STORE: MODELS (dynamic from LiteLLM)
+  // --------------------------------------------------------------------------
+
+  Alpine.store('models', {
+    list: [...FALLBACK_MODELS],
+  });
+
+  // --------------------------------------------------------------------------
+  // STORE: AGENTS
   // --------------------------------------------------------------------------
 
   Alpine.store('agents', {
-    list: [...DEMO_AGENTS],
+    list: storage.load('agents', [...DEMO_AGENTS]),
     selected: null,
     wizardOpen: false,
     wizardStep: 1,
     wizard: {
-      name: '',
-      emoji: '🤖',
-      description: '',
-      model: 'groq-llama-3.3-70b',
-      systemPrompt: '',
-      tools: [],
+      name: '', emoji: '🤖', description: '',
+      model: 'groq-llama-3.3-70b', systemPrompt: '', tools: [],
     },
 
     get running() { return this.list.filter(a => a.status === 'running').length; },
     get idle() { return this.list.filter(a => a.status === 'idle').length; },
+
+    _persist() { storage.save('agents', this.list); },
 
     openWizard() {
       this.wizard = {
@@ -463,25 +398,14 @@ document.addEventListener('alpine:init', () => {
       this.wizardOpen = true;
     },
 
-    closeWizard() {
-      this.wizardOpen = false;
-    },
-
-    nextStep() {
-      if (this.wizardStep < 4) this.wizardStep++;
-    },
-
-    prevStep() {
-      if (this.wizardStep > 1) this.wizardStep--;
-    },
+    closeWizard() { this.wizardOpen = false; },
+    nextStep() { if (this.wizardStep < 4) this.wizardStep++; },
+    prevStep() { if (this.wizardStep > 1) this.wizardStep--; },
 
     toggleTool(toolId) {
       const idx = this.wizard.tools.indexOf(toolId);
-      if (idx >= 0) {
-        this.wizard.tools.splice(idx, 1);
-      } else {
-        this.wizard.tools.push(toolId);
-      }
+      if (idx >= 0) this.wizard.tools.splice(idx, 1);
+      else this.wizard.tools.push(toolId);
     },
 
     createAgent() {
@@ -504,17 +428,9 @@ document.addEventListener('alpine:init', () => {
       };
 
       this.list.push(agent);
+      this._persist();
       this.closeWizard();
       Alpine.store('monitor').addLog('info', `Agent "${agent.name}" created with model ${agent.model}`);
-
-      // If connected, send to OpenClaw
-      if (!Alpine.store('app').demoMode) {
-        ocConnection.send('agent.create', {
-          name: agent.name,
-          model: agent.model,
-          systemPrompt: agent.systemPrompt,
-        });
-      }
     },
 
     selectAgent(id) {
@@ -524,7 +440,8 @@ document.addEventListener('alpine:init', () => {
     deleteAgent(id) {
       this.list = this.list.filter(a => a.id !== id);
       if (this.selected && this.selected.id === id) this.selected = null;
-      Alpine.store('monitor').addLog('info', `Agent removed`);
+      this._persist();
+      Alpine.store('monitor').addLog('info', 'Agent removed');
     },
 
     toggleAgent(id) {
@@ -540,18 +457,21 @@ document.addEventListener('alpine:init', () => {
         agent.lastActive = 'Now';
         Alpine.store('monitor').addLog('info', `Agent "${agent.name}" started`);
       }
+      this._persist();
     },
   });
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: SESSIONS (Chat)
+  // STORE: SESSIONS (Chat with real LiteLLM streaming)
   // --------------------------------------------------------------------------
 
   Alpine.store('sessions', {
-    list: [...DEMO_SESSIONS],
+    list: storage.load('sessions', []),
     activeId: null,
-    messages: [...DEMO_MESSAGES],
+    messages: [],
     input: '',
+    _sending: false, // prevents double-send
+    _messageStore: {}, // sessionId -> messages[]
 
     get active() {
       return this.list.find(s => s.id === this.activeId) || null;
@@ -559,10 +479,7 @@ document.addEventListener('alpine:init', () => {
 
     select(id) {
       this.activeId = id;
-      // In real mode, load messages from OpenClaw
-      if (!Alpine.store('app').demoMode) {
-        ocConnection.send('sessions.history', { sessionId: id });
-      }
+      this.messages = this._messageStore[id] || [];
     },
 
     createSession(agentId) {
@@ -582,63 +499,122 @@ document.addEventListener('alpine:init', () => {
       this.list.unshift(session);
       this.activeId = session.id;
       this.messages = [];
+      this._messageStore[session.id] = this.messages;
+      this._persist();
       Alpine.store('app').setView('chat');
     },
 
-    sendMessage() {
+    async sendMessage() {
       const text = this.input.trim();
-      if (!text || !this.activeId) return;
+      if (!text || !this.activeId || this._sending) return;
 
-      const msg = {
-        id: generateId(),
-        role: 'user',
-        content: text,
-        time: new Date().toTimeString().slice(0, 5),
-      };
-      this.messages.push(msg);
+      // Add user message
+      const userMsg = { id: generateId(), role: 'user', content: text, time: timeNow() };
+      this.messages.push(userMsg);
       this.input = '';
 
-      // Update session
+      // Update session metadata
       const session = this.active;
       if (session) {
         session.lastMessage = text.slice(0, 60);
         session.updatedAt = Date.now();
       }
 
-      // In real mode, send to OpenClaw
-      if (!Alpine.store('app').demoMode) {
-        ocConnection.send('sessions.send', {
-          sessionId: this.activeId,
-          message: text,
-        });
-      } else {
-        // Demo: simulate agent response
+      // Scroll to bottom
+      this._scrollToBottom();
+
+      // If LiteLLM is unreachable, show demo response
+      if (Alpine.store('app').demoMode) {
         setTimeout(() => {
           this.messages.push({
-            id: generateId(),
-            role: 'agent',
-            content: 'This is a demo response. Connect to a live OpenClaw instance to interact with real agents.',
-            time: new Date().toTimeString().slice(0, 5),
+            id: generateId(), role: 'agent',
+            content: 'Mission Control is in demo mode — LiteLLM is not reachable. Click "Reconnect" in the header to try connecting.',
+            time: timeNow(),
           });
-        }, 1000);
+          this._scrollToBottom();
+        }, 500);
+        return;
       }
 
-      // Scroll to bottom
+      // Build the LiteLLM request
+      const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+      const model = agent?.model || 'groq-llama-3.3-70b';
+
+      const apiMessages = [];
+      if (agent?.systemPrompt) {
+        apiMessages.push({ role: 'system', content: agent.systemPrompt });
+      }
+      // Add conversation history (skip streaming metadata)
+      for (const msg of this.messages) {
+        apiMessages.push({
+          role: msg.role === 'agent' ? 'assistant' : msg.role,
+          content: msg.content,
+        });
+      }
+
+      // Add placeholder for streaming response
+      const botMsg = { id: generateId(), role: 'agent', content: '', time: timeNow(), streaming: true };
+      this.messages.push(botMsg);
+      this._sending = true;
+
+      try {
+        for await (const delta of litellmApi.streamChat(model, apiMessages)) {
+          botMsg.content += delta;
+          // Periodic scroll during stream
+          this._scrollToBottom();
+        }
+      } catch (e) {
+        botMsg.content = botMsg.content || ('Error: ' + e.message);
+        Alpine.store('monitor').addLog('error', `Chat error: ${e.message}`);
+      }
+
+      botMsg.streaming = false;
+      botMsg.time = timeNow();
+      this._sending = false;
+
+      // Update session
+      if (session) {
+        session.lastMessage = (botMsg.content || '').slice(0, 60);
+        session.updatedAt = Date.now();
+      }
+
+      // Track token usage (rough estimate)
+      if (agent) {
+        const tokens = Math.round((text.length + botMsg.content.length) / 4);
+        agent.tokensUsed += tokens;
+        agent.tasksCompleted++;
+        agent.lastActive = 'Just now';
+        Alpine.store('agents')._persist();
+      }
+
+      this._persist();
+      this._scrollToBottom();
+    },
+
+    _scrollToBottom() {
       setTimeout(() => {
         const el = document.getElementById('chat-messages');
         if (el) el.scrollTop = el.scrollHeight;
-      }, 50);
+      }, 30);
+    },
+
+    _persist() {
+      storage.save('sessions', this.list.map(s => ({
+        id: s.id, agentId: s.agentId, agentName: s.agentName,
+        agentEmoji: s.agentEmoji, title: s.title,
+        lastMessage: s.lastMessage, updatedAt: s.updatedAt, unread: 0,
+      })));
     },
   });
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: WORKFLOWS
+  // STORE: WORKFLOWS
   // --------------------------------------------------------------------------
 
   Alpine.store('workflows', {
     list: [
-      { id: 'wf-1', name: 'Code Review Pipeline', nodes: 4, lastRun: '1h ago', status: 'ready' },
-      { id: 'wf-2', name: 'Security Scan', nodes: 3, lastRun: '3h ago', status: 'ready' },
+      { id: 'wf-1', name: 'Code Review Pipeline', nodes: 4, lastRun: 'Never', status: 'ready' },
+      { id: 'wf-2', name: 'Security Scan', nodes: 3, lastRun: 'Never', status: 'ready' },
     ],
     activeId: null,
     running: false,
@@ -651,9 +627,7 @@ document.addEventListener('alpine:init', () => {
       const wf = {
         id: generateId(),
         name: name || 'Untitled Workflow',
-        nodes: 0,
-        lastRun: 'Never',
-        status: 'draft',
+        nodes: 0, lastRun: 'Never', status: 'draft',
       };
       this.list.push(wf);
       this.activeId = wf.id;
@@ -680,38 +654,28 @@ document.addEventListener('alpine:init', () => {
       if (!this.activeId) return;
       this.running = true;
       Alpine.store('monitor').addLog('info', `Workflow "${this.active?.name}" executing...`);
-
-      // Demo: simulate run
       setTimeout(() => {
         this.running = false;
         const wf = this.active;
-        if (wf) {
-          wf.lastRun = 'Just now';
-          wf.status = 'completed';
-        }
-        Alpine.store('monitor').addLog('info', `Workflow completed successfully`);
+        if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
+        Alpine.store('monitor').addLog('info', 'Workflow completed successfully');
       }, 3000);
     },
   });
 
   // --------------------------------------------------------------------------
-  // ALPINE.JS STORE: MONITOR
+  // STORE: MONITOR
   // --------------------------------------------------------------------------
 
   Alpine.store('monitor', {
     logs: [...DEMO_LOGS],
     logFilter: 'all',
-    tokenUsage: {
-      'groq-llama-3.3-70b': { input: 12500, output: 8300, cost: 0 },
-      'claude-haiku': { input: 6200, output: 4100, cost: 0.01 },
-      'deepseek-chat': { input: 4100, output: 2800, cost: 0.001 },
-      'gpt-4o-mini': { input: 2300, output: 1500, cost: 0.0006 },
-    },
+    tokenUsage: {},
     systemHealth: {
-      openclaw: 'healthy',
-      litellm: 'healthy',
-      modelsAvailable: 10,
-      uptime: '2d 4h 12m',
+      openclaw: 'checking...',
+      litellm: 'checking...',
+      modelsAvailable: 0,
+      uptime: '--',
     },
 
     get filteredLogs() {
@@ -728,8 +692,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     addLog(level, msg) {
-      const now = new Date();
-      const time = now.toTimeString().slice(0, 8);
+      const time = new Date().toTimeString().slice(0, 8);
       this.logs.unshift({ time, level, msg });
       if (this.logs.length > 200) this.logs.pop();
     },
@@ -741,8 +704,7 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // BOOT — only auto-boot if already authenticated (from sessionStorage)
-  // Otherwise, auth.login() will call boot() after successful login.
+  // BOOT — only auto-boot if already authenticated
   // --------------------------------------------------------------------------
 
   if (Alpine.store('auth').ok) {
@@ -750,8 +712,8 @@ document.addEventListener('alpine:init', () => {
   }
 });
 
-// Export for use in HTML
-window.MODELS = MODELS;
+// Expose for HTML templates
+window.FALLBACK_MODELS = FALLBACK_MODELS;
 window.AGENT_EMOJIS = AGENT_EMOJIS;
 window.AGENT_TOOLS = AGENT_TOOLS;
 window.formatTokens = formatTokens;
