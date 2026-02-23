@@ -39,7 +39,7 @@
 	# flush_interval -1 disables response buffering (required for WebSocket
 	# and SSE streams). header_up forwards real client IP for device pairing.
 	# header_down strips upstream frame-blocking headers so Caddy's global
-	# SAMEORIGIN applies — allows embedding in the portal iframe.
+	# SAMEORIGIN applies — allows same-origin iframe embedding if needed.
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {

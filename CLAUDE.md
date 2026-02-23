@@ -44,7 +44,7 @@ VPS/
 ├── litellm_config.yaml              ← 14 models in 5 cost tiers
 ├── README.md                        ← Setup guide (Windows/PowerShell focused)
 ├── workspace/
-│   └── index.html                   ← "Neural Fusion" agent workspace page (served at /workspace/)
+│   └── index.html                   ← Agent workspace placeholder (served at /workspace/)
 └── scripts/
     ├── deploy.sh                    ← Stack deployment (pulls images, generates secrets, health checks)
     ├── setup-server.sh              ← Server hardening (SSH, UFW, fail2ban, Docker, swap)
@@ -78,7 +78,7 @@ Routes are evaluated top-to-bottom with first-match:
 5. `/workspace/*` → `handle_path` strips prefix → static files from /srv/workspace
 6. Everything else (fallthrough `handle`) → open-webui:8080 (landing page at `/`, SPA routes: /auth, /_app/*, etc.)
 
-Note: A miniverse portal page was built and served at `/` but was removed (commit `c0c55c6`) because Open WebUI requires the root path — it has no `/chat` route, the chat interface IS the root page.
+Note: Open WebUI requires the root path — it has no `/chat` route, the chat interface IS the root page.
 
 ## LiteLLM Model Tiers (litellm_config.yaml)
 
@@ -108,12 +108,8 @@ The entrypoint script patches `/home/node/.openclaw/openclaw.json` on every cont
 Open WebUI serves as the landing page. It is a ChatGPT-like SvelteKit SPA that occupies the root path. There is no separate portal page (it was removed — see Caddy Routing note above).
 
 ### Agent Workspace (workspace/index.html) — served at `/workspace/`
-- 563-line single-file page titled "Neural Fusion"
-- Same neural canvas animation
-- Status indicators for all three services (30s refresh)
-- "Enter the Grid" button opens OpenClaw in full-screen iframe overlay with animated amber glow border
-- Blue-to-amber color transition on activation
-- Escape key exits overlay
+- Minimal placeholder page
+- Content will be created and managed by OpenClaw agents
 
 ## Key Technical Decisions & Lessons Learned
 
@@ -134,27 +130,28 @@ Getting OpenClaw accessible through Caddy required fixing:
 - Provider fallback: OpenClaw defaults to "anthropic" provider if not explicitly constrained to "litellm" only
 
 ### Iframe Embedding
-OpenClaw sends its own `X-Frame-Options` and `Content-Security-Policy` headers. Caddy's `header_down -X-Frame-Options` and `header_down -Content-Security-Policy` in the `/openclaw/*` handler strip these so the global `SAMEORIGIN` applies, allowing the workspace page's iframe embed.
+OpenClaw sends its own `X-Frame-Options` and `Content-Security-Policy` headers. Caddy's `header_down -X-Frame-Options` and `header_down -Content-Security-Policy` in the `/openclaw/*` handler strip these so the global `SAMEORIGIN` applies, allowing same-origin iframe embedding if needed.
 
 ## Git Info
 
 - **Remote**: origin (GitHub: in-fused/VPS)
 - **45+ commits** from Feb 20-23, 2026
-- Progression: initial setup → SSH hardening → LiteLLM fixes → OpenClaw memory battle → OpenClaw networking → auth/WebSocket fixes → portal (built then removed) → OpenClaw chat fixes → full audit
+- Progression: initial setup → SSH hardening → LiteLLM fixes → OpenClaw memory battle → OpenClaw networking → auth/WebSocket fixes → OpenClaw chat fixes → full audit
 
 ## Current State (as of Feb 23, 2026)
 
 The stack is deployed and functional:
 - Open WebUI at `/` (landing page + chat interface) ✓
-- OpenClaw at `/openclaw/` (with iframe embed in workspace page) ✓
+- OpenClaw at `/openclaw/` (password-protected agent UI) ✓
 - LiteLLM at `/api/litellm/` (15 models across 5 cost tiers) ✓
 - Workspace at `/workspace/` ✓
 - All routing configured in Caddyfile ✓
 - All volumes configured in docker-compose.yml ✓
 - OpenClaw has access to all LiteLLM models (10 models exposed) ✓
 
-### What Was Removed
-The 3D miniverse portal page (`portal/index.html`) was built and served at `/` but was removed because Open WebUI's SvelteKit SPA requires the root path — it has no `/chat` route. The portal's Chat button linked to `/chat` which caused 404s. Open WebUI now serves directly as the landing page.
+### Design Notes
+- The workspace at `/workspace/` is a blank slate for OpenClaw agents to populate with content
+- Any custom frontend work (animations, interactive elements) should be done by agents, not hardcoded
 
 ## Environment Variables (.env)
 
