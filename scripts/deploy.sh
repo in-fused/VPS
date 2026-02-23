@@ -142,21 +142,28 @@ if [ "$UPDATED_ENV" = true ]; then
 fi
 
 ###############################################################################
-# 4. Pull latest images
+# 4. Clean up old Docker images to prevent disk-full failures
+###############################################################################
+log_info "Cleaning up unused Docker images..."
+docker image prune -f > /dev/null 2>&1
+log_ok "Cleanup complete"
+
+###############################################################################
+# 5. Pull latest images
 ###############################################################################
 log_info "Pulling latest container images..."
 docker compose pull
 log_ok "Images pulled"
 
 ###############################################################################
-# 5. Start the stack
+# 6. Start the stack
 ###############################################################################
 log_info "Starting AI Hub stack..."
 docker compose up -d
 log_ok "Stack started"
 
 ###############################################################################
-# 6. Wait for health checks
+# 7. Wait for health checks
 ###############################################################################
 log_info "Waiting for services to become healthy..."
 
@@ -197,7 +204,7 @@ for i in $(seq 1 30); do
 done
 
 ###############################################################################
-# 7. Status Report
+# 8. Status Report
 ###############################################################################
 echo ""
 echo "============================================================"
