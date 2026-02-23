@@ -3,28 +3,882 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>in-fused.org — Agent Workspace</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0f;
-      color: #888;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      text-align: center;
+  <title>Mission Control — in-fused.org</title>
+  <meta name="description" content="AI Agent Mission Control — manage, orchestrate, and monitor autonomous agents">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS (CDN with custom config) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            mc: {
+              bg: '#0a0e17',
+              surface: '#111827',
+              elevated: '#1f2937',
+              border: '#374151',
+              primary: '#06b6d4',
+              'primary-dim': 'rgba(6,182,212,0.12)',
+              secondary: '#8b5cf6',
+              'secondary-dim': 'rgba(139,92,246,0.12)',
+              success: '#10b981',
+              'success-dim': 'rgba(16,185,129,0.12)',
+              warning: '#f59e0b',
+              'warning-dim': 'rgba(245,158,11,0.12)',
+              danger: '#ef4444',
+              'danger-dim': 'rgba(239,68,68,0.12)',
+              text: '#f9fafb',
+              'text-sec': '#9ca3af',
+              'text-muted': '#6b7280',
+            }
+          }
+        }
+      }
     }
-    .container { max-width: 400px; padding: 2rem; }
-    h1 { color: #e0e0e0; font-size: 1.4rem; margin-bottom: 0.5rem; }
-    p { font-size: 0.9rem; line-height: 1.5; }
-  </style>
+  </script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- LiteGraph.js CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.18/css/litegraph.css">
+
+  <!-- Alpine.js (deferred — runs after app.js registers stores) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+
+  <!-- x-cloak: hide Alpine elements until initialized -->
+  <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body>
-  <div class="container">
-    <h1>Agent Workspace</h1>
-    <p>This workspace is managed by OpenClaw agents. Content will appear here as agents create it.</p>
+
+<body class="bg-mc-bg text-mc-text font-sans text-sm">
+
+  <!-- ====================================================================
+       BOOT SCREEN
+       ==================================================================== -->
+  <div x-data x-show="$store.app.booting"
+       x-transition:leave="transition ease-in duration-500"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-[100] bg-mc-bg flex items-center justify-center">
+    <div class="mc-boot-scanline"></div>
+    <div class="text-center">
+      <div class="text-4xl mb-4">🛰️</div>
+      <div class="text-xl font-bold text-cyan-400 tracking-wider mb-2">MISSION CONTROL</div>
+      <div class="mc-boot-text text-xs text-mc-text-muted font-mono">Initializing systems...</div>
+      <div class="mt-6 w-48 mx-auto h-0.5 bg-mc-border rounded overflow-hidden">
+        <div class="h-full bg-cyan-400 rounded" style="animation: bootProgress 1.5s ease-out forwards"></div>
+      </div>
+    </div>
+    <style>
+      @keyframes bootProgress { from { width: 0% } to { width: 100% } }
+    </style>
   </div>
+
+  <!-- ====================================================================
+       MAIN APPLICATION SHELL
+       ==================================================================== -->
+  <div x-data x-show="!$store.app.booting" x-cloak
+       class="flex h-screen w-screen overflow-hidden">
+
+    <!-- ==================================================================
+         SIDEBAR
+         ================================================================== -->
+    <aside :class="$store.app.sidebarOpen ? 'w-60 min-w-[240px]' : 'w-16 min-w-[64px]'"
+           class="bg-mc-surface border-r border-mc-border flex flex-col transition-all duration-200 z-20">
+
+      <!-- Logo -->
+      <div class="h-14 flex items-center gap-3 px-4 border-b border-mc-border flex-shrink-0">
+        <span class="text-xl flex-shrink-0">🛰️</span>
+        <span x-show="$store.app.sidebarOpen" x-transition
+              class="font-semibold text-sm tracking-wide text-cyan-400 whitespace-nowrap">
+          MISSION CONTROL
+        </span>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
+
+        <!-- Dashboard -->
+        <button @click="$store.app.setView('dashboard')"
+                :class="$store.app.view === 'dashboard' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="whitespace-nowrap">Dashboard</span>
+        </button>
+
+        <!-- Agents -->
+        <button @click="$store.app.setView('agents')"
+                :class="$store.app.view === 'agents' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="whitespace-nowrap">Agents</span>
+          <span x-show="$store.app.sidebarOpen && $store.agents.running > 0"
+                class="ml-auto text-[10px] bg-mc-success-dim text-emerald-400 px-1.5 py-0.5 rounded-full font-mono"
+                x-text="$store.agents.running + ' active'"></span>
+        </button>
+
+        <!-- Workflows -->
+        <button @click="$store.app.setView('workflows')"
+                :class="$store.app.view === 'workflows' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="whitespace-nowrap">Workflows</span>
+        </button>
+
+        <!-- Chat -->
+        <button @click="$store.app.setView('chat')"
+                :class="$store.app.view === 'chat' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="whitespace-nowrap">Chat</span>
+          <span x-show="$store.app.sidebarOpen && $store.sessions.list.filter(s => s.unread > 0).length > 0"
+                class="ml-auto w-5 h-5 flex items-center justify-center text-[10px] bg-cyan-500 text-mc-bg rounded-full font-bold"
+                x-text="$store.sessions.list.reduce((n, s) => n + s.unread, 0)"></span>
+        </button>
+
+        <!-- Monitor -->
+        <button @click="$store.app.setView('monitor')"
+                :class="$store.app.view === 'monitor' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="whitespace-nowrap">Monitor</span>
+        </button>
+
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="border-t border-mc-border p-3 flex-shrink-0">
+        <!-- Connection Status -->
+        <div x-show="$store.app.sidebarOpen" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2">
+          <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"></span>
+          <span class="text-mc-text-muted" x-text="$store.app.connected ? 'Connected' : 'Demo Mode'"></span>
+        </div>
+        <!-- Collapse Toggle -->
+        <button @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"
+                class="w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-lg text-mc-text-muted hover:text-mc-text hover:bg-mc-elevated transition-all">
+          <svg class="w-4 h-4 transition-transform" :class="$store.app.sidebarOpen ? '' : 'rotate-180'"
+               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen" class="text-xs">Collapse</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ==================================================================
+         MAIN CONTENT AREA
+         ================================================================== -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+      <!-- ================================================================
+           HEADER BAR
+           ================================================================ -->
+      <header class="h-14 min-h-[56px] bg-mc-surface border-b border-mc-border flex items-center px-6 gap-4 flex-shrink-0">
+        <h1 class="text-base font-semibold text-mc-text capitalize" x-text="$store.app.view"></h1>
+        <div class="flex-1"></div>
+
+        <!-- Demo Mode Badge -->
+        <span x-show="$store.app.demoMode"
+              class="text-[10px] font-mono bg-mc-warning-dim text-amber-400 px-2 py-0.5 rounded-full tracking-wide">
+          DEMO
+        </span>
+
+        <!-- Quick Actions -->
+        <button @click="$store.agents.openWizard()"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg text-xs font-medium hover:bg-cyan-500/20 transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          New Agent
+        </button>
+
+        <!-- OpenClaw Link -->
+        <a href="/openclaw/" target="_blank"
+           class="flex items-center gap-1.5 px-3 py-1.5 text-mc-text-muted rounded-lg text-xs hover:text-mc-text hover:bg-mc-elevated transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+          </svg>
+          OpenClaw
+        </a>
+      </header>
+
+      <!-- ================================================================
+           CONTENT VIEWS
+           ================================================================ -->
+      <main class="flex-1 overflow-hidden">
+
+        <!-- ==========================================
+             VIEW: DASHBOARD
+             ========================================== -->
+        <div x-show="$store.app.view === 'dashboard'"
+             x-transition:enter="animate-fade-up"
+             class="h-full overflow-y-auto p-6 mc-grid-bg">
+
+          <!-- Stats Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="mc-stat-border cyan relative bg-mc-surface border border-mc-border rounded-xl p-5">
+              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Agents</div>
+              <div class="text-2xl font-bold text-mc-text" x-text="$store.agents.list.length"></div>
+              <div class="text-xs text-emerald-400 mt-1"><span x-text="$store.agents.running"></span> running</div>
+            </div>
+            <div class="mc-stat-border green relative bg-mc-surface border border-mc-border rounded-xl p-5">
+              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Sessions</div>
+              <div class="text-2xl font-bold text-mc-text" x-text="$store.sessions.list.length"></div>
+              <div class="text-xs text-mc-text-muted mt-1">Active conversations</div>
+            </div>
+            <div class="mc-stat-border purple relative bg-mc-surface border border-mc-border rounded-xl p-5">
+              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Models</div>
+              <div class="text-2xl font-bold text-mc-text">10</div>
+              <div class="text-xs text-mc-text-muted mt-1">5 cost tiers</div>
+            </div>
+            <div class="mc-stat-border amber relative bg-mc-surface border border-mc-border rounded-xl p-5">
+              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Tokens Today</div>
+              <div class="text-2xl font-bold text-mc-text" x-text="formatTokens($store.monitor.totalTokens)"></div>
+              <div class="text-xs text-mc-text-muted mt-1">~$<span x-text="$store.monitor.totalCost.toFixed(3)"></span> cost</div>
+            </div>
+          </div>
+
+          <!-- Active Agents -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-semibold text-mc-text">Active Agents</h2>
+              <button @click="$store.agents.openWizard()" class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">+ Create Agent</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <template x-for="agent in $store.agents.list" :key="agent.id">
+                <div class="bg-mc-surface border border-mc-border rounded-xl p-5 mc-card-glow transition-all cursor-pointer"
+                     @click="$store.agents.selectAgent(agent.id); $store.app.setView('agents')">
+                  <div class="flex items-start gap-3 mb-3">
+                    <span class="text-2xl" x-text="agent.emoji"></span>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-semibold text-mc-text truncate" x-text="agent.name"></span>
+                        <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                      </div>
+                      <div class="text-xs text-mc-text-muted truncate" x-text="agent.description"></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4 text-xs text-mc-text-muted">
+                    <span class="font-mono truncate max-w-[120px]" x-text="agent.model"></span>
+                    <span x-text="agent.tasksCompleted + ' tasks'"></span>
+                    <span x-text="agent.lastActive" class="ml-auto"></span>
+                  </div>
+                  <div x-show="agent.currentTask" class="mt-3 text-xs bg-mc-elevated rounded-lg px-3 py-2 text-cyan-300 truncate">
+                    <span x-text="agent.currentTask"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Quick Actions + Recent Activity -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-5">
+              <h2 class="text-sm font-semibold text-mc-text mb-4">Quick Actions</h2>
+              <div class="grid grid-cols-2 gap-3">
+                <button @click="$store.agents.openWizard()" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
+                  <span class="text-2xl group-hover:scale-110 transition-transform">🤖</span>
+                  <span class="text-xs text-mc-text-sec group-hover:text-mc-text">New Agent</span>
+                </button>
+                <button @click="$store.app.setView('workflows')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
+                  <span class="text-2xl group-hover:scale-110 transition-transform">🔧</span>
+                  <span class="text-xs text-mc-text-sec group-hover:text-mc-text">Build Workflow</span>
+                </button>
+                <button @click="$store.app.setView('chat')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
+                  <span class="text-2xl group-hover:scale-110 transition-transform">💬</span>
+                  <span class="text-xs text-mc-text-sec group-hover:text-mc-text">Chat with Agent</span>
+                </button>
+                <button @click="$store.app.setView('monitor')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
+                  <span class="text-2xl group-hover:scale-110 transition-transform">📊</span>
+                  <span class="text-xs text-mc-text-sec group-hover:text-mc-text">View Logs</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-5">
+              <h2 class="text-sm font-semibold text-mc-text mb-4">Recent Activity</h2>
+              <div class="space-y-1 max-h-48 overflow-y-auto">
+                <template x-for="(log, i) in $store.monitor.logs.slice(0, 8)" :key="i">
+                  <div class="mc-log-row flex items-start gap-3 px-2 py-1.5 rounded text-xs font-mono">
+                    <span class="text-mc-text-muted whitespace-nowrap" x-text="log.time"></span>
+                    <span class="font-semibold w-10 text-center flex-shrink-0"
+                          :class="{'text-cyan-400': log.level==='info', 'text-amber-400': log.level==='warn', 'text-red-400': log.level==='error', 'text-mc-text-muted': log.level==='debug'}"
+                          x-text="log.level.toUpperCase()"></span>
+                    <span class="text-mc-text-sec truncate" x-text="log.msg"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW: AGENTS
+             ========================================== -->
+        <div x-show="$store.app.view === 'agents'"
+             x-transition:enter="animate-fade-up"
+             class="h-full overflow-y-auto p-6 mc-grid-bg">
+
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-lg font-semibold text-mc-text">Agent Management</h2>
+              <p class="text-xs text-mc-text-muted mt-0.5">Create, configure, and manage your autonomous AI agents</p>
+            </div>
+            <button @click="$store.agents.openWizard()"
+                    class="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-mc-bg rounded-lg text-sm font-medium hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+              Create Agent
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <template x-for="agent in $store.agents.list" :key="agent.id">
+              <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
+                <div class="p-5">
+                  <div class="flex items-start gap-3 mb-4">
+                    <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-semibold text-mc-text" x-text="agent.name"></span>
+                        <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                      </div>
+                      <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
+                    </div>
+                  </div>
+                  <div class="space-y-2 text-xs">
+                    <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
+                    <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
+                    <div class="flex justify-between"><span class="text-mc-text-muted">Tokens Used</span><span class="text-mc-text-sec" x-text="formatTokens(agent.tokensUsed)"></span></div>
+                    <div class="flex justify-between"><span class="text-mc-text-muted">Last Active</span><span class="text-mc-text-sec" x-text="agent.lastActive"></span></div>
+                  </div>
+                  <div x-show="agent.tools && agent.tools.length > 0" class="mt-3 flex flex-wrap gap-1">
+                    <template x-for="toolId in agent.tools" :key="toolId">
+                      <span class="text-[10px] px-1.5 py-0.5 bg-mc-elevated rounded text-mc-text-muted"
+                            x-text="(AGENT_TOOLS.find(t => t.id === toolId) || {name: toolId}).name"></span>
+                    </template>
+                  </div>
+                </div>
+                <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
+                  <button @click="$store.agents.toggleAgent(agent.id)"
+                          class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                          :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
+                    <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
+                  </button>
+                  <button @click="$store.sessions.createSession(agent.id)"
+                          class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
+                    Chat
+                  </button>
+                  <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
+                          class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- Add Card -->
+            <div @click="$store.agents.openWizard()"
+                 class="border-2 border-dashed border-mc-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all min-h-[200px]">
+              <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center">
+                <svg class="w-6 h-6 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+              </div>
+              <span class="text-sm text-mc-text-muted">Create New Agent</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW: WORKFLOWS
+             ========================================== -->
+        <div x-show="$store.app.view === 'workflows'"
+             x-transition:enter="animate-fade-up"
+             class="h-full flex overflow-hidden">
+
+          <!-- Workflow Sidebar -->
+          <div class="w-52 min-w-[208px] bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
+            <div class="p-4 border-b border-mc-border">
+              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-3">Node Palette</div>
+              <div class="space-y-1.5">
+                <button @click="addNodeToCanvas('trigger')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🎯</span> Trigger
+                </button>
+                <button @click="addNodeToCanvas('agent')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🤖</span> Agent
+                </button>
+                <button @click="addNodeToCanvas('task')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">📋</span> Task
+                </button>
+                <button @click="addNodeToCanvas('tool')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🔧</span> Tool
+                </button>
+                <button @click="addNodeToCanvas('condition')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🔀</span> Condition
+                </button>
+                <button @click="addNodeToCanvas('loop')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🔄</span> Loop
+                </button>
+                <button @click="addNodeToCanvas('merge')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">🔗</span> Merge
+                </button>
+                <button @click="addNodeToCanvas('output')" class="mc-palette-node w-full flex items-center gap-2 px-3 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
+                  <span class="text-base">📤</span> Output
+                </button>
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-3">Saved Workflows</div>
+              <div class="space-y-1.5">
+                <template x-for="wf in $store.workflows.list" :key="wf.id">
+                  <button @click="$store.workflows.load(wf.id)"
+                          class="w-full text-left px-3 py-2 rounded-lg text-xs transition-all"
+                          :class="$store.workflows.activeId === wf.id ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated'">
+                    <div class="font-medium truncate" x-text="wf.name"></div>
+                    <div class="text-mc-text-muted mt-0.5" x-text="wf.nodes + ' nodes · ' + wf.lastRun"></div>
+                  </button>
+                </template>
+              </div>
+            </div>
+            <div class="p-3 border-t border-mc-border space-y-1.5">
+              <button @click="$store.workflows.save()"
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all">
+                Save
+              </button>
+              <button @click="$store.workflows.run()"
+                      :disabled="$store.workflows.running"
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                      :class="$store.workflows.running ? 'bg-mc-warning-dim text-amber-400 cursor-wait' : 'bg-cyan-500 text-mc-bg hover:brightness-110'">
+                <span x-text="$store.workflows.running ? 'Running...' : 'Run Workflow'"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas -->
+          <div class="flex-1 relative bg-mc-bg">
+            <canvas id="workflow-canvas" class="w-full h-full"></canvas>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW: CHAT
+             ========================================== -->
+        <div x-show="$store.app.view === 'chat'"
+             x-transition:enter="animate-fade-up"
+             class="h-full flex overflow-hidden">
+
+          <!-- Session List -->
+          <div class="w-64 min-w-[256px] bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
+            <div class="p-4 border-b border-mc-border">
+              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted">Conversations</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2">
+              <template x-for="session in $store.sessions.list" :key="session.id">
+                <button @click="$store.sessions.select(session.id)"
+                        class="w-full text-left px-3 py-3 rounded-lg mb-1 transition-all"
+                        :class="$store.sessions.activeId === session.id ? 'bg-mc-primary-dim' : 'hover:bg-mc-elevated'">
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg" x-text="session.agentEmoji"></span>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-mc-text truncate" x-text="session.agentName"></span>
+                        <span x-show="session.unread > 0"
+                              class="w-4 h-4 flex items-center justify-center text-[9px] bg-cyan-500 text-mc-bg rounded-full font-bold"
+                              x-text="session.unread"></span>
+                      </div>
+                      <div class="text-[11px] text-mc-text-muted truncate mt-0.5" x-text="session.lastMessage || session.title"></div>
+                    </div>
+                  </div>
+                </button>
+              </template>
+              <div x-show="$store.sessions.list.length === 0" class="p-4 text-center text-xs text-mc-text-muted">
+                No conversations yet.
+              </div>
+            </div>
+            <div class="p-3 border-t border-mc-border" x-data="{ showPicker: false }">
+              <button @click="showPicker = !showPicker"
+                      class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                New Conversation
+              </button>
+              <div x-show="showPicker" @click.away="showPicker = false"
+                   class="mt-2 bg-mc-elevated border border-mc-border rounded-lg overflow-hidden">
+                <template x-for="agent in $store.agents.list" :key="agent.id">
+                  <button @click="$store.sessions.createSession(agent.id); showPicker = false"
+                          class="w-full text-left px-3 py-2 text-xs hover:bg-mc-border/30 transition-all flex items-center gap-2">
+                    <span x-text="agent.emoji"></span>
+                    <span class="text-mc-text-sec" x-text="agent.name"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Area -->
+          <div class="flex-1 flex flex-col min-w-0">
+            <div x-show="$store.sessions.active" class="h-12 flex items-center px-4 border-b border-mc-border flex-shrink-0 gap-3">
+              <span class="text-lg" x-text="$store.sessions.active?.agentEmoji"></span>
+              <span class="text-sm font-semibold text-mc-text" x-text="$store.sessions.active?.agentName"></span>
+              <span class="text-xs text-mc-text-muted" x-text="$store.sessions.active?.title"></span>
+            </div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+              <template x-for="msg in $store.sessions.messages" :key="msg.id">
+                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                  <div class="max-w-[75%] rounded-xl px-4 py-3 text-sm leading-relaxed"
+                       :class="msg.role === 'user' ? 'mc-bubble-user' : 'mc-bubble-agent'">
+                    <div class="whitespace-pre-wrap" x-text="msg.content"></div>
+                    <div class="text-[10px] mt-1 opacity-40" x-text="msg.time"></div>
+                  </div>
+                </div>
+              </template>
+              <div x-show="!$store.sessions.active" class="h-full flex items-center justify-center">
+                <div class="text-center text-mc-text-muted">
+                  <div class="text-4xl mb-3 opacity-30">💬</div>
+                  <div class="text-sm">Select a conversation or start a new one</div>
+                </div>
+              </div>
+            </div>
+            <div x-show="$store.sessions.active" class="border-t border-mc-border p-4 flex gap-3 flex-shrink-0">
+              <input type="text"
+                     x-model="$store.sessions.input"
+                     @keydown.enter="$store.sessions.sendMessage()"
+                     placeholder="Type your message..."
+                     class="flex-1 bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus">
+              <button @click="$store.sessions.sendMessage()"
+                      :disabled="!$store.sessions.input.trim()"
+                      class="px-4 py-2.5 bg-cyan-500 text-mc-bg rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW: MONITOR
+             ========================================== -->
+        <div x-show="$store.app.view === 'monitor'"
+             x-transition:enter="animate-fade-up"
+             class="h-full overflow-y-auto p-6 mc-grid-bg">
+
+          <!-- System Health -->
+          <div class="mb-6">
+            <h2 class="text-sm font-semibold text-mc-text mb-4">System Health</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
+                <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
+                <div>
+                  <div class="text-xs text-mc-text-muted">OpenClaw</div>
+                  <div class="text-sm font-medium" :class="$store.app.connected ? 'text-emerald-400' : 'text-mc-text-muted'"
+                       x-text="$store.app.connected ? 'Connected' : 'Offline'"></div>
+                </div>
+              </div>
+              <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
+                <span class="mc-dot mc-dot-connected"></span>
+                <div>
+                  <div class="text-xs text-mc-text-muted">LiteLLM</div>
+                  <div class="text-sm font-medium text-emerald-400">Healthy</div>
+                </div>
+              </div>
+              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
+                <div class="text-xs text-mc-text-muted">Models Available</div>
+                <div class="text-lg font-bold text-mc-text" x-text="$store.monitor.systemHealth.modelsAvailable"></div>
+              </div>
+              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
+                <div class="text-xs text-mc-text-muted">Uptime</div>
+                <div class="text-lg font-bold text-mc-text font-mono" x-text="$store.monitor.systemHealth.uptime"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Token Usage -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-semibold text-mc-text">Token Usage (Today)</h2>
+              <span class="text-xs text-mc-text-muted font-mono">
+                Total: <span x-text="formatTokens($store.monitor.totalTokens)"></span>
+                · ~$<span x-text="$store.monitor.totalCost.toFixed(3)"></span>
+              </span>
+            </div>
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-5 space-y-4">
+              <template x-for="(usage, modelId) in $store.monitor.tokenUsage" :key="modelId">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-mono text-mc-text-sec" x-text="modelId"></span>
+                    <span class="text-xs text-mc-text-muted" x-text="formatTokens(usage.input + usage.output) + ' tokens'"></span>
+                  </div>
+                  <div class="mc-usage-track">
+                    <div class="mc-usage-fill bg-cyan-500"
+                         :style="'width: ' + Math.round((usage.input + usage.output) / $store.monitor.maxUsage() * 100) + '%'"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Activity Log -->
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-sm font-semibold text-mc-text">Activity Log</h2>
+              <div class="flex gap-1">
+                <template x-for="level in ['all', 'info', 'warn', 'error', 'debug']" :key="level">
+                  <button @click="$store.monitor.logFilter = level"
+                          class="px-2 py-1 rounded text-[10px] font-mono uppercase transition-all"
+                          :class="$store.monitor.logFilter === level ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-muted hover:text-mc-text-sec'">
+                    <span x-text="level"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
+              <div class="max-h-96 overflow-y-auto p-2">
+                <template x-for="(log, i) in $store.monitor.filteredLogs" :key="i">
+                  <div class="mc-log-row flex items-start gap-3 px-3 py-1.5 rounded text-xs font-mono">
+                    <span class="text-mc-text-muted whitespace-nowrap" x-text="log.time"></span>
+                    <span class="font-semibold w-11 text-center flex-shrink-0"
+                          :class="{'text-cyan-400': log.level==='info', 'text-amber-400': log.level==='warn', 'text-red-400': log.level==='error', 'text-mc-text-muted': log.level==='debug'}"
+                          x-text="log.level.toUpperCase()"></span>
+                    <span class="text-mc-text-sec" x-text="log.msg"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ================================================================
+           STATUS BAR
+           ================================================================ -->
+      <footer class="h-9 min-h-[36px] bg-mc-surface border-t border-mc-border flex items-center px-4 gap-4 text-[11px] font-mono text-mc-text-muted flex-shrink-0">
+        <div class="flex items-center gap-1.5">
+          <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
+          <span x-text="$store.app.connected ? 'OpenClaw Connected' : 'Demo Mode'"></span>
+        </div>
+        <span class="opacity-30">|</span>
+        <span x-text="$store.agents.list.length + ' agents'"></span>
+        <span class="opacity-30">|</span>
+        <span x-text="$store.agents.running + ' active'"></span>
+        <span class="opacity-30">|</span>
+        <span x-text="$store.sessions.list.length + ' sessions'"></span>
+        <div class="flex-1"></div>
+        <span class="opacity-50">in-fused.org</span>
+      </footer>
+    </div>
+
+  </div>
+
+  <!-- ====================================================================
+       AGENT CREATION WIZARD (Modal Overlay)
+       ==================================================================== -->
+  <div x-data x-show="$store.agents.wizardOpen" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$store.agents.closeWizard()"></div>
+
+    <!-- Modal -->
+    <div class="relative bg-mc-surface border border-mc-border rounded-2xl w-[90%] max-w-xl max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
+
+      <!-- Header -->
+      <div class="px-6 pt-6 pb-4 border-b border-mc-border">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-mc-text">Create New Agent</h2>
+          <button @click="$store.agents.closeWizard()"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-muted hover:text-mc-text hover:bg-mc-elevated transition-all">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Step Indicators -->
+        <div class="flex items-center gap-2 mt-4">
+          <template x-for="step in [1, 2, 3, 4]" :key="step">
+            <div class="flex items-center gap-2">
+              <div class="mc-step-dot" :class="$store.agents.wizardStep > step ? 'done' : ($store.agents.wizardStep === step ? 'active' : '')">
+                <span x-show="$store.agents.wizardStep <= step" x-text="step"></span>
+                <span x-show="$store.agents.wizardStep > step">&#10003;</span>
+              </div>
+              <div x-show="step < 4" class="mc-step-line" :class="$store.agents.wizardStep > step ? 'done' : ''"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Step Content -->
+      <div class="p-6">
+
+        <!-- STEP 1: Identity -->
+        <div x-show="$store.agents.wizardStep === 1">
+          <h3 class="text-sm font-semibold text-mc-text mb-4">Agent Identity</h3>
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Name</label>
+            <input type="text" x-model="$store.agents.wizard.name"
+                   placeholder="e.g., CodeCraft, Sentinel, Scribe..."
+                   class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus">
+          </div>
+          <div class="mb-4">
+            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Avatar</label>
+            <div class="grid grid-cols-8 gap-1.5">
+              <template x-for="emoji in AGENT_EMOJIS" :key="emoji">
+                <button @click="$store.agents.wizard.emoji = emoji"
+                        class="mc-emoji-btn" :class="$store.agents.wizard.emoji === emoji ? 'selected' : ''"
+                        x-text="emoji"></button>
+              </template>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Description</label>
+            <input type="text" x-model="$store.agents.wizard.description"
+                   placeholder="Brief description of what this agent does..."
+                   class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus">
+          </div>
+        </div>
+
+        <!-- STEP 2: Model -->
+        <div x-show="$store.agents.wizardStep === 2">
+          <h3 class="text-sm font-semibold text-mc-text mb-4">Choose Model</h3>
+          <div class="space-y-2 max-h-[50vh] overflow-y-auto">
+            <template x-for="model in MODELS" :key="model.id">
+              <button @click="$store.agents.wizard.model = model.id"
+                      class="w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center gap-3"
+                      :class="$store.agents.wizard.model === model.id ? 'border-cyan-500 bg-mc-primary-dim' : 'border-mc-border bg-mc-bg hover:border-mc-text-muted'">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-mc-text" x-text="model.name"></span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          :class="{'bg-emerald-500/10 text-emerald-400': model.tier === 'free', 'bg-cyan-500/10 text-cyan-400': model.tier === 'cheap', 'bg-amber-500/10 text-amber-400': model.tier === 'mid', 'bg-violet-500/10 text-violet-400': model.tier === 'premium'}"
+                          x-text="model.tier.toUpperCase()"></span>
+                  </div>
+                  <div class="text-xs text-mc-text-muted mt-0.5" x-text="model.desc"></div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <div class="text-xs font-mono text-mc-text-sec" x-text="model.cost"></div>
+                  <div class="text-[10px] text-mc-text-muted" x-text="model.provider"></div>
+                </div>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- STEP 3: System Prompt & Tools -->
+        <div x-show="$store.agents.wizardStep === 3">
+          <h3 class="text-sm font-semibold text-mc-text mb-4">System Prompt</h3>
+          <div class="mb-6">
+            <textarea x-model="$store.agents.wizard.systemPrompt"
+                      placeholder="Define the agent's role, personality, and instructions...&#10;&#10;Example: You are a senior full-stack developer specializing in TypeScript and React. Review code for bugs, security issues, and performance problems."
+                      rows="5"
+                      class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-3 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus font-mono resize-y"></textarea>
+          </div>
+          <h3 class="text-sm font-semibold text-mc-text mb-3">Tools & Capabilities</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="tool in AGENT_TOOLS" :key="tool.id">
+              <button @click="$store.agents.toggleTool(tool.id)"
+                      class="text-left px-3 py-3 rounded-lg border transition-all"
+                      :class="$store.agents.wizard.tools.includes(tool.id) ? 'border-cyan-500 bg-mc-primary-dim' : 'border-mc-border bg-mc-bg hover:border-mc-text-muted'">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-base" x-text="tool.icon"></span>
+                  <span class="text-xs font-medium text-mc-text" x-text="tool.name"></span>
+                </div>
+                <div class="text-[10px] text-mc-text-muted" x-text="tool.desc"></div>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- STEP 4: Review -->
+        <div x-show="$store.agents.wizardStep === 4">
+          <h3 class="text-sm font-semibold text-mc-text mb-4">Review & Create</h3>
+          <div class="bg-mc-bg border border-mc-border rounded-xl p-5 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl bg-mc-elevated flex items-center justify-center text-3xl" x-text="$store.agents.wizard.emoji"></div>
+              <div>
+                <div class="text-base font-semibold text-mc-text" x-text="$store.agents.wizard.name || 'Unnamed Agent'"></div>
+                <div class="text-xs text-mc-text-muted" x-text="$store.agents.wizard.description || 'No description'"></div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div class="text-mc-text-muted uppercase tracking-wider mb-0.5">Model</div>
+                <div class="text-mc-text font-mono" x-text="$store.agents.wizard.model"></div>
+              </div>
+              <div>
+                <div class="text-mc-text-muted uppercase tracking-wider mb-0.5">Tools</div>
+                <div class="text-mc-text" x-text="$store.agents.wizard.tools.length + ' enabled'"></div>
+              </div>
+            </div>
+            <div x-show="$store.agents.wizard.systemPrompt">
+              <div class="text-xs text-mc-text-muted uppercase tracking-wider mb-1">System Prompt</div>
+              <div class="text-xs text-mc-text-sec font-mono bg-mc-elevated rounded-lg p-3 max-h-24 overflow-y-auto whitespace-pre-wrap"
+                   x-text="$store.agents.wizard.systemPrompt"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-mc-border flex justify-between">
+        <button @click="$store.agents.wizardStep > 1 ? $store.agents.prevStep() : $store.agents.closeWizard()"
+                class="px-4 py-2 rounded-lg text-sm text-mc-text-sec border border-mc-border hover:bg-mc-elevated transition-all">
+          <span x-text="$store.agents.wizardStep > 1 ? 'Back' : 'Cancel'"></span>
+        </button>
+        <button x-show="$store.agents.wizardStep < 4"
+                @click="$store.agents.nextStep()"
+                :disabled="$store.agents.wizardStep === 1 && !$store.agents.wizard.name.trim()"
+                class="px-5 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-mc-bg hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+          Next
+        </button>
+        <button x-show="$store.agents.wizardStep === 4"
+                @click="$store.agents.createAgent()"
+                class="px-5 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-mc-bg hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20">
+          Create Agent
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       SCRIPTS (order matters: app.js → litegraph → workflow.js)
+       ==================================================================== -->
+  <script src="js/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.18/build/litegraph.min.js"></script>
+  <script src="js/workflow.js"></script>
+
 </body>
 </html>

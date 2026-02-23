@@ -218,8 +218,9 @@ services:
   # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content
   # ===========================================================================
-  # Runs once on deploy to copy workspace/ files into the shared volume.
-  # Only copies if index.html doesn't already exist (won't overwrite agent work).
+  # Runs once on deploy to sync workspace/ seed files into the shared volume.
+  # Always copies seed files (so Mission Control updates are deployed).
+  # Agent-created files in other paths are preserved.
   workspace-init:
     image: alpine:3
     container_name: workspace-init
@@ -227,7 +228,7 @@ services:
       - ./workspace:/seed:ro
       - agent-workspace:/workspace
     command: >
-      sh -c "[ -f /workspace/index.html ] && echo 'Workspace already initialized' || cp -r /seed/. /workspace/"
+      sh -c "cp -r /seed/. /workspace/ && echo 'Workspace synced from seed'"
     restart: "no"
 
   # ===========================================================================
