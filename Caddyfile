@@ -73,11 +73,17 @@
 	}
 
 	# =========================================================================
-	# Agent Workspace — /workspace/*
+	# Agent Workspace (Mission Control) — /workspace/*
 	# =========================================================================
-	# Sandboxed file server for agent-created content. OpenClaw agents write
-	# files to the shared volume; Caddy serves them read-only.
+	# Protected by basicauth using the same password as OpenClaw.
+	# Hash is generated at container startup by caddy-entrypoint.sh.
+	# Bare /workspace redirects to /workspace/ for sidebar integration.
+	@workspacebare path /workspace
+	redir @workspacebare /workspace/ 301
 	handle_path /workspace/* {
+		basicauth {
+			admin {$WORKSPACE_PASS_HASH}
+		}
 		header Cache-Control "public, max-age=3600"
 		root * /srv/workspace
 		file_server

@@ -200,11 +200,18 @@
         <h1 class="text-base font-semibold text-mc-text capitalize" x-text="$store.app.view"></h1>
         <div class="flex-1"></div>
 
-        <!-- Demo Mode Badge -->
-        <span x-show="$store.app.demoMode"
-              class="text-[10px] font-mono bg-mc-warning-dim text-amber-400 px-2 py-0.5 rounded-full tracking-wide">
-          DEMO
-        </span>
+        <!-- Demo Mode Badge + Reconnect -->
+        <template x-if="$store.app.demoMode">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono bg-mc-warning-dim text-amber-400 px-2 py-0.5 rounded-full tracking-wide">
+              DEMO
+            </span>
+            <button @click="$store.app.reconnect()"
+                    class="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-full tracking-wide hover:bg-cyan-500/20 transition-all cursor-pointer">
+              Reconnect
+            </button>
+          </div>
+        </template>
 
         <!-- Quick Actions -->
         <button @click="$store.agents.openWizard()"

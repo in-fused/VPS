@@ -31,11 +31,14 @@ services:
       - "443:443/udp"  # HTTP/3
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./scripts:/opt/scripts:ro
       - caddy-data:/data
       - caddy-config:/config
       - agent-workspace:/srv/workspace:ro
+    command: ["/bin/sh", "/opt/scripts/caddy-entrypoint.sh"]
     environment:
       - DOMAIN=${DOMAIN:-}
+      - WORKSPACE_PASSWORD=${OPENCLAW_PASSWORD}
     networks:
       - ai-net
     depends_on:

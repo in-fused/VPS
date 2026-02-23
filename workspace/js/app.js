@@ -127,13 +127,21 @@ class OpenClawConnection {
     this.ws = null;
     this.connected = false;
     this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 8; // stop after 8 tries (~4 min with backoff)
+    this.autoReconnect = true;
     this.messageId = 0;
     this.pendingRequests = new Map();
     this.listeners = new Map();
+    this._url = null;
+    this._password = null;
   }
 
   connect(url, password) {
     if (this.ws) this.disconnect();
+    this._url = url;
+    this._password = password;
+    this.autoReconnect = true;
 
     try {
       this.ws = new WebSocket(url);
@@ -144,6 +152,7 @@ class OpenClawConnection {
           this.send('auth', { password });
         }
         this.connected = true;
+        this.reconnectAttempts = 0; // reset backoff on success
         this._emit('connected');
         this._addLog('info', 'Connected to OpenClaw gateway');
       };
@@ -158,15 +167,37 @@ class OpenClawConnection {
       };
 
       this.ws.onclose = () => {
+        const wasConnected = this.connected;
         this.connected = false;
         this._emit('disconnected');
-        this._addLog('warn', 'Disconnected from OpenClaw gateway');
-        // Auto-reconnect after 5s
-        this.reconnectTimer = setTimeout(() => this.connect(url, password), 5000);
+
+        if (!this.autoReconnect) return;
+
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this._addLog('warn', 'Disconnected — gave up reconnecting after ' + this.reconnectAttempts + ' attempts');
+          this.autoReconnect = false;
+          return;
+        }
+
+        // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 60s cap
+        const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
+        this.reconnectAttempts++;
+        const delaySec = Math.round(delay / 1000);
+
+        if (wasConnected) {
+          this._addLog('warn', 'Disconnected from OpenClaw gateway — reconnecting in ' + delaySec + 's');
+        } else {
+          this._addLog('debug', 'Connection attempt ' + this.reconnectAttempts + '/' + this.maxReconnectAttempts + ' — retry in ' + delaySec + 's');
+        }
+
+        this.reconnectTimer = setTimeout(() => this.connect(url, password), delay);
       };
 
       this.ws.onerror = () => {
-        this._addLog('error', 'WebSocket connection failed');
+        // Only log on first attempt to avoid spamming
+        if (this.reconnectAttempts === 0) {
+          this._addLog('error', 'WebSocket connection failed');
+        }
       };
 
     } catch (e) {
@@ -175,13 +206,23 @@ class OpenClawConnection {
   }
 
   disconnect() {
+    this.autoReconnect = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     if (this.ws) {
       this.ws.onclose = null; // prevent reconnect
       this.ws.close();
       this.ws = null;
     }
     this.connected = false;
+  }
+
+  // Manual reconnect (resets backoff)
+  retry() {
+    if (this._url) {
+      this.reconnectAttempts = 0;
+      this.connect(this._url, this._password);
+    }
   }
 
   send(method, params = {}) {
@@ -300,13 +341,30 @@ document.addEventListener('alpine:init', () => {
       // Attempt connection (will fall back to demo mode if it fails)
       ocConnection.connect(wsUrl);
 
-      // If not connected after 3s, stay in demo mode
+      // If not connected after 5s, enter demo mode and stop reconnecting
       setTimeout(() => {
         if (!this.connected) {
           this.demoMode = true;
-          Alpine.store('monitor').addLog('info', 'Running in demo mode — no live OpenClaw connection');
+          ocConnection.disconnect(); // stop the reconnect loop
+          Alpine.store('monitor').addLog('info', 'Running in demo mode — use Reconnect to try again');
         }
-      }, 3000);
+      }, 5000);
+    },
+
+    // Manual reconnect triggered from UI
+    reconnect() {
+      this.demoMode = false;
+      Alpine.store('monitor').addLog('info', 'Attempting to reconnect to OpenClaw...');
+      ocConnection.retry();
+
+      // If still not connected after 5s, go back to demo mode
+      setTimeout(() => {
+        if (!this.connected) {
+          this.demoMode = true;
+          ocConnection.disconnect();
+          Alpine.store('monitor').addLog('warn', 'Reconnect failed — back to demo mode');
+        }
+      }, 5000);
     },
   });
 
