@@ -59,9 +59,6 @@
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
 
-  <!-- Auth hash injected by Caddy templates at serve time -->
-  <script>window.__AUTH_HASH = '{{env "WORKSPACE_PASS_SHA256"}}';</script>
-
   <!-- x-cloak: hide Alpine elements until initialized -->
   <style>[x-cloak] { display: none !important; }</style>
 </head>

@@ -137,8 +137,7 @@
       opacity: 0.5;
     }
   </style>
-  <!-- Auth hash injected by Caddy templates -->
-  <script>window.__OC_AUTH_HASH = '{{env "WORKSPACE_PASS_SHA256"}}';</script>
+  <!-- Auth verified server-side via /auth/verify -->
 </head>
 <body>
   <div class="auth-container">
@@ -195,29 +194,35 @@
         return;
       }
 
-      if (user.toLowerCase() !== 'admin') {
-        errEl.textContent = 'Invalid credentials';
-        errEl.classList.add('show');
-        document.getElementById('password').value = '';
-        return;
-      }
-
       btn.disabled = true;
       btn.textContent = 'Verifying...';
 
-      var hash = await sha256(pass);
-      if (hash === window.__OC_AUTH_HASH) {
-        // Set auth cookie — path covers /openclaw/* and expires in 24h
-        document.cookie = 'mc_oc=' + hash + '; path=/openclaw; SameSite=Lax; max-age=86400';
-        // Redirect to OpenClaw
-        window.location.reload();
-      } else {
-        errEl.textContent = 'Invalid credentials';
-        errEl.classList.add('show');
-        document.getElementById('password').value = '';
-        btn.disabled = false;
-        btn.textContent = 'Access OpenClaw';
+      try {
+        // Server-side verification via Caddy basicauth
+        var resp = await fetch('/auth/verify', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa(user + ':' + pass),
+          },
+        });
+
+        if (resp.ok) {
+          // Compute SHA-256 client-side for the cookie value
+          var hash = await sha256(pass);
+          var secure = location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
+          window.location.reload();
+          return;
+        }
+      } catch (e) {
+        // Network error
       }
+
+      errEl.textContent = 'Invalid credentials';
+      errEl.classList.add('show');
+      document.getElementById('password').value = '';
+      btn.disabled = false;
+      btn.textContent = 'Access OpenClaw';
     }
   </script>
 </body>

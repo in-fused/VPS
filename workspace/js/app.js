@@ -313,35 +313,46 @@ document.addEventListener('alpine:init', () => {
     ok: false,
 
     init() {
-      // No hash configured = no auth required (local dev / no password set)
-      if (!window.__AUTH_HASH) {
-        this.ok = true;
-        return;
-      }
-      // Check existing session
+      // Check existing session token
       const stored = sessionStorage.getItem('mc-auth');
-      if (stored === window.__AUTH_HASH) {
+      if (stored) {
         this.ok = true;
       }
     },
 
     async login(username, password) {
       if (!username || !password) return false;
-      if (username.toLowerCase() !== 'admin') return false;
 
-      const hash = await sha256(password);
-      if (hash === window.__AUTH_HASH) {
-        sessionStorage.setItem('mc-auth', hash);
-        this.ok = true;
-        // Kick off boot sequence after auth
-        Alpine.store('app').boot();
-        return true;
+      try {
+        // Server-side verification via Caddy basicauth
+        const resp = await fetch('/auth/verify', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa(username + ':' + password),
+          },
+        });
+
+        if (resp.ok) {
+          // Compute SHA-256 client-side for the OpenClaw cookie
+          const hash = await sha256(password);
+          // Set cookie for OpenClaw WebSocket and /openclaw/* auth gate
+          const secure = location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
+          // Session marker (no secrets stored — just a flag)
+          sessionStorage.setItem('mc-auth', '1');
+          this.ok = true;
+          Alpine.store('app').boot();
+          return true;
+        }
+      } catch (e) {
+        // Network error — fall through to return false
       }
       return false;
     },
 
     logout() {
       sessionStorage.removeItem('mc-auth');
+      document.cookie = 'mc_oc=; path=/; max-age=0';
       this.ok = false;
     },
   });

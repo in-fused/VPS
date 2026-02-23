@@ -19,8 +19,25 @@
 		X-Content-Type-Options "nosniff"
 		# Referrer policy
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# Content Security Policy — allow self, CDN assets, Google Fonts, inline for Alpine/Tailwind
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss://{host} ws://{host}; frame-ancestors 'self'"
 		# Remove server identification
 		-Server
+	}
+
+	# =========================================================================
+	# Auth Verification Endpoint — /auth/verify
+	# =========================================================================
+	# Server-side password verification using Caddy basicauth with bcrypt.
+	# Auth pages send credentials via fetch() with Authorization header.
+	# Returns 200 on success, 401 on failure.
+	# The WWW-Authenticate header is suppressed to prevent browser native dialog.
+	handle /auth/verify {
+		header -WWW-Authenticate
+		basicauth {
+			admin {$WORKSPACE_PASS_BCRYPT}
+		}
+		respond "OK" 200
 	}
 
 	# =========================================================================
@@ -56,20 +73,23 @@
 		handle {
 			rewrite * /openclaw-auth.html
 			templates
+			header Cache-Control "no-store, no-cache, must-revalidate"
 			root * /srv/workspace
 			file_server
 		}
 	}
 
 	# =========================================================================
-	# OpenClaw WebSocket — root path upgrade
+	# OpenClaw WebSocket — root path upgrade (authenticated)
 	# =========================================================================
 	# The Control UI JavaScript connects its WebSocket to wss://host/
 	# (root path, ignoring basePath). Route root-path WebSocket upgrades
 	# to OpenClaw. Open WebUI's WebSocket uses /socket.io/ so no conflict.
+	# Requires the mc_oc auth cookie — unauthenticated WS requests get 403.
 	@openclawws {
 		path /
 		header Upgrade websocket
+		cookie mc_oc {$WORKSPACE_PASS_SHA256}
 	}
 	handle @openclawws {
 		reverse_proxy openclaw:18789 {
@@ -83,15 +103,13 @@
 	# =========================================================================
 	# Agent Workspace (Mission Control) — /workspace/*
 	# =========================================================================
-	# Auth is handled client-side: caddy-entrypoint.sh computes a SHA-256
-	# hash of WORKSPACE_PASSWORD, Caddy templates injects it into index.html,
-	# and the login screen verifies user input against it.
+	# Auth is handled via fetch() to /auth/verify. No hash in HTML source.
 	# Bare /workspace redirects to /workspace/ for direct URL access.
 	@workspacebare path /workspace
 	redir @workspacebare /workspace/ 301
 	handle_path /workspace/* {
 		templates
-		header Cache-Control "no-cache"
+		header Cache-Control "no-store, no-cache, must-revalidate"
 		root * /srv/workspace
 		file_server
 	}

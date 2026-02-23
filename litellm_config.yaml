@@ -153,19 +153,16 @@ model_list:
 # =============================================================================
 general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  # Allow connections from Open WebUI
-  allowed_origins: ["*"]
+  # Allow connections from our domain only
+  allowed_origins: ["https://in-fused.org"]
 
 litellm_settings:
   # Drop unsupported params (e.g. 'store') instead of rejecting requests
   drop_params: true
   # Enable streaming for all models
   set_verbose: false
-  # Cache responses to save tokens on repeated queries
-  cache: true
-  cache_params:
-    type: "local"
-    ttl: 600  # Cache for 10 minutes
+  # Cache disabled — prevents cross-user response leakage
+  cache: false
   # Request timeout
   request_timeout: 120
   # Number of retries on failure

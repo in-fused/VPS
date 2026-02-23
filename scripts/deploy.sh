@@ -123,6 +123,17 @@ if [ -z "${LITELLM_SALT_KEY:-}" ]; then
     UPDATED_ENV=true
 fi
 
+if [ -z "${DB_PASSWORD:-}" ]; then
+    DBPASS=$(openssl rand -hex 16)
+    if grep -q "^DB_PASSWORD=" .env; then
+        sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$DBPASS|" .env
+    else
+        echo "DB_PASSWORD=$DBPASS" >> .env
+    fi
+    log_info "Generated DB_PASSWORD"
+    UPDATED_ENV=true
+fi
+
 if [ -z "${OPENCLAW_PASSWORD:-}" ]; then
     CLAWPASS=$(openssl rand -hex 8)
     if grep -q "^OPENCLAW_PASSWORD=" .env; then
