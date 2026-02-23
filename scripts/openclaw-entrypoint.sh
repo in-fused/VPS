@@ -50,7 +50,16 @@ config.models.providers.litellm = {
   apiKey: process.env.OPENAI_API_KEY || '',
   api: 'openai-completions',
   models: [
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (via LiteLLM)', contextWindow: 128000, maxTokens: 16384 }
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (cheap)', contextWindow: 128000, maxTokens: 16384 },
+    { id: 'deepseek-chat', name: 'DeepSeek Chat (cheap)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'deepseek-coder', name: 'DeepSeek Coder (cheap)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'claude-haiku', name: 'Claude Haiku (mid)', contextWindow: 200000, maxTokens: 4096 },
+    { id: 'claude-sonnet', name: 'Claude Sonnet (premium)', contextWindow: 200000, maxTokens: 8192 },
+    { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
+    { id: 'groq/llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'groq/mixtral-8x7b', name: 'Mixtral 8x7B on Groq (free)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B (free/local)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 }
   ]
 };
 

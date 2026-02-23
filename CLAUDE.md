@@ -13,12 +13,11 @@ Internet → https://in-fused.org
   AWS EC2 t3.small (2 vCPU, 2GB RAM, 4GB swap, 30GB gp3)
     │
     ├── Caddy (reverse proxy, auto-HTTPS via Let's Encrypt)
-    │     ├── /                    → portal/index.html (3D miniverse landing page)
-    │     ├── /chat, /auth, etc.   → Open WebUI :8080 (ChatGPT-like SPA)
     │     ├── /api/litellm/*       → LiteLLM :4000 (multi-provider API gateway)
     │     ├── /openclaw/*          → OpenClaw :18789 (agent UI + API)
     │     ├── / (WebSocket upgrade)→ OpenClaw :18789 (root WebSocket)
-    │     └── /workspace/*         → Static files from agent-workspace volume
+    │     ├── /workspace/*         → Static files from agent-workspace volume
+    │     └── / (everything else)  → Open WebUI :8080 (landing page + SPA)
     │
     ├── Open WebUI → LiteLLM (http://litellm:4000/v1)
     ├── LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, MiniMax, Ollama
@@ -43,17 +42,14 @@ VPS/
 ├── Caddyfile                        ← Reverse proxy routing config
 ├── docker-compose.yml               ← 8 services (7 core + 1 optional)
 ├── litellm_config.yaml              ← 15 models in 5 cost tiers
-├── README.md                        ← 651-line setup guide (Windows/PowerShell focused)
-├── portal/
-│   └── index.html                   ← 3D miniverse landing page (796 lines, served at /)
+├── README.md                        ← Setup guide (Windows/PowerShell focused)
 ├── workspace/
-│   └── index.html                   ← "Neural Fusion" agent workspace page (563 lines)
+│   └── index.html                   ← "Neural Fusion" agent workspace page (served at /workspace/)
 └── scripts/
     ├── deploy.sh                    ← Stack deployment (pulls images, generates secrets, health checks)
     ├── setup-server.sh              ← Server hardening (SSH, UFW, fail2ban, Docker, swap)
     ├── setup-ollama-server.sh       ← Oracle Cloud Ollama server setup
-    ├── openclaw-entrypoint.sh       ← OpenClaw container entrypoint (config patching)
-    └── patch-openclaw-config.js     ← Standalone OpenClaw config patcher
+    └── openclaw-entrypoint.sh       ← OpenClaw container entrypoint (config patching)
 ```
 
 ## Docker Services (docker-compose.yml)
@@ -80,8 +76,9 @@ Routes are evaluated top-to-bottom with first-match:
 3. `/openclaw/*` → `handle` preserves prefix → openclaw:18789 (strips X-Frame-Options and CSP headers for iframe embedding)
 4. `/ + Upgrade: websocket` → `@openclawws` matcher → openclaw:18789 (OpenClaw WebSocket; Open WebUI uses `/socket.io/`)
 5. `/workspace/*` → `handle_path` strips prefix → static files from /srv/workspace
-6. `/` exact, non-WebSocket → `@portal` matcher → static file /srv/portal/index.html (miniverse landing page)
-7. Everything else (fallthrough `handle`) → open-webui:8080 (SPA routes: /chat, /auth, /_app/*, etc.)
+6. Everything else (fallthrough `handle`) → open-webui:8080 (landing page at `/`, SPA routes: /auth, /_app/*, etc.)
+
+Note: A miniverse portal page was built and served at `/` but was removed (commit `c0c55c6`) because Open WebUI requires the root path — it has no `/chat` route, the chat interface IS the root page.
 
 ## LiteLLM Model Tiers (litellm_config.yaml)
 
@@ -102,21 +99,15 @@ The entrypoint script patches `/home/node/.openclaw/openclaw.json` on every cont
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
 - Custom "litellm" provider: points at http://litellm:4000/v1 using openai-completions wire format
 - Default model: `litellm/gpt-4o-mini`
+- Available models: all LiteLLM models (gpt-4o-mini, deepseek-chat/coder, claude-haiku/sonnet, gpt-4o, groq models, ollama models)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
 
 ## Frontend Pages
 
-### 1. Miniverse Portal (portal/index.html) — served at `/`
-- 796-line single-file HTML/CSS/JS page
-- 3D CSS terrarium with isometric perspective (rotateX 55deg, rotateZ -45deg)
-- Three clickable zone platforms: **Chat** (blue, navigates to /chat), **Agents** (amber, opens OpenClaw iframe overlay), **Status** (green, opens health dashboard overlay)
-- Neural network canvas background (60 nodes desktop, 30 mobile) with mouse-tracking particle attraction
-- Color transitions: blue → amber (agents), blue → green (status)
-- Status dashboard: checks Open WebUI, LiteLLM, OpenClaw health + fetches model list from `/api/litellm/v1/models`
-- Responsive breakpoints at 768px and 480px
-- Nav links below terrarium: Open WebUI, OpenClaw Direct, LiteLLM API
+### Landing Page — `/`
+Open WebUI serves as the landing page. It is a ChatGPT-like SvelteKit SPA that occupies the root path. There is no separate portal page (it was removed — see Caddy Routing note above).
 
-### 2. Agent Workspace (workspace/index.html) — served at `/workspace/`
+### Agent Workspace (workspace/index.html) — served at `/workspace/`
 - 563-line single-file page titled "Neural Fusion"
 - Same neural canvas animation
 - Status indicators for all three services (30s refresh)
@@ -143,38 +134,27 @@ Getting OpenClaw accessible through Caddy required fixing:
 - Provider fallback: OpenClaw defaults to "anthropic" provider if not explicitly constrained to "litellm" only
 
 ### Iframe Embedding
-OpenClaw sends its own `X-Frame-Options` and `Content-Security-Policy` headers. Caddy's `header_down -X-Frame-Options` and `header_down -Content-Security-Policy` in the `/openclaw/*` handler strip these so the global `SAMEORIGIN` applies, allowing the portal's iframe embed.
+OpenClaw sends its own `X-Frame-Options` and `Content-Security-Policy` headers. Caddy's `header_down -X-Frame-Options` and `header_down -Content-Security-Policy` in the `/openclaw/*` handler strip these so the global `SAMEORIGIN` applies, allowing the workspace page's iframe embed.
 
 ## Git Info
 
-- **Branch**: `claude/setup-ec2-vps-nN6Gj`
 - **Remote**: origin (GitHub: in-fused/VPS)
-- **41 commits** from Feb 20-22, 2026
-- Progression: initial setup → SSH hardening fixes → LiteLLM fixes → OpenClaw memory battle → OpenClaw networking → auth/WebSocket fixes → frontend pages → miniverse portal
+- **45+ commits** from Feb 20-23, 2026
+- Progression: initial setup → SSH hardening → LiteLLM fixes → OpenClaw memory battle → OpenClaw networking → auth/WebSocket fixes → portal (built then removed) → OpenClaw chat fixes → full audit
 
-## Current State (as of latest commit f717f9d)
+## Current State (as of Feb 23, 2026)
 
-**Everything is implemented and committed.** The working tree is clean. The miniverse portal exists and the Caddyfile/docker-compose are configured for it. The stack is:
-- Portal landing page at `/` ✓
-- Open WebUI at `/chat` ✓
-- OpenClaw at `/openclaw/` (with iframe embed in portal) ✓
-- LiteLLM at `/api/litellm/` ✓
+The stack is deployed and functional:
+- Open WebUI at `/` (landing page + chat interface) ✓
+- OpenClaw at `/openclaw/` (with iframe embed in workspace page) ✓
+- LiteLLM at `/api/litellm/` (15 models across 5 cost tiers) ✓
 - Workspace at `/workspace/` ✓
-- Health checks in status dashboard ✓
 - All routing configured in Caddyfile ✓
 - All volumes configured in docker-compose.yml ✓
+- OpenClaw has access to all LiteLLM models (10 models exposed) ✓
 
-## What Was Planned But May Need Refinement
-
-A detailed architectural plan was produced for enhancing the miniverse portal. The plan proposed:
-- True CSS 3D platforms with depth (face-top, face-front, face-right) instead of flat zones
-- Floating idle animation on zone platforms
-- Atmospheric CSS particles
-- More sophisticated zone-entry transitions (world zooms/tilts, panel slides in)
-- Mobile layout that flattens 3D to vertical card stack
-- Cache-Control headers for the portal page
-
-The current portal (portal/index.html) already implements the core concept but uses simpler flat zone platforms rather than the full 3D extruded platforms from the plan. The plan's enhancements could be applied as polish.
+### What Was Removed
+The 3D miniverse portal page (`portal/index.html`) was built and served at `/` but was removed because Open WebUI's SvelteKit SPA requires the root path — it has no `/chat` route. The portal's Chat button linked to `/chat` which caused 404s. Open WebUI now serves directly as the landing page.
 
 ## Environment Variables (.env)
 

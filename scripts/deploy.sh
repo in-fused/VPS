@@ -162,7 +162,7 @@ log_info "Waiting for services to become healthy..."
 
 # Wait for LiteLLM
 for i in $(seq 1 30); do
-    if docker compose exec -T litellm curl -sf http://localhost:4000/health > /dev/null 2>&1; then
+    if docker compose exec -T litellm curl -sf http://localhost:4000/health/liveliness > /dev/null 2>&1; then
         log_ok "LiteLLM is healthy"
         break
     fi
@@ -180,6 +180,18 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         log_warn "Open WebUI health check timed out (may still be starting)"
+    fi
+    sleep 3
+done
+
+# Wait for OpenClaw
+for i in $(seq 1 30); do
+    if docker compose exec -T openclaw wget -qO- http://localhost:18789/openclaw/ > /dev/null 2>&1; then
+        log_ok "OpenClaw is healthy"
+        break
+    fi
+    if [ "$i" -eq 30 ]; then
+        log_warn "OpenClaw health check timed out (may still be starting)"
     fi
     sleep 3
 done
