@@ -384,18 +384,22 @@ document.addEventListener('alpine:init', () => {
         this.demoMode = false;
       });
 
+      // On ANY disconnect: go to demo mode and stop. No auto-reconnect.
+      // This prevents the connect/disconnect loop that burns API credits.
       ocConnection.on('disconnected', () => {
         this.connected = false;
+        this.demoMode = true;
+        ocConnection.disconnect(); // cancel any pending reconnect timers
       });
 
-      // Attempt connection (will fall back to demo mode if it fails)
+      // Single connection attempt — no auto-reconnect
       ocConnection.connect(wsUrl);
 
-      // If not connected after 5s, enter demo mode and stop reconnecting
+      // If not connected after 5s, enter demo mode
       setTimeout(() => {
         if (!this.connected) {
           this.demoMode = true;
-          ocConnection.disconnect(); // stop the reconnect loop
+          ocConnection.disconnect();
           Alpine.store('monitor').addLog('info', 'Running in demo mode — use Reconnect to try again');
         }
       }, 5000);
@@ -407,14 +411,14 @@ document.addEventListener('alpine:init', () => {
       Alpine.store('monitor').addLog('info', 'Attempting to reconnect to OpenClaw...');
       ocConnection.retry();
 
-      // If still not connected after 5s, go back to demo mode
+      // If still not connected after 8s, go back to demo mode
       setTimeout(() => {
         if (!this.connected) {
           this.demoMode = true;
           ocConnection.disconnect();
           Alpine.store('monitor').addLog('warn', 'Reconnect failed — back to demo mode');
         }
-      }, 5000);
+      }, 8000);
     },
   });
 

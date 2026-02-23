@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw — Authentication</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0e1a;
+      --surface: #1a1828;
+      --elevated: #252336;
+      --border: #2e2b45;
+      --accent: #10b981;
+      --accent-dim: rgba(16,185,129,0.12);
+      --accent-glow: rgba(16,185,129,0.25);
+      --danger: #ef4444;
+      --danger-dim: rgba(239,68,68,0.12);
+      --text: #f1f0f5;
+      --text-sec: #a09cb5;
+      --text-muted: #6c6888;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image:
+        radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.06) 0%, transparent 60%),
+        radial-gradient(circle at 20% 80%, rgba(99,102,241,0.04) 0%, transparent 50%);
+    }
+    .auth-container { width: 100%; max-width: 380px; padding: 0 16px; }
+    .branding { text-align: center; margin-bottom: 32px; }
+    .branding-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 24px var(--accent-glow));
+    }
+    .branding-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+    }
+    .branding-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 6px;
+      letter-spacing: 0.1em;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .card-header {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .error {
+      display: none;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      background: var(--danger-dim);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--danger);
+      text-align: center;
+    }
+    .error.show { display: block; }
+    .field { margin-bottom: 16px; }
+    .field:last-of-type { margin-bottom: 24px; }
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input::placeholder { color: var(--text-muted); }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .btn {
+      width: 100%;
+      padding: 10px 0;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', system-ui, sans-serif;
+      cursor: pointer;
+      transition: filter 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.5;
+    }
+  </style>
+  <!-- Auth hash injected by Caddy templates -->
+  <script>window.__OC_AUTH_HASH = '{{env "WORKSPACE_PASS_SHA256"}}';</script>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="branding">
+      <div class="branding-icon">🐾</div>
+      <div class="branding-title">OPENCLAW</div>
+      <div class="branding-sub">Autonomous AI Agent</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Authentication Required</div>
+      <div id="error" class="error"></div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+      </div>
+
+      <button class="btn" id="submit" onclick="doLogin()">Access OpenClaw</button>
+    </div>
+
+    <div class="footer">Secured access &middot; Session expires in 24h</div>
+  </div>
+
+  <script>
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Enter key support
+    document.getElementById('username').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+    document.getElementById('password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    async function doLogin() {
+      var errEl = document.getElementById('error');
+      var user = document.getElementById('username').value.trim();
+      var pass = document.getElementById('password').value;
+      var btn = document.getElementById('submit');
+
+      errEl.classList.remove('show');
+
+      if (!user || !pass) {
+        errEl.textContent = 'Please enter username and password';
+        errEl.classList.add('show');
+        return;
+      }
+
+      if (user.toLowerCase() !== 'admin') {
+        errEl.textContent = 'Invalid credentials';
+        errEl.classList.add('show');
+        document.getElementById('password').value = '';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+
+      var hash = await sha256(pass);
+      if (hash === window.__OC_AUTH_HASH) {
+        // Set auth cookie — path covers /openclaw/* and expires in 24h
+        document.cookie = 'mc_oc=' + hash + '; path=/openclaw; SameSite=Lax; max-age=86400';
+        // Redirect to OpenClaw
+        window.location.reload();
+      } else {
+        errEl.textContent = 'Invalid credentials';
+        errEl.classList.add('show');
+        document.getElementById('password').value = '';
+        btn.disabled = false;
+        btn.textContent = 'Access OpenClaw';
+      }
+    }
+  </script>
+</body>
+</html>

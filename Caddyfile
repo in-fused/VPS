@@ -33,23 +33,31 @@
 	# =========================================================================
 	# OpenClaw Web UI + WebSocket Gateway — /openclaw/*
 	# =========================================================================
-	# OpenClaw's basePath is set to "/openclaw" in its config, so it expects
-	# the full /openclaw/ prefix in requests. Use handle (not handle_path)
-	# to preserve the path.
-	# flush_interval -1 disables response buffering (required for WebSocket
-	# and SSE streams). header_up forwards real client IP for device pairing.
-	# header_down strips upstream frame-blocking headers so Caddy's global
-	# SAMEORIGIN applies — allows same-origin iframe embedding if needed.
+	# Cookie-based auth gate: caddy-entrypoint.sh exports WORKSPACE_PASS_SHA256,
+	# unauthenticated requests get a login page, authenticated get proxied.
+	# flush_interval -1 disables response buffering (required for WebSocket/SSE).
+	# header_down strips upstream frame-blocking headers for iframe embedding.
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
-		reverse_proxy openclaw:18789 {
-			header_up X-Real-IP {remote_host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_down -X-Frame-Options
-			header_down -Content-Security-Policy
-			flush_interval -1
+		@oc_authed cookie mc_oc {$WORKSPACE_PASS_SHA256}
+
+		handle @oc_authed {
+			reverse_proxy openclaw:18789 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				header_down -X-Frame-Options
+				header_down -Content-Security-Policy
+				flush_interval -1
+			}
+		}
+
+		handle {
+			rewrite * /openclaw-auth.html
+			templates
+			root * /srv/workspace
+			file_server
 		}
 	}
 
