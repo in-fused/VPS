@@ -161,11 +161,12 @@ model_list:
 # =============================================================================
 general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  drop_params: true
   # Allow connections from Open WebUI
   allowed_origins: ["*"]
 
 litellm_settings:
+  # Drop unsupported params (e.g. 'store') instead of rejecting requests
+  drop_params: true
   # Enable streaming for all models
   set_verbose: false
   # Cache responses to save tokens on repeated queries
