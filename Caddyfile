@@ -57,7 +57,7 @@
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
-		@oc_authed cookie mc_oc {$WORKSPACE_PASS_SHA256}
+		@oc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 
 		handle @oc_authed {
 			reverse_proxy openclaw:18789 {
@@ -89,7 +89,7 @@
 	@openclawws {
 		path /
 		header Upgrade websocket
-		cookie mc_oc {$WORKSPACE_PASS_SHA256}
+		header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 	}
 	handle @openclawws {
 		reverse_proxy openclaw:18789 {
