@@ -32,7 +32,11 @@
 	# No basicauth directive = no WWW-Authenticate header = no browser popup.
 	# Auth pages send credentials via fetch() with Authorization: Basic header.
 	# caddy-entrypoint.sh pre-computes the expected base64 token.
+	# When WORKSPACE_PASSWORD is unset, always returns OK (no auth).
 	handle /auth/verify {
+		@noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		respond @noauth "OK" 200
+
 		@valid header Authorization "Basic {$WORKSPACE_AUTH_B64}"
 		respond @valid "OK" 200
 		respond "Unauthorized" 401
@@ -45,6 +49,15 @@
 	# Requires the mc_oc auth cookie. Injects the LiteLLM master key so
 	# the browser never needs to know it. Supports streaming (SSE).
 	handle_path /api/mc/* {
+		# When auth is disabled, proxy unconditionally
+		@mc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @mc_noauth {
+			reverse_proxy litellm:4000 {
+				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
+				flush_interval -1
+			}
+		}
+
 		@mc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @mc_authed {
 			reverse_proxy litellm:4000 {
@@ -74,8 +87,20 @@
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
-		@oc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		# When auth is disabled, proxy unconditionally
+		@oc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @oc_noauth {
+			reverse_proxy openclaw:18789 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				header_down -X-Frame-Options
+				header_down -Content-Security-Policy
+				flush_interval -1
+			}
+		}
 
+		@oc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @oc_authed {
 			reverse_proxy openclaw:18789 {
 				header_up X-Real-IP {remote_host}
@@ -103,6 +128,21 @@
 	# (root path, ignoring basePath). Route root-path WebSocket upgrades
 	# to OpenClaw. Open WebUI's WebSocket uses /socket.io/ so no conflict.
 	# Requires the mc_oc auth cookie — unauthenticated WS requests get 403.
+	# When auth is disabled, accept any root WebSocket upgrade
+	@openclawws_noauth {
+		path /
+		header Upgrade websocket
+		expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+	}
+	handle @openclawws_noauth {
+		reverse_proxy openclaw:18789 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			flush_interval -1
+		}
+	}
+
 	@openclawws {
 		path /
 		header Upgrade websocket
@@ -125,7 +165,9 @@
 	@workspacebare path /workspace
 	redir @workspacebare /workspace/ 301
 	handle_path /workspace/* {
-		templates
+		# No `templates` directive — workspace serves arbitrary agent-generated
+		# files that may contain {{ }} syntax (Vue, Handlebars, Alpine, etc.)
+		# which Caddy would misinterpret as Go template expressions.
 		header Cache-Control "no-store, no-cache, must-revalidate"
 		root * /srv/workspace
 		file_server

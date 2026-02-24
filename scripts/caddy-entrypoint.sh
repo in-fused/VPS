@@ -18,10 +18,18 @@ if [ -n "${WORKSPACE_PASSWORD:-}" ]; then
     WORKSPACE_PASS_SHA256=$(printf '%s' "$WORKSPACE_PASSWORD" | sha256sum | cut -d' ' -f1)
     export WORKSPACE_PASS_SHA256
     echo "[caddy-entrypoint] Workspace auth configured"
+
+    export WORKSPACE_AUTH_ENABLED=true
 else
-    export WORKSPACE_AUTH_B64=""
-    export WORKSPACE_PASS_SHA256=""
-    echo "[caddy-entrypoint] WARNING: WORKSPACE_PASSWORD not set — workspace has no auth"
+    # When no password is set, use impossible-to-match sentinel values.
+    # Caddy matchers reference these via {$...} env placeholders — if we leave
+    # them empty, matchers like `header Cookie *mc_oc=*` match everything or
+    # `header Authorization "Basic "` fails confusingly. Sentinels ensure the
+    # cookie/header matchers never accidentally trigger.
+    export WORKSPACE_AUTH_B64="__NOAUTH__"
+    export WORKSPACE_PASS_SHA256="__NOAUTH__"
+    export WORKSPACE_AUTH_ENABLED=false
+    echo "[caddy-entrypoint] WARNING: WORKSPACE_PASSWORD not set — auth disabled"
 fi
 
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

@@ -588,14 +588,16 @@ class WorkflowExecutor {
       if (!link) continue;
 
       const sourceOutput = this.results.get(link.origin_id);
-      if (sourceOutput) {
+      if (sourceOutput !== undefined && sourceOutput !== null) {
         // Match output slot name to input slot name
+        // Use explicit undefined checks to preserve valid falsy values (null, false, 0, '')
         const sourceNode = this.graph.getNodeById(link.origin_id);
         if (sourceNode && sourceNode.outputs && sourceNode.outputs[link.origin_slot]) {
           const outputName = sourceNode.outputs[link.origin_slot].name;
-          inputs[input.name] = sourceOutput[outputName] || Object.values(sourceOutput)[0] || '';
+          const val = sourceOutput[outputName];
+          inputs[input.name] = val !== undefined ? val : (Object.values(sourceOutput)[0] ?? '');
         } else {
-          inputs[input.name] = Object.values(sourceOutput)[0] || '';
+          inputs[input.name] = Object.values(sourceOutput)[0] ?? '';
         }
       }
     }

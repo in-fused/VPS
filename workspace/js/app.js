@@ -1266,3 +1266,4 @@ window.FALLBACK_MODELS = FALLBACK_MODELS;
 window.AGENT_EMOJIS = AGENT_EMOJIS;
 window.AGENT_TOOLS = AGENT_TOOLS;
 window.formatTokens = formatTokens;
+window.litellmApi = litellmApi;

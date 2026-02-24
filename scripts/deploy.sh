@@ -124,13 +124,26 @@ if [ -z "${LITELLM_SALT_KEY:-}" ]; then
 fi
 
 if [ -z "${DB_PASSWORD:-}" ]; then
+    # Check if litellm-db-data volume already exists with data.
+    # If it does, Postgres already has a bootstrapped password — generating
+    # a new one would break the LiteLLM→DB connection on upgrade.
+    DB_VOLUME="${COMPOSE_PROJECT_NAME:-ai-hub}_litellm-db-data"
+    if docker volume inspect "$DB_VOLUME" > /dev/null 2>&1; then
+        log_error "DB_PASSWORD is empty but the database volume '$DB_VOLUME' already exists."
+        log_error "Postgres was bootstrapped with a previous password that is no longer in .env."
+        log_error "Either:"
+        log_error "  1. Set DB_PASSWORD in .env to the original password, OR"
+        log_error "  2. Remove the volume to reset: docker volume rm $DB_VOLUME"
+        exit 1
+    fi
+
     DBPASS=$(openssl rand -hex 16)
     if grep -q "^DB_PASSWORD=" .env; then
         sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$DBPASS|" .env
     else
         echo "DB_PASSWORD=$DBPASS" >> .env
     fi
-    log_info "Generated DB_PASSWORD"
+    log_info "Generated DB_PASSWORD (first-time setup)"
     UPDATED_ENV=true
 fi
 
