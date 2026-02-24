@@ -296,13 +296,39 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('app', {
     view: 'dashboard',
     booting: true,
-    sidebarOpen: true,
+    sidebarOpen: window.innerWidth >= 768,
+    mobile: window.innerWidth < 768,
+    chatPanelOpen: false,  // mobile: toggleable session list
+    workflowPanelOpen: false, // mobile: toggleable node palette
     connected: false,     // true if LiteLLM is reachable (chat works)
     ocConnected: false,   // true if OpenClaw is reachable
     demoMode: true,       // false when LiteLLM is reachable
 
+    init() {
+      // Listen for screen resize to update mobile state
+      const mq = window.matchMedia('(max-width: 767px)');
+      const update = (e) => {
+        this.mobile = e.matches;
+        if (!e.matches) {
+          // Switching to desktop: open sidebar, close mobile panels
+          this.sidebarOpen = true;
+          this.chatPanelOpen = false;
+          this.workflowPanelOpen = false;
+        } else {
+          // Switching to mobile: close sidebar
+          this.sidebarOpen = false;
+        }
+      };
+      mq.addEventListener('change', update);
+    },
+
     setView(v) {
       this.view = v;
+      // Close sidebar on mobile after navigation
+      if (this.mobile) this.sidebarOpen = false;
+      // Reset panel states on view change
+      this.chatPanelOpen = false;
+      this.workflowPanelOpen = false;
       if (v === 'workflows' && window.initWorkflowCanvas) {
         setTimeout(() => window.initWorkflowCanvas(), 100);
       }
