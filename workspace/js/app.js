@@ -497,12 +497,19 @@ document.addEventListener('alpine:init', () => {
           session.updatedAt = Date.now();
         }
 
-        // Update agent stats
+        // Update agent stats + governance metrics
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         if (agent) {
           agent.tasksCompleted++;
           agent.lastActive = 'Just now';
           Alpine.store('agents')._persist();
+
+          // Record successful task in governance
+          const lastMsg = sessions.messages[sessions.messages.length - 1];
+          const tokens = Math.round(((lastMsg?.content || '').length) / 4);
+          Alpine.store('governance').recordTask(agent.id, {
+            success: true, tokens, taskType: 'chat-openclaw',
+          });
         }
 
         sessions._persistMessages();
@@ -518,6 +525,16 @@ document.addEventListener('alpine:init', () => {
         }
         sessions._sending = false;
         sessions._persistMessages();
+
+        // Record failed task in governance
+        const session = sessions.active;
+        const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+        if (agent) {
+          Alpine.store('governance').recordTask(agent.id, {
+            success: false, taskType: 'chat-openclaw',
+          });
+        }
+
         Alpine.store('monitor').addLog('error', `Chat error: ${payload.message}`);
       });
 
@@ -873,6 +890,12 @@ document.addEventListener('alpine:init', () => {
           agent.tasksCompleted++;
           agent.lastActive = 'Just now';
           Alpine.store('agents')._persist();
+
+          // Record in governance (success if content, failure if error)
+          const isError = botMsg.content.startsWith('Error:');
+          Alpine.store('governance').recordTask(agent.id, {
+            success: !isError, tokens, taskType: 'chat-litellm',
+          });
         }
 
         this._persist();
@@ -1028,6 +1051,204 @@ document.addEventListener('alpine:init', () => {
     maxUsage() {
       const vals = Object.values(this.tokenUsage).map(m => m.input + m.output);
       return Math.max(...vals, 1);
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // STORE: GOVERNANCE — team performance tracking & lead promotion
+  // --------------------------------------------------------------------------
+
+  Alpine.store('governance', {
+    // Per-agent performance metrics (persisted to localStorage)
+    metrics: storage.load('governance-metrics', {}),
+
+    // Team definitions: agents grouped into teams with a designated lead
+    teams: storage.load('governance-teams', [
+      {
+        id: 'core',
+        name: 'Core Team',
+        lead: 'lead',
+        members: ['lead', 'codecraft', 'scout', 'scribe'],
+        project: 'General tasks and site development',
+      },
+    ]),
+
+    // Get or initialize metrics for an agent
+    _getMetrics(agentId) {
+      if (!this.metrics[agentId]) {
+        this.metrics[agentId] = {
+          tasksCompleted: 0,
+          tasksFailed: 0,
+          totalTokens: 0,
+          totalResponseTimeMs: 0,
+          avgResponseTimeMs: 0,
+          avgTokensPerTask: 0,
+          successRate: 100,
+          qualityScore: 50,   // 0-100, starts neutral
+          streakCount: 0,     // consecutive successes
+          bestStreak: 0,
+          lastTaskTime: null,
+          promotions: 0,      // times promoted to lead
+          demotions: 0,       // times demoted from lead
+          history: [],        // last 20 task outcomes
+        };
+      }
+      return this.metrics[agentId];
+    },
+
+    // Record a completed task
+    recordTask(agentId, { success = true, tokens = 0, responseTimeMs = 0, taskType = 'chat' } = {}) {
+      const m = this._getMetrics(agentId);
+
+      if (success) {
+        m.tasksCompleted++;
+        m.streakCount++;
+        if (m.streakCount > m.bestStreak) m.bestStreak = m.streakCount;
+        // Quality rises on success (diminishing returns)
+        m.qualityScore = Math.min(100, m.qualityScore + Math.max(1, Math.round((100 - m.qualityScore) * 0.1)));
+      } else {
+        m.tasksFailed++;
+        m.streakCount = 0;
+        // Quality drops faster on failure
+        m.qualityScore = Math.max(0, m.qualityScore - 5);
+      }
+
+      m.totalTokens += tokens;
+      m.totalResponseTimeMs += responseTimeMs;
+      m.lastTaskTime = Date.now();
+
+      const total = m.tasksCompleted + m.tasksFailed;
+      m.successRate = total > 0 ? Math.round((m.tasksCompleted / total) * 100) : 100;
+      m.avgResponseTimeMs = total > 0 ? Math.round(m.totalResponseTimeMs / total) : 0;
+      m.avgTokensPerTask = m.tasksCompleted > 0 ? Math.round(m.totalTokens / m.tasksCompleted) : 0;
+
+      // Keep last 20 task outcomes
+      m.history.push({ time: Date.now(), success, tokens, taskType });
+      if (m.history.length > 20) m.history.shift();
+
+      this._persist();
+
+      // Check if this agent should be promoted
+      this._evaluateLeadership(agentId);
+    },
+
+    // Calculate a composite performance score (0-100)
+    getScore(agentId) {
+      const m = this._getMetrics(agentId);
+      const total = m.tasksCompleted + m.tasksFailed;
+      if (total < 2) return 50; // not enough data
+
+      // Weighted composite: success rate (40%), quality (30%), efficiency (20%), streak (10%)
+      const successComponent = m.successRate * 0.4;
+      const qualityComponent = m.qualityScore * 0.3;
+
+      // Efficiency: lower avg tokens = better (normalize to 0-100)
+      const avgTokensNorm = m.avgTokensPerTask > 0 ? Math.max(0, 100 - (m.avgTokensPerTask / 100)) : 50;
+      const efficiencyComponent = avgTokensNorm * 0.2;
+
+      // Streak bonus
+      const streakComponent = Math.min(100, m.streakCount * 15) * 0.1;
+
+      return Math.round(successComponent + qualityComponent + efficiencyComponent + streakComponent);
+    },
+
+    // Get ranked agents for a team (sorted by performance score)
+    getLeaderboard(teamId) {
+      const team = this.teams.find(t => t.id === teamId);
+      if (!team) return [];
+
+      return team.members
+        .map(agentId => {
+          const agent = Alpine.store('agents').list.find(a => a.id === agentId);
+          const m = this._getMetrics(agentId);
+          return {
+            id: agentId,
+            name: agent?.name || agentId,
+            emoji: agent?.emoji || '🤖',
+            model: agent?.model || 'unknown',
+            score: this.getScore(agentId),
+            tasksCompleted: m.tasksCompleted,
+            successRate: m.successRate,
+            qualityScore: m.qualityScore,
+            streakCount: m.streakCount,
+            bestStreak: m.bestStreak,
+            isLead: team.lead === agentId,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+    },
+
+    // Evaluate if the top performer should replace the current team lead
+    _evaluateLeadership(agentId) {
+      for (const team of this.teams) {
+        if (!team.members.includes(agentId)) continue;
+
+        const leaderboard = this.getLeaderboard(team.id);
+        if (leaderboard.length < 2) continue;
+
+        const topPerformer = leaderboard[0];
+        const currentLead = leaderboard.find(a => a.isLead);
+
+        // Promotion criteria: top performer must have >10 tasks, score 15+ points
+        // above current lead, and current lead must have at least 5 tasks
+        if (
+          topPerformer.id !== team.lead &&
+          topPerformer.tasksCompleted >= 10 &&
+          currentLead &&
+          currentLead.tasksCompleted >= 5 &&
+          topPerformer.score - currentLead.score >= 15
+        ) {
+          const oldLead = team.lead;
+          team.lead = topPerformer.id;
+
+          // Track promotion/demotion counts
+          this._getMetrics(topPerformer.id).promotions++;
+          this._getMetrics(oldLead).demotions++;
+
+          Alpine.store('monitor').addLog('info',
+            `🏆 ${topPerformer.emoji} ${topPerformer.name} promoted to ${team.name} lead (score: ${topPerformer.score} vs ${currentLead.score})`
+          );
+
+          this._persist();
+        }
+      }
+    },
+
+    // Manually promote an agent to team lead
+    promoteLead(teamId, agentId) {
+      const team = this.teams.find(t => t.id === teamId);
+      if (!team || !team.members.includes(agentId)) return;
+
+      const oldLead = team.lead;
+      team.lead = agentId;
+      this._getMetrics(agentId).promotions++;
+      if (oldLead) this._getMetrics(oldLead).demotions++;
+
+      const agent = Alpine.store('agents').list.find(a => a.id === agentId);
+      Alpine.store('monitor').addLog('info',
+        `${agent?.emoji || '🤖'} ${agent?.name || agentId} manually promoted to ${team.name} lead`
+      );
+      this._persist();
+    },
+
+    // Create a new team
+    createTeam(name, memberIds, leadId) {
+      const team = {
+        id: 'team-' + Date.now().toString(36),
+        name,
+        lead: leadId || memberIds[0],
+        members: memberIds,
+        project: '',
+      };
+      this.teams.push(team);
+      this._persist();
+      Alpine.store('monitor').addLog('info', `Team "${name}" created with ${memberIds.length} members`);
+      return team;
+    },
+
+    _persist() {
+      storage.save('governance-metrics', this.metrics);
+      storage.save('governance-teams', this.teams);
     },
   });
 

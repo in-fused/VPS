@@ -229,6 +229,16 @@
                 x-text="$store.sessions.list.reduce((n, s) => n + s.unread, 0)"></span>
         </button>
 
+        <!-- Teams -->
+        <button @click="$store.app.setView('teams')"
+                :class="$store.app.view === 'teams' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Teams</span>
+        </button>
+
         <!-- Monitor -->
         <button @click="$store.app.setView('monitor')"
                 :class="$store.app.view === 'monitor' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
@@ -342,10 +352,12 @@
               <div class="text-2xl font-bold text-mc-text" x-text="$store.models.list.length"></div>
               <div class="text-xs text-mc-text-muted mt-1">via LiteLLM</div>
             </div>
-            <div class="mc-stat-border amber relative bg-mc-surface border border-mc-border rounded-xl p-5">
-              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Tokens Today</div>
-              <div class="text-2xl font-bold text-mc-text" x-text="formatTokens($store.monitor.totalTokens)"></div>
-              <div class="text-xs text-mc-text-muted mt-1">~$<span x-text="$store.monitor.totalCost.toFixed(3)"></span> cost</div>
+            <div class="mc-stat-border amber relative bg-mc-surface border border-mc-border rounded-xl p-5 cursor-pointer" @click="$store.app.setView('teams')">
+              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Teams</div>
+              <div class="text-2xl font-bold text-mc-text" x-text="$store.governance.teams.length"></div>
+              <div class="text-xs text-amber-400 mt-1">
+                Lead: <span x-text="($store.agents.list.find(a => a.id === $store.governance.teams[0]?.lead)?.name) || '—'"></span>
+              </div>
             </div>
           </div>
 
@@ -398,6 +410,10 @@
                 <button @click="$store.app.setView('chat')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
                   <span class="text-2xl group-hover:scale-110 transition-transform">💬</span>
                   <span class="text-xs text-mc-text-sec group-hover:text-mc-text">Chat with Agent</span>
+                </button>
+                <button @click="$store.app.setView('teams')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
+                  <span class="text-2xl group-hover:scale-110 transition-transform">🏆</span>
+                  <span class="text-xs text-mc-text-sec group-hover:text-mc-text">Team Leaderboard</span>
                 </button>
                 <button @click="$store.app.setView('monitor')" class="flex flex-col items-center gap-2 p-4 rounded-xl bg-mc-elevated hover:bg-mc-border/30 transition-all group">
                   <span class="text-2xl group-hover:scale-110 transition-transform">📊</span>
@@ -694,6 +710,169 @@
                 Send
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             VIEW: TEAMS — Governance & Leaderboard
+             ========================================== -->
+        <div x-show="$store.app.view === 'teams'"
+             x-transition:enter="animate-fade-up"
+             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
+
+          <div class="max-w-5xl mx-auto space-y-6">
+
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 class="text-xl font-bold text-mc-text">Teams & Governance</h1>
+                <p class="text-sm text-mc-text-muted mt-1">Performance tracking, leaderboards, and lead promotion</p>
+              </div>
+            </div>
+
+            <!-- Teams Loop -->
+            <template x-for="team in $store.governance.teams" :key="team.id">
+              <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
+
+                <!-- Team Header -->
+                <div class="p-4 md:p-5 border-b border-mc-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h2 class="text-lg font-semibold text-mc-text" x-text="team.name"></h2>
+                    <p class="text-xs text-mc-text-muted mt-0.5" x-text="team.project || 'No project assigned'"></p>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="px-2 py-1 rounded-md bg-mc-elevated text-mc-text-sec">
+                      <span x-text="team.members.length"></span> members
+                    </span>
+                    <span class="px-2 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      Depth: 3 levels
+                    </span>
+                    <span class="px-2 py-1 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      P2P Enabled
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Leaderboard -->
+                <div class="p-4 md:p-5">
+                  <div class="text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-3">Performance Leaderboard</div>
+
+                  <div class="space-y-2">
+                    <template x-for="(entry, idx) in $store.governance.getLeaderboard(team.id)" :key="entry.id">
+                      <div class="flex items-center gap-3 p-3 rounded-lg transition-all"
+                           :class="entry.isLead ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-mc-elevated hover:bg-mc-border/30'">
+
+                        <!-- Rank -->
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                             :class="idx === 0 ? 'bg-amber-500/20 text-amber-400' : idx === 1 ? 'bg-gray-400/20 text-gray-400' : idx === 2 ? 'bg-orange-700/20 text-orange-500' : 'bg-mc-bg text-mc-text-muted'">
+                          <span x-text="idx + 1"></span>
+                        </div>
+
+                        <!-- Agent Info -->
+                        <div class="flex items-center gap-2 min-w-0 flex-1">
+                          <span class="text-lg flex-shrink-0" x-text="entry.emoji"></span>
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                              <span class="text-sm font-medium text-mc-text truncate" x-text="entry.name"></span>
+                              <span x-show="entry.isLead" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-400 flex-shrink-0">LEAD</span>
+                            </div>
+                            <div class="text-[11px] text-mc-text-muted" x-text="entry.model"></div>
+                          </div>
+                        </div>
+
+                        <!-- Score Bar -->
+                        <div class="hidden sm:flex items-center gap-2 flex-shrink-0 w-32">
+                          <div class="flex-1 h-2 bg-mc-bg rounded-full overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500"
+                                 :class="entry.score >= 70 ? 'bg-emerald-500' : entry.score >= 40 ? 'bg-amber-500' : 'bg-red-500'"
+                                 :style="'width:' + entry.score + '%'"></div>
+                          </div>
+                          <span class="text-xs font-mono font-bold w-8 text-right"
+                                :class="entry.score >= 70 ? 'text-emerald-400' : entry.score >= 40 ? 'text-amber-400' : 'text-red-400'"
+                                x-text="entry.score"></span>
+                        </div>
+
+                        <!-- Stats (compact) -->
+                        <div class="flex items-center gap-3 text-[11px] text-mc-text-muted flex-shrink-0">
+                          <span class="hidden md:inline" title="Tasks completed">
+                            <span x-text="entry.tasksCompleted"></span> tasks
+                          </span>
+                          <span class="hidden md:inline" title="Success rate">
+                            <span x-text="entry.successRate"></span>%
+                          </span>
+                          <span title="Current streak" class="flex items-center gap-0.5">
+                            <span x-text="entry.streakCount"></span>
+                            <span class="text-amber-400">&#9889;</span>
+                          </span>
+                        </div>
+
+                        <!-- Promote Button -->
+                        <button x-show="!entry.isLead && entry.tasksCompleted >= 3"
+                                @click="$store.governance.promoteLead(team.id, entry.id)"
+                                title="Promote to team lead"
+                                class="px-2 py-1 text-[10px] font-medium rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all flex-shrink-0">
+                          Promote
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- Empty state -->
+                  <div x-show="$store.governance.getLeaderboard(team.id).length === 0"
+                       class="text-center py-8 text-mc-text-muted text-sm">
+                    No team members yet. Add agents to get started.
+                  </div>
+                </div>
+
+                <!-- Team Config Summary -->
+                <div class="px-4 md:px-5 pb-4 md:pb-5">
+                  <div class="p-3 rounded-lg bg-mc-bg border border-mc-border/50 text-xs text-mc-text-muted space-y-1">
+                    <div class="flex justify-between">
+                      <span>Spawn Depth</span>
+                      <span class="text-mc-text">3 levels (lead &rarr; team lead &rarr; worker)</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Max Concurrent</span>
+                      <span class="text-mc-text">4 parallel sub-agents</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Agent-to-Agent</span>
+                      <span class="text-emerald-400">Peer-to-peer enabled</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Promotion Threshold</span>
+                      <span class="text-mc-text">10+ tasks, 15+ point lead</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- How Governance Works -->
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
+              <h3 class="text-sm font-semibold text-mc-text mb-3">How Governance Works</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-mc-text-sec">
+                <div class="space-y-1.5">
+                  <div class="font-medium text-mc-text flex items-center gap-1.5">
+                    <span class="text-emerald-400">&#9650;</span> Performance Score
+                  </div>
+                  <p>Composite of success rate (40%), quality (30%), token efficiency (20%), and streak bonus (10%). Scores update in real-time as agents complete tasks.</p>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="font-medium text-mc-text flex items-center gap-1.5">
+                    <span class="text-amber-400">&#9733;</span> Auto-Promotion
+                  </div>
+                  <p>When an agent completes 10+ tasks and leads by 15+ points, they're automatically promoted to team lead. You can also promote manually.</p>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="font-medium text-mc-text flex items-center gap-1.5">
+                    <span class="text-cyan-400">&#8644;</span> Peer Communication
+                  </div>
+                  <p>All agents can message each other directly (not just leader to member). Up to 5 back-and-forth exchanges per conversation.</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
