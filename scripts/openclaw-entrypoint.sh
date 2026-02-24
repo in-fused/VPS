@@ -70,6 +70,12 @@ config.agents.defaults.model = { primary: 'groq-llama-3.3-70b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
+// Enable sub-agent creation and agent-to-agent communication
+config.tools = config.tools || {};
+config.tools.agentToAgent = { enabled: true };
+config.tools.subagents = config.tools.subagents || {};
+config.tools.subagents.maxDepth = 2;
+
 // =========================================================================
 // Cleanup: remove keys that crash OpenClaw config validation
 // =========================================================================

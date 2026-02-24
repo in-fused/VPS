@@ -228,7 +228,8 @@ const litellmApi = {
 };
 
 // ----------------------------------------------------------------------------
-// PERSISTENCE — save/load agents and sessions to localStorage
+// PERSISTENCE — localStorage fallback when OpenClaw WebSocket is unavailable
+// When connected to OpenClaw, agents & sessions come from the server
 // ----------------------------------------------------------------------------
 
 const storage = {
@@ -242,6 +243,11 @@ const storage = {
     } catch { return fallback; }
   },
 };
+
+// OpenClaw integration mode:
+// 'connected' = real agents from OpenClaw, chat via OpenClaw
+// 'fallback'  = localStorage agents, chat via LiteLLM (current behavior)
+let ocMode = 'fallback';
 
 // ============================================================================
 // ALPINE.JS STORES
@@ -274,6 +280,8 @@ document.addEventListener('alpine:init', () => {
           const secure = location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
           sessionStorage.setItem('mc-auth', '1');
+          // Store password for OpenClaw WebSocket auth (session-scoped, not persistent)
+          sessionStorage.setItem('mc-oc-pw', password);
           this.ok = true;
           Alpine.store('app').boot();
           return true;
@@ -338,6 +346,8 @@ document.addEventListener('alpine:init', () => {
       await new Promise(r => setTimeout(r, 1800));
       this.booting = false;
 
+      const monitor = Alpine.store('monitor');
+
       // Initial health check + model fetch
       const health = await healthChecker.check();
       this._applyHealth(health);
@@ -347,13 +357,133 @@ document.addEventListener('alpine:init', () => {
         const models = await litellmApi.fetchModels();
         if (models.length > 0) {
           Alpine.store('models').list = models;
-          Alpine.store('monitor').systemHealth.modelsAvailable = models.length;
-          Alpine.store('monitor').addLog('info', `Loaded ${models.length} models from LiteLLM`);
+          monitor.systemHealth.modelsAvailable = models.length;
+          monitor.addLog('info', `Loaded ${models.length} models from LiteLLM`);
+        }
+      }
+
+      // Attempt OpenClaw WebSocket connection
+      if (health.openclaw && window.openclawClient) {
+        monitor.addLog('info', 'Connecting to OpenClaw...');
+        try {
+          // Use the login password for OpenClaw auth
+          const pw = sessionStorage.getItem('mc-oc-pw') || '';
+          await window.openclawClient.connect(pw);
+          ocMode = 'connected';
+          monitor.addLog('info', 'OpenClaw WebSocket connected — agents are live');
+
+          // Load real agents from OpenClaw
+          await this._syncAgentsFromOpenClaw();
+          await this._syncSessionsFromOpenClaw();
+
+          // Listen for real-time events
+          this._setupOpenClawEvents();
+
+        } catch (err) {
+          console.warn('[Boot] OpenClaw WebSocket failed, using fallback:', err.message);
+          monitor.addLog('warn', `OpenClaw WebSocket: ${err.message} — using local mode`);
+          ocMode = 'fallback';
         }
       }
 
       // Start periodic health checks (every 30s)
       healthChecker.startPolling(h => this._applyHealth(h), 30000);
+    },
+
+    async _syncAgentsFromOpenClaw() {
+      try {
+        const agents = await window.openclawClient.listAgents();
+        if (agents && agents.length > 0) {
+          const agentStore = Alpine.store('agents');
+          agentStore.list = agents.map(a => ({
+            id: a.id || a.agentId,
+            name: a.name || a.id || 'Agent',
+            emoji: a.emoji || a.avatar || '🤖',
+            description: a.description || a.identity?.description || '',
+            model: a.model?.primary || a.model || 'groq-llama-3.3-70b',
+            status: a.status || 'idle',
+            currentTask: a.currentTask || null,
+            lastActive: a.lastActive || 'Unknown',
+            tasksCompleted: a.tasksCompleted || 0,
+            tokensUsed: a.tokensUsed || 0,
+            tools: a.tools?.allow || [],
+            systemPrompt: a.systemPrompt || a.identity?.instructions || '',
+            _source: 'openclaw', // mark as server-synced
+          }));
+          Alpine.store('monitor').addLog('info', `Synced ${agents.length} agents from OpenClaw`);
+        }
+      } catch (err) {
+        console.warn('[Sync] Agent sync failed:', err.message);
+      }
+    },
+
+    async _syncSessionsFromOpenClaw() {
+      try {
+        const sessions = await window.openclawClient.listSessions();
+        if (sessions && sessions.length > 0) {
+          const sessionStore = Alpine.store('sessions');
+          sessionStore.list = sessions.map(s => ({
+            id: s.id || s.sessionId,
+            agentId: s.agentId || '',
+            agentName: s.agentName || s.agentId || 'Agent',
+            agentEmoji: s.agentEmoji || '🤖',
+            title: s.title || s.summary || 'Conversation',
+            lastMessage: s.lastMessage || '',
+            updatedAt: s.updatedAt || Date.now(),
+            unread: s.unread || 0,
+            _source: 'openclaw',
+          }));
+          Alpine.store('monitor').addLog('info', `Synced ${sessions.length} sessions from OpenClaw`);
+        }
+      } catch (err) {
+        console.warn('[Sync] Session sync failed:', err.message);
+      }
+    },
+
+    _setupOpenClawEvents() {
+      const oc = window.openclawClient;
+      if (!oc) return;
+
+      // Chat streaming events
+      oc.on('chat.delta', (payload) => {
+        const sessions = Alpine.store('sessions');
+        if (sessions._streamingMsg) {
+          sessions._streamingMsg.content += (payload.content || payload.delta || '');
+          sessions._scrollToBottom();
+        }
+      });
+
+      oc.on('chat.complete', (payload) => {
+        const sessions = Alpine.store('sessions');
+        if (sessions._streamingMsg) {
+          sessions._streamingMsg.streaming = false;
+          sessions._streamingMsg.time = timeNow();
+          sessions._streamingMsg = null;
+        }
+      });
+
+      oc.on('chat.error', (payload) => {
+        const sessions = Alpine.store('sessions');
+        if (sessions._streamingMsg) {
+          sessions._streamingMsg.content += '\n\nError: ' + (payload.message || 'Unknown error');
+          sessions._streamingMsg.streaming = false;
+          sessions._streamingMsg = null;
+        }
+        Alpine.store('monitor').addLog('error', `Chat error: ${payload.message}`);
+      });
+
+      // Reconnection
+      oc.on('disconnect', () => {
+        Alpine.store('monitor').addLog('warn', 'OpenClaw WebSocket disconnected');
+        this.ocConnected = false;
+      });
+
+      oc.on('reconnect', () => {
+        Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected');
+        this.ocConnected = true;
+        this._syncAgentsFromOpenClaw();
+        this._syncSessionsFromOpenClaw();
+      });
     },
 
     _applyHealth(health) {
@@ -434,12 +564,14 @@ document.addEventListener('alpine:init', () => {
       else this.wizard.tools.push(toolId);
     },
 
-    createAgent() {
+    async createAgent() {
       const w = this.wizard;
       if (!w.name.trim()) return;
 
+      const agentId = w.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
       const agent = {
-        id: generateId(),
+        id: agentId || generateId(),
         name: w.name.trim(),
         emoji: w.emoji,
         description: w.description.trim(),
@@ -453,6 +585,27 @@ document.addEventListener('alpine:init', () => {
         tokensUsed: 0,
       };
 
+      // If connected to OpenClaw, create agent on the server
+      if (ocMode === 'connected' && window.openclawClient?.authenticated) {
+        try {
+          await window.openclawClient.addAgent({
+            id: agent.id,
+            workspace: agent.name,
+            model: { primary: agent.model },
+            identity: {
+              name: agent.name,
+              emoji: agent.emoji,
+              description: agent.description,
+            },
+            tools: agent.tools.length > 0 ? { allow: agent.tools } : undefined,
+          });
+          agent._source = 'openclaw';
+          Alpine.store('monitor').addLog('info', `Agent "${agent.name}" created on OpenClaw server`);
+        } catch (err) {
+          Alpine.store('monitor').addLog('warn', `OpenClaw create failed: ${err.message} — saving locally`);
+        }
+      }
+
       this.list.push(agent);
       this._persist();
       this.closeWizard();
@@ -463,7 +616,17 @@ document.addEventListener('alpine:init', () => {
       this.selected = this.list.find(a => a.id === id) || null;
     },
 
-    deleteAgent(id) {
+    async deleteAgent(id) {
+      // Delete from OpenClaw server if connected
+      if (ocMode === 'connected' && window.openclawClient?.authenticated) {
+        try {
+          await window.openclawClient.deleteAgent(id);
+          Alpine.store('monitor').addLog('info', 'Agent removed from OpenClaw server');
+        } catch (err) {
+          Alpine.store('monitor').addLog('warn', `OpenClaw delete failed: ${err.message}`);
+        }
+      }
+
       this.list = this.list.filter(a => a.id !== id);
       if (this.selected && this.selected.id === id) this.selected = null;
       this._persist();
@@ -497,6 +660,7 @@ document.addEventListener('alpine:init', () => {
     messages: [],
     input: '',
     _sending: false, // prevents double-send
+    _streamingMsg: null, // current streaming message (for OpenClaw events)
     _messageStore: {}, // sessionId -> messages[]
 
     get active() {
@@ -549,72 +713,88 @@ document.addEventListener('alpine:init', () => {
       // Scroll to bottom
       this._scrollToBottom();
 
-      // If LiteLLM is unreachable, show demo response
-      if (Alpine.store('app').demoMode) {
-        setTimeout(() => {
-          this.messages.push({
-            id: generateId(), role: 'agent',
-            content: 'Mission Control is in demo mode — LiteLLM is not reachable. Click "Reconnect" in the header to try connecting.',
-            time: timeNow(),
-          });
-          this._scrollToBottom();
-        }, 500);
-        return;
-      }
-
-      // Build the LiteLLM request
-      const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-      const model = agent?.model || 'groq-llama-3.3-70b';
-
-      const apiMessages = [];
-      if (agent?.systemPrompt) {
-        apiMessages.push({ role: 'system', content: agent.systemPrompt });
-      }
-      // Add conversation history (skip streaming metadata)
-      for (const msg of this.messages) {
-        apiMessages.push({
-          role: msg.role === 'agent' ? 'assistant' : msg.role,
-          content: msg.content,
-        });
-      }
-
       // Add placeholder for streaming response
       const botMsg = { id: generateId(), role: 'agent', content: '', time: timeNow(), streaming: true };
       this.messages.push(botMsg);
       this._sending = true;
 
-      try {
-        for await (const delta of litellmApi.streamChat(model, apiMessages)) {
-          botMsg.content += delta;
-          // Periodic scroll during stream
-          this._scrollToBottom();
+      // Route 1: OpenClaw WebSocket (real agent execution with tools, memory, etc.)
+      if (ocMode === 'connected' && window.openclawClient?.authenticated) {
+        this._streamingMsg = botMsg;
+        try {
+          const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+          await window.openclawClient.sendChat(text, {
+            agentId: agent?.id,
+            sessionId: session?.id,
+          });
+          // Response will arrive via events (chat.delta, chat.complete)
+          // handled by _setupOpenClawEvents in the app store
+        } catch (e) {
+          botMsg.content = 'Error: ' + e.message;
+          botMsg.streaming = false;
+          this._streamingMsg = null;
+          this._sending = false;
+          Alpine.store('monitor').addLog('error', `OpenClaw chat error: ${e.message}`);
         }
-      } catch (e) {
-        botMsg.content = botMsg.content || ('Error: ' + e.message);
-        Alpine.store('monitor').addLog('error', `Chat error: ${e.message}`);
+        return;
       }
 
-      botMsg.streaming = false;
-      botMsg.time = timeNow();
-      this._sending = false;
+      // Route 2: Direct LiteLLM streaming (fallback when OpenClaw WS unavailable)
+      if (!Alpine.store('app').demoMode) {
+        const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+        const model = agent?.model || 'groq-llama-3.3-70b';
 
-      // Update session
-      if (session) {
-        session.lastMessage = (botMsg.content || '').slice(0, 60);
-        session.updatedAt = Date.now();
+        const apiMessages = [];
+        if (agent?.systemPrompt) {
+          apiMessages.push({ role: 'system', content: agent.systemPrompt });
+        }
+        for (const msg of this.messages) {
+          apiMessages.push({
+            role: msg.role === 'agent' ? 'assistant' : msg.role,
+            content: msg.content,
+          });
+        }
+
+        try {
+          for await (const delta of litellmApi.streamChat(model, apiMessages)) {
+            botMsg.content += delta;
+            this._scrollToBottom();
+          }
+        } catch (e) {
+          botMsg.content = botMsg.content || ('Error: ' + e.message);
+          Alpine.store('monitor').addLog('error', `Chat error: ${e.message}`);
+        }
+
+        botMsg.streaming = false;
+        botMsg.time = timeNow();
+        this._sending = false;
+
+        if (session) {
+          session.lastMessage = (botMsg.content || '').slice(0, 60);
+          session.updatedAt = Date.now();
+        }
+
+        if (agent) {
+          const tokens = Math.round((text.length + botMsg.content.length) / 4);
+          agent.tokensUsed += tokens;
+          agent.tasksCompleted++;
+          agent.lastActive = 'Just now';
+          Alpine.store('agents')._persist();
+        }
+
+        this._persist();
+        this._scrollToBottom();
+        return;
       }
 
-      // Track token usage (rough estimate)
-      if (agent) {
-        const tokens = Math.round((text.length + botMsg.content.length) / 4);
-        agent.tokensUsed += tokens;
-        agent.tasksCompleted++;
-        agent.lastActive = 'Just now';
-        Alpine.store('agents')._persist();
-      }
-
-      this._persist();
-      this._scrollToBottom();
+      // Route 3: Demo mode (no backend available)
+      setTimeout(() => {
+        botMsg.content = 'Mission Control is in demo mode — connect to OpenClaw or LiteLLM for real AI responses. Click "Reconnect" in the header.';
+        botMsg.streaming = false;
+        botMsg.time = timeNow();
+        this._sending = false;
+        this._scrollToBottom();
+      }, 500);
     },
 
     _scrollToBottom() {
