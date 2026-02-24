@@ -164,11 +164,12 @@ function registerCustomNodes() {
     // Try OpenClaw first, then LiteLLM, then return error
     if (window.openclawClient?.authenticated) {
       try {
-        await window.openclawClient.sendChat(fullPrompt, {
+        const result = await window.openclawClient.sendChat(fullPrompt, {
           agentId: agent?.id,
         });
-        // Wait for response via events (simplified — collect until complete)
-        const response = await this._waitForResponse(5000);
+        // Correlate response events with this specific run's runId
+        // to prevent cross-talk from concurrent workflow nodes or chat panel
+        const response = await this._waitForResponse(5000, result?.runId);
         this._lastResponse = response;
         return { response };
       } catch (e) {
@@ -189,7 +190,7 @@ function registerCustomNodes() {
 
     return { response: '[Demo] Agent would process: ' + fullPrompt.slice(0, 100) };
   };
-  AgentNode.prototype._waitForResponse = function (timeoutMs) {
+  AgentNode.prototype._waitForResponse = function (timeoutMs, runId) {
     return new Promise((resolve) => {
       let content = '';
       const cleanup = [];
@@ -201,9 +202,13 @@ function registerCustomNodes() {
 
       if (window.openclawClient) {
         const offDelta = window.openclawClient.on('chat.delta', (p) => {
+          // Only collect deltas for this specific run
+          if (runId && p.runId && p.runId !== runId) return;
           content += (p.content || p.delta || '');
         });
-        const offComplete = window.openclawClient.on('chat.complete', () => {
+        const offComplete = window.openclawClient.on('chat.complete', (p) => {
+          // Only resolve for this specific run
+          if (runId && p.runId && p.runId !== runId) return;
           clearTimeout(timer);
           cleanup.forEach(fn => fn());
           resolve(content);
@@ -292,8 +297,8 @@ function registerCustomNodes() {
 
     if (window.openclawClient?.authenticated) {
       try {
-        await window.openclawClient.sendChat(toolPrompt);
-        const response = await AgentNode.prototype._waitForResponse.call(this, 10000);
+        const result = await window.openclawClient.sendChat(toolPrompt);
+        const response = await AgentNode.prototype._waitForResponse.call(this, 10000, result?.runId);
         this._lastResult = response;
         return { result: response };
       } catch {}
@@ -491,6 +496,20 @@ class WorkflowExecutor {
       try {
         // Gather inputs from connected upstream nodes
         const inputs = this._gatherInputs(node);
+
+        // Branch gating: skip nodes whose connected inputs are all null.
+        // This prevents inactive condition branches from running (e.g.,
+        // ConditionNode returns { true: input, false: null } — nodes on
+        // the false branch receive null and should not execute).
+        const inputValues = Object.values(inputs);
+        const hasConnectedInputs = node.inputs && node.inputs.some(inp => inp.link != null);
+        if (hasConnectedInputs && inputValues.length > 0 && inputValues.every(v => v === null || v === undefined)) {
+          node.boxcolor = '#6b7280'; // gray = skipped (inactive branch)
+          this.results.set(node.id, null); // propagate null downstream
+          monitor?.addLog('debug', `Node "${node.title}" skipped (inactive branch)`);
+          this.graph.setDirtyCanvas(true);
+          continue;
+        }
 
         // Execute the node's async handler
         if (typeof node.runAsync === 'function') {

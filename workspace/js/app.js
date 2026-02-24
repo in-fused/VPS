@@ -321,6 +321,14 @@ document.addEventListener('alpine:init', () => {
       sessionStorage.removeItem('mc-auth');
       document.cookie = 'mc_oc=; path=/; max-age=0';
       this.ok = false;
+
+      // Disconnect the OpenClaw WebSocket to prevent leaked sockets.
+      // Without this, logging back in opens a second socket and re-registers
+      // event handlers, causing duplicated deltas/completions.
+      if (window.openclawClient) {
+        window.openclawClient.disconnect();
+        window.openclawClient._mcEventsRegistered = false;
+      }
     },
   });
 
@@ -470,6 +478,13 @@ document.addEventListener('alpine:init', () => {
     _setupOpenClawEvents() {
       const oc = window.openclawClient;
       if (!oc) return;
+
+      // Guard against double-registration after logout/login cycle.
+      // The disconnect() in logout() closes the socket but the client
+      // object persists — re-connecting re-registers handlers on the same
+      // instance, causing duplicated event processing.
+      if (oc._mcEventsRegistered) return;
+      oc._mcEventsRegistered = true;
 
       // Chat streaming events
       oc.on('chat.delta', (payload) => {

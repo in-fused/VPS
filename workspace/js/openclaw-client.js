@@ -96,6 +96,10 @@ class OpenClawClient {
     }
     this.connected = false;
     this.authenticated = false;
+
+    // Clear all event handlers so re-connecting after logout doesn't
+    // accumulate duplicate listeners from previous sessions.
+    this._eventHandlers.clear();
   }
 
   _scheduleReconnect() {
