@@ -856,16 +856,22 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    run() {
-      if (!this.activeId) return;
-      this.running = true;
-      Alpine.store('monitor').addLog('info', `Workflow "${this.active?.name}" executing...`);
-      setTimeout(() => {
-        this.running = false;
-        const wf = this.active;
-        if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
-        Alpine.store('monitor').addLog('info', 'Workflow completed successfully');
-      }, 3000);
+    async run() {
+      if (!this.activeId || this.running) return;
+      if (window.workflowGraph && window.WorkflowExecutor) {
+        const executor = new WorkflowExecutor(window.workflowGraph);
+        await executor.execute();
+      } else {
+        // Fallback: demo execution
+        this.running = true;
+        Alpine.store('monitor').addLog('info', `Workflow "${this.active?.name}" executing...`);
+        setTimeout(() => {
+          this.running = false;
+          const wf = this.active;
+          if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
+          Alpine.store('monitor').addLog('info', 'Workflow completed (demo mode)');
+        }, 2000);
+      }
     },
   });
 

@@ -1,14 +1,13 @@
 // ============================================================================
 // Mission Control — workflow.js
-// LiteGraph.js custom node types and canvas initialization
+// LiteGraph.js custom node types, canvas initialization, and workflow executor
+// Nodes execute real OpenClaw/LiteLLM calls when the workflow runs
 // in-fused.org
 // ============================================================================
 
-// Global references
 window.workflowGraph = null;
 window.workflowCanvas = null;
 
-// Wait for LiteGraph to be available
 function initWorkflowCanvas() {
   if (typeof LiteGraph === 'undefined') {
     console.warn('LiteGraph not loaded yet');
@@ -17,20 +16,16 @@ function initWorkflowCanvas() {
 
   const container = document.getElementById('workflow-canvas');
   if (!container) return;
-
-  // Only init once
   if (window.workflowCanvas && window.workflowCanvas._mounted) return;
 
-  // Register custom node types (only once)
   if (!LiteGraph.registered_node_types['mission/agent']) {
     registerCustomNodes();
   }
 
-  // Create graph and canvas
   const graph = new LiteGraph.LGraph();
   const canvas = new LiteGraph.LGraphCanvas(container, graph);
 
-  // Canvas styling for dark theme
+  // Dark theme
   canvas.background_image = null;
   canvas.clear_background_color = '#0a0e17';
   canvas.default_link_color = '#06b6d4';
@@ -39,7 +34,6 @@ function initWorkflowCanvas() {
   canvas.render_curved_connections = true;
   canvas.connections_width = 2;
 
-  // Node defaults
   LiteGraph.NODE_DEFAULT_COLOR = '#1f2937';
   LiteGraph.NODE_DEFAULT_BGCOLOR = '#111827';
   LiteGraph.NODE_DEFAULT_BOXCOLOR = '#06b6d4';
@@ -51,20 +45,16 @@ function initWorkflowCanvas() {
   LiteGraph.WIDGET_TEXT_COLOR = '#f9fafb';
   LiteGraph.WIDGET_SECONDARY_TEXT_COLOR = '#6b7280';
 
-  // Save references
   window.workflowGraph = graph;
   window.workflowCanvas = canvas;
   canvas._mounted = true;
 
-  // Start rendering
   graph.start();
 
-  // Add some default nodes if graph is empty
   if (graph._nodes.length === 0) {
     addDefaultWorkflow(graph);
   }
 
-  // Handle resize
   function resizeCanvas() {
     const rect = container.parentElement.getBoundingClientRect();
     container.width = rect.width;
@@ -75,7 +65,6 @@ function initWorkflowCanvas() {
   window.addEventListener('resize', resizeCanvas);
 }
 
-// Make it globally available
 window.initWorkflowCanvas = initWorkflowCanvas;
 
 // ============================================================================
@@ -85,7 +74,7 @@ window.initWorkflowCanvas = initWorkflowCanvas;
 function registerCustomNodes() {
 
   // ------------------------------------------
-  // INPUT / TRIGGER NODE
+  // TRIGGER NODE
   // ------------------------------------------
   function TriggerNode() {
     this.addOutput('prompt', 'string');
@@ -102,17 +91,18 @@ function registerCustomNodes() {
     this.bgcolor = '#022c22';
   }
   TriggerNode.title = 'Trigger';
-  TriggerNode.desc = 'Workflow start point — defines the input prompt or trigger condition';
+  TriggerNode.desc = 'Workflow start point';
   TriggerNode.prototype.onExecute = function () {
     this.setOutputData(0, this.properties.prompt);
-    if (this.properties.trigger === 'Manual') {
-      this.triggerSlot(1);
-    }
+  };
+  // Async execution for workflow runner
+  TriggerNode.prototype.runAsync = async function (inputs) {
+    return { prompt: this.properties.prompt };
   };
   LiteGraph.registerNodeType('mission/trigger', TriggerNode);
 
   // ------------------------------------------
-  // AGENT NODE
+  // AGENT NODE — calls OpenClaw or LiteLLM
   // ------------------------------------------
   function AgentNode() {
     this.addInput('prompt', 'string');
@@ -120,10 +110,16 @@ function registerCustomNodes() {
     this.addOutput('response', 'string');
     this.addOutput('done', LiteGraph.EVENT);
 
-    const modelNames = (window.MODELS || []).map(m => m.name);
-    this.addWidget('combo', 'Model', 'Llama 3.3 70B', (v) => {
-      this.properties.model = v;
-    }, { values: modelNames.length ? modelNames : ['Llama 3.3 70B', 'Claude Haiku', 'GPT-4o Mini'] });
+    // Build agent list from the agents store
+    const agentNames = ['(Auto)'];
+    try {
+      const agents = Alpine.store('agents')?.list || [];
+      agents.forEach(a => agentNames.push(a.name));
+    } catch {}
+
+    this.addWidget('combo', 'Agent', '(Auto)', (v) => {
+      this.properties.agent = v;
+    }, { values: agentNames });
 
     this.addWidget('text', 'System Prompt', 'You are a helpful assistant.', (v) => {
       this.properties.systemPrompt = v;
@@ -132,21 +128,89 @@ function registerCustomNodes() {
       this.properties.maxTokens = v;
     }, { min: 128, max: 32768, step: 128 });
 
-    this.properties = { model: 'Llama 3.3 70B', systemPrompt: 'You are a helpful assistant.', maxTokens: 2048 };
-    this.size = [300, 180];
+    this.properties = { agent: '(Auto)', systemPrompt: 'You are a helpful assistant.', maxTokens: 2048 };
+    this.size = [300, 160];
     this.color = '#1e3a5f';
     this.bgcolor = '#0c1929';
   }
   AgentNode.title = 'Agent';
-  AgentNode.desc = 'Sends prompt to an LLM agent and returns the response';
+  AgentNode.desc = 'Sends prompt to an AI agent (OpenClaw or LiteLLM)';
   AgentNode.prototype.onExecute = function () {
     const prompt = this.getInputData(0);
-    const context = this.getInputData(1) || '';
     if (prompt) {
-      // In a real implementation, this would call the LiteLLM API
-      this.setOutputData(0, `[${this.properties.model}] Response to: ${prompt}`);
-      this.triggerSlot(1);
+      this.setOutputData(0, this._lastResponse || '');
     }
+  };
+  AgentNode.prototype.runAsync = async function (inputs) {
+    const prompt = inputs.prompt || '';
+    const context = inputs.context || '';
+    const fullPrompt = context ? `Context: ${context}\n\nTask: ${prompt}` : prompt;
+
+    if (!fullPrompt) return { response: '' };
+
+    // Find the agent
+    let agent = null;
+    if (this.properties.agent !== '(Auto)') {
+      const agents = Alpine.store('agents')?.list || [];
+      agent = agents.find(a => a.name === this.properties.agent);
+    }
+
+    const model = agent?.model || 'groq-llama-3.3-70b';
+    const messages = [];
+    const sysPrompt = this.properties.systemPrompt || agent?.systemPrompt;
+    if (sysPrompt) messages.push({ role: 'system', content: sysPrompt });
+    messages.push({ role: 'user', content: fullPrompt });
+
+    // Try OpenClaw first, then LiteLLM, then return error
+    if (window.openclawClient?.authenticated) {
+      try {
+        await window.openclawClient.sendChat(fullPrompt, {
+          agentId: agent?.id,
+        });
+        // Wait for response via events (simplified — collect until complete)
+        const response = await this._waitForResponse(5000);
+        this._lastResponse = response;
+        return { response };
+      } catch (e) {
+        console.warn('[Workflow Agent] OpenClaw failed, trying LiteLLM:', e.message);
+      }
+    }
+
+    // Fallback: direct LiteLLM
+    if (window.litellmApi) {
+      try {
+        const response = await litellmApi.chat(model, messages);
+        this._lastResponse = response;
+        return { response };
+      } catch (e) {
+        return { response: `Error: ${e.message}` };
+      }
+    }
+
+    return { response: '[Demo] Agent would process: ' + fullPrompt.slice(0, 100) };
+  };
+  AgentNode.prototype._waitForResponse = function (timeoutMs) {
+    return new Promise((resolve) => {
+      let content = '';
+      const cleanup = [];
+
+      const timer = setTimeout(() => {
+        cleanup.forEach(fn => fn());
+        resolve(content || '[Timeout waiting for response]');
+      }, timeoutMs);
+
+      if (window.openclawClient) {
+        const offDelta = window.openclawClient.on('chat.delta', (p) => {
+          content += (p.content || p.delta || '');
+        });
+        const offComplete = window.openclawClient.on('chat.complete', () => {
+          clearTimeout(timer);
+          cleanup.forEach(fn => fn());
+          resolve(content);
+        });
+        cleanup.push(offDelta, offComplete);
+      }
+    });
   };
   LiteGraph.registerNodeType('mission/agent', AgentNode);
 
@@ -178,11 +242,18 @@ function registerCustomNodes() {
   TaskNode.prototype.onExecute = function () {
     const input = this.getInputData(0);
     if (input) {
-      this.setOutputData(0, `Task [${this.properties.priority}]: ${this.properties.goal} | Input: ${input}`);
+      this.setOutputData(0, `Task [${this.properties.priority}]: ${this.properties.goal}\n${input}`);
     }
   };
-  TaskNode.prototype.onAction = function () {
-    this.triggerSlot(1);
+  TaskNode.prototype.runAsync = async function (inputs) {
+    const input = inputs.input || '';
+    let result = input;
+    if (this.properties.goal) {
+      result = `[Task: ${this.properties.goal}] [Priority: ${this.properties.priority}]\n`;
+      if (this.properties.constraints) result += `Constraints: ${this.properties.constraints}\n`;
+      result += `Input: ${input}`;
+    }
+    return { result };
   };
   LiteGraph.registerNodeType('mission/task', TaskNode);
 
@@ -211,11 +282,26 @@ function registerCustomNodes() {
   ToolNode.prototype.onExecute = function () {
     const input = this.getInputData(0);
     if (input) {
-      this.setOutputData(0, `[${this.properties.tool}] Result for: ${input}`);
+      this.setOutputData(0, this._lastResult || `[${this.properties.tool}] ${input}`);
     }
   };
-  ToolNode.prototype.onAction = function () {
-    this.triggerSlot(1);
+  ToolNode.prototype.runAsync = async function (inputs) {
+    const input = inputs.input || '';
+    // Tools execute through an agent prompt that requests the specific tool
+    const toolPrompt = `Use the ${this.properties.tool} tool to: ${input}`;
+
+    if (window.openclawClient?.authenticated) {
+      try {
+        await window.openclawClient.sendChat(toolPrompt);
+        const response = await AgentNode.prototype._waitForResponse.call(this, 10000);
+        this._lastResult = response;
+        return { result: response };
+      } catch {}
+    }
+
+    // Fallback
+    this._lastResult = `[${this.properties.tool}] Executed: ${input.slice(0, 100)}`;
+    return { result: this._lastResult };
   };
   LiteGraph.registerNodeType('mission/tool', ToolNode);
 
@@ -239,21 +325,28 @@ function registerCustomNodes() {
     this.bgcolor = '#2e260a';
   }
   ConditionNode.title = 'Condition';
-  ConditionNode.desc = 'Routes data based on a condition (if/else branching)';
+  ConditionNode.desc = 'Routes data based on a condition';
   ConditionNode.prototype.onExecute = function () {
     const input = this.getInputData(0) || '';
-    let result = false;
-    const cond = this.properties.condition;
-
-    switch (this.properties.type) {
-      case 'Contains': result = input.includes(cond); break;
-      case 'Equals': result = input === cond; break;
-      case 'Regex': try { result = new RegExp(cond).test(input); } catch (e) { result = false; } break;
-      case 'Length >': result = input.length > parseInt(cond) || 0; break;
-      case 'Is Empty': result = !input || input.trim() === ''; break;
-    }
-
+    const result = this._evaluate(input);
     this.setOutputData(result ? 0 : 1, input);
+  };
+  ConditionNode.prototype._evaluate = function (input) {
+    const cond = this.properties.condition;
+    switch (this.properties.type) {
+      case 'Contains': return input.includes(cond);
+      case 'Equals': return input === cond;
+      case 'Regex': try { return new RegExp(cond).test(input); } catch { return false; }
+      case 'Length >': return input.length > (parseInt(cond) || 0);
+      case 'Is Empty': return !input || input.trim() === '';
+      default: return false;
+    }
+  };
+  ConditionNode.prototype.runAsync = async function (inputs) {
+    const input = inputs.input || '';
+    const result = this._evaluate(input);
+    // Return to both outputs; the executor uses the connection to route
+    return { true: result ? input : null, false: result ? null : input };
   };
   LiteGraph.registerNodeType('mission/condition', ConditionNode);
 
@@ -263,31 +356,28 @@ function registerCustomNodes() {
   function OutputNode() {
     this.addInput('result', 'string');
     this.addInput('done', LiteGraph.ACTION);
-    this.addWidget('combo', 'Destination', 'Console', (v) => {
+    this.addWidget('combo', 'Destination', 'Log', (v) => {
       this.properties.destination = v;
-    }, { values: ['Console', 'Chat Response', 'File', 'Webhook', 'Next Workflow'] });
+    }, { values: ['Log', 'Chat Response', 'File', 'Webhook'] });
     this.addWidget('text', 'Label', 'Output', (v) => {
       this.properties.label = v;
     });
 
-    this.properties = { destination: 'Console', label: 'Output' };
+    this.properties = { destination: 'Log', label: 'Output' };
     this.size = [240, 100];
     this.color = '#1a4d3a';
     this.bgcolor = '#0a2e1f';
   }
   OutputNode.title = 'Output';
-  OutputNode.desc = 'Sends results to a destination (console, chat, file, webhook)';
-  OutputNode.prototype.onExecute = function () {
-    const input = this.getInputData(0);
-    if (input) {
-      console.log(`[Output: ${this.properties.label}]`, input);
+  OutputNode.desc = 'Delivers results (log, chat, file, webhook)';
+  OutputNode.prototype.onExecute = function () {};
+  OutputNode.prototype.runAsync = async function (inputs) {
+    const result = inputs.result || '';
+    const monitor = Alpine?.store('monitor');
+    if (monitor) {
+      monitor.addLog('info', `[Workflow] ${this.properties.label}: ${result.slice(0, 200)}`);
     }
-  };
-  OutputNode.prototype.onAction = function () {
-    const store = window.Alpine && Alpine.store('monitor');
-    if (store) {
-      store.addLog('info', `Workflow output [${this.properties.label}]: completed`);
-    }
+    return { output: result };
   };
   LiteGraph.registerNodeType('mission/output', OutputNode);
 
@@ -309,13 +399,13 @@ function registerCustomNodes() {
     this.bgcolor = '#0a1f2e';
   }
   LoopNode.title = 'Loop';
-  LoopNode.desc = 'Iterates over items or repeats a fixed number of times';
-  LoopNode.prototype.onExecute = function () {
-    const items = this.getInputData(0);
-    if (items) {
-      this.setOutputData(0, items);
-      this.setOutputData(1, 0);
-    }
+  LoopNode.desc = 'Iterates over items';
+  LoopNode.prototype.onExecute = function () {};
+  LoopNode.prototype.runAsync = async function (inputs) {
+    const items = inputs.items || '';
+    // Simple: split by newlines
+    const parts = items.split('\n').filter(Boolean).slice(0, this.properties.maxIter);
+    return { items: parts, count: parts.length };
   };
   LiteGraph.registerNodeType('mission/loop', LoopNode);
 
@@ -336,13 +426,182 @@ function registerCustomNodes() {
     this.bgcolor = '#1f0a2e';
   }
   MergeNode.title = 'Merge';
-  MergeNode.desc = 'Combines multiple inputs into a single output';
+  MergeNode.desc = 'Combines multiple inputs';
   MergeNode.prototype.onExecute = function () {
     const a = this.getInputData(0) || '';
     const b = this.getInputData(1) || '';
     this.setOutputData(0, a + '\n---\n' + b);
   };
+  MergeNode.prototype.runAsync = async function (inputs) {
+    const a = inputs.input_1 || '';
+    const b = inputs.input_2 || '';
+    let merged;
+    switch (this.properties.mode) {
+      case 'JSON Merge':
+        try { merged = JSON.stringify({ ...JSON.parse(a), ...JSON.parse(b) }); } catch { merged = a + '\n' + b; }
+        break;
+      case 'Pick Best':
+        merged = a.length > b.length ? a : b;
+        break;
+      default:
+        merged = [a, b].filter(Boolean).join('\n---\n');
+    }
+    return { merged };
+  };
   LiteGraph.registerNodeType('mission/merge', MergeNode);
+}
+
+// ============================================================================
+// WORKFLOW EXECUTOR — walks the graph and runs nodes with real API calls
+// ============================================================================
+
+class WorkflowExecutor {
+  constructor(graph) {
+    this.graph = graph;
+    this.running = false;
+    this.results = new Map(); // nodeId -> output data
+  }
+
+  async execute() {
+    if (this.running) return;
+    this.running = true;
+
+    const monitor = Alpine?.store('monitor');
+    const wfStore = Alpine?.store('workflows');
+    if (wfStore) wfStore.running = true;
+
+    const nodes = this.graph._nodes;
+    if (!nodes || nodes.length === 0) {
+      this.running = false;
+      if (wfStore) wfStore.running = false;
+      return;
+    }
+
+    // Sort nodes topologically by following links
+    const sorted = this._topologicalSort(nodes);
+    monitor?.addLog('info', `Workflow executing: ${sorted.length} nodes`);
+
+    for (const node of sorted) {
+      if (!this.running) break;
+
+      // Highlight executing node
+      node.boxcolor = '#f59e0b'; // amber = running
+      this.graph.setDirtyCanvas(true);
+
+      try {
+        // Gather inputs from connected upstream nodes
+        const inputs = this._gatherInputs(node);
+
+        // Execute the node's async handler
+        if (typeof node.runAsync === 'function') {
+          const output = await node.runAsync(inputs);
+          this.results.set(node.id, output);
+          monitor?.addLog('debug', `Node "${node.title}" completed`);
+          node.boxcolor = '#10b981'; // green = success
+        } else {
+          node.boxcolor = '#6b7280'; // gray = skipped
+        }
+      } catch (err) {
+        monitor?.addLog('error', `Node "${node.title}" failed: ${err.message}`);
+        node.boxcolor = '#ef4444'; // red = error
+        this.results.set(node.id, { error: err.message });
+      }
+
+      this.graph.setDirtyCanvas(true);
+    }
+
+    this.running = false;
+    if (wfStore) {
+      wfStore.running = false;
+      const wf = wfStore.active;
+      if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
+    }
+    monitor?.addLog('info', 'Workflow execution complete');
+
+    // Reset node colors after 3 seconds
+    setTimeout(() => {
+      for (const node of nodes) {
+        node.boxcolor = LiteGraph.NODE_DEFAULT_BOXCOLOR;
+      }
+      this.graph.setDirtyCanvas(true);
+    }, 3000);
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  _topologicalSort(nodes) {
+    // Simple BFS from trigger/input nodes (no incoming links)
+    const inDegree = new Map();
+    const adj = new Map();
+    const nodeMap = new Map();
+
+    for (const n of nodes) {
+      nodeMap.set(n.id, n);
+      inDegree.set(n.id, 0);
+      adj.set(n.id, []);
+    }
+
+    // Count incoming connections
+    if (this.graph.links) {
+      for (const linkId in this.graph.links) {
+        const link = this.graph.links[linkId];
+        if (link && nodeMap.has(link.target_id) && nodeMap.has(link.origin_id)) {
+          inDegree.set(link.target_id, (inDegree.get(link.target_id) || 0) + 1);
+          adj.get(link.origin_id).push(link.target_id);
+        }
+      }
+    }
+
+    // BFS
+    const queue = [];
+    const sorted = [];
+
+    for (const [id, deg] of inDegree) {
+      if (deg === 0) queue.push(id);
+    }
+
+    while (queue.length > 0) {
+      const id = queue.shift();
+      sorted.push(nodeMap.get(id));
+
+      for (const nextId of (adj.get(id) || [])) {
+        const newDeg = (inDegree.get(nextId) || 1) - 1;
+        inDegree.set(nextId, newDeg);
+        if (newDeg === 0) queue.push(nextId);
+      }
+    }
+
+    return sorted;
+  }
+
+  _gatherInputs(node) {
+    const inputs = {};
+    if (!node.inputs) return inputs;
+
+    for (let i = 0; i < node.inputs.length; i++) {
+      const input = node.inputs[i];
+      if (!input.link) continue;
+
+      const link = this.graph.links[input.link];
+      if (!link) continue;
+
+      const sourceOutput = this.results.get(link.origin_id);
+      if (sourceOutput) {
+        // Match output slot name to input slot name
+        const sourceNode = this.graph.getNodeById(link.origin_id);
+        if (sourceNode && sourceNode.outputs && sourceNode.outputs[link.origin_slot]) {
+          const outputName = sourceNode.outputs[link.origin_slot].name;
+          inputs[input.name] = sourceOutput[outputName] || Object.values(sourceOutput)[0] || '';
+        } else {
+          inputs[input.name] = Object.values(sourceOutput)[0] || '';
+        }
+      }
+    }
+
+    return inputs;
+  }
 }
 
 // ============================================================================
@@ -350,7 +609,6 @@ function registerCustomNodes() {
 // ============================================================================
 
 function addDefaultWorkflow(graph) {
-  // Create a simple example workflow
   const trigger = LiteGraph.createNode('mission/trigger');
   trigger.pos = [100, 200];
   trigger.properties.prompt = 'Review this code for security issues';
@@ -369,7 +627,7 @@ function addDefaultWorkflow(graph) {
   const output = LiteGraph.createNode('mission/output');
   output.pos = [1100, 140];
   output.properties.label = 'Review Result';
-  output.properties.destination = 'Chat Response';
+  output.properties.destination = 'Log';
   graph.add(output);
 
   const tool = LiteGraph.createNode('mission/tool');
@@ -377,7 +635,6 @@ function addDefaultWorkflow(graph) {
   tool.properties.tool = 'Web Search';
   graph.add(tool);
 
-  // Connect: trigger → agent → condition → output/tool
   trigger.connect(0, agent, 0);
   agent.connect(0, condition, 0);
   condition.connect(0, output, 0);
@@ -385,19 +642,17 @@ function addDefaultWorkflow(graph) {
 }
 
 // ============================================================================
-// PALETTE DRAG-AND-DROP
+// PALETTE BUTTON HANDLER
 // ============================================================================
 
 window.addNodeToCanvas = function (nodeType) {
   if (!window.workflowGraph) {
-    // Try to initialize if not done yet
     initWorkflowCanvas();
   }
   if (!window.workflowGraph) return;
 
   const node = LiteGraph.createNode('mission/' + nodeType);
   if (node) {
-    // Place in center of visible area
     const canvas = window.workflowCanvas;
     if (canvas) {
       const center = canvas.convertOffsetToCanvas([
@@ -411,3 +666,9 @@ window.addNodeToCanvas = function (nodeType) {
     window.workflowGraph.add(node);
   }
 };
+
+// ============================================================================
+// EXPOSE EXECUTOR — used by the workflows store's run() method
+// ============================================================================
+
+window.WorkflowExecutor = WorkflowExecutor;
