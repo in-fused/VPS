@@ -77,6 +77,63 @@ config.tools.subagents = config.tools.subagents || {};
 config.tools.subagents.maxDepth = 2;
 
 // =========================================================================
+// Multi-Agent Hierarchy: Define core agent roles
+// =========================================================================
+// Lead agent orchestrates work, delegates to specialized sub-agents.
+// All agents route through LiteLLM for model access.
+config.agents.list = config.agents.list || [];
+
+// Only seed agents if none exist yet (preserve user-created agents)
+if (config.agents.list.length === 0) {
+  config.agents.list = [
+    {
+      id: 'lead',
+      workspace: 'Lead',
+      model: { primary: 'claude-haiku' },
+      identity: {
+        name: 'Lead',
+        emoji: '🧠',
+        description: 'Lead orchestrator — delegates tasks, reviews work, manages the team',
+      },
+      subagents: {
+        allowAgents: ['codecraft', 'scout', 'scribe'],
+        maxDepth: 2,
+      },
+    },
+    {
+      id: 'codecraft',
+      workspace: 'CodeCraft',
+      model: { primary: 'deepseek-coder' },
+      identity: {
+        name: 'CodeCraft',
+        emoji: '⚡',
+        description: 'Full-stack developer — writes, reviews, and debugs code',
+      },
+    },
+    {
+      id: 'scout',
+      workspace: 'Scout',
+      model: { primary: 'groq-llama-3.3-70b' },
+      identity: {
+        name: 'Scout',
+        emoji: '🔍',
+        description: 'Research specialist — web search, data gathering, analysis',
+      },
+    },
+    {
+      id: 'scribe',
+      workspace: 'Scribe',
+      model: { primary: 'gpt-4o-mini' },
+      identity: {
+        name: 'Scribe',
+        emoji: '📝',
+        description: 'Documentation and content writer — clear, structured output',
+      },
+    },
+  ];
+}
+
+// =========================================================================
 // Cleanup: remove keys that crash OpenClaw config validation
 // =========================================================================
 // These were added as memory optimizations but are not recognized by the

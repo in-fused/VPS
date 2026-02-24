@@ -51,16 +51,43 @@ const MODEL_META = {
   'o1': { tier: 'premium', cost: '$15/1M', provider: 'OpenAI' },
 };
 
-// Demo data for when services are unreachable
+// Demo data — mirrors the agent hierarchy seeded in openclaw-entrypoint.sh
 const DEMO_AGENTS = [
   {
-    id: 'demo-1', name: 'CodeCraft', emoji: '⚡',
-    description: 'Full-stack development and code review',
-    model: 'groq-llama-3.3-70b', status: 'idle',
+    id: 'lead', name: 'Lead', emoji: '🧠',
+    description: 'Lead orchestrator — delegates tasks, reviews work, manages the team',
+    model: 'claude-haiku', status: 'idle',
+    currentTask: null,
+    lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
+    tools: ['web-search', 'code-exec', 'file-ops'],
+    systemPrompt: 'You are the Lead agent. You orchestrate work by delegating tasks to specialized team members (CodeCraft for code, Scout for research, Scribe for writing). Review their output and ensure quality. Be strategic and concise.',
+  },
+  {
+    id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
+    description: 'Full-stack developer — writes, reviews, and debugs code',
+    model: 'deepseek-coder', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
-    systemPrompt: 'You are CodeCraft, a senior full-stack developer. Help with code review, debugging, and architecture decisions. Be concise and practical.',
+    systemPrompt: 'You are CodeCraft, a senior full-stack developer. Write clean, secure code. Review for bugs and security issues. Be concise and practical.',
+  },
+  {
+    id: 'scout', name: 'Scout', emoji: '🔍',
+    description: 'Research specialist — web search, data gathering, analysis',
+    model: 'groq-llama-3.3-70b', status: 'idle',
+    currentTask: null,
+    lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
+    tools: ['web-search', 'browser'],
+    systemPrompt: 'You are Scout, a research specialist. Search the web, gather data, and provide clear analysis. Cite sources. Be thorough but concise.',
+  },
+  {
+    id: 'scribe', name: 'Scribe', emoji: '📝',
+    description: 'Documentation and content writer — clear, structured output',
+    model: 'gpt-4o-mini', status: 'idle',
+    currentTask: null,
+    lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
+    tools: ['file-ops'],
+    systemPrompt: 'You are Scribe, a technical writer. Create clear, well-structured documentation, guides, and content. Adapt your tone to the audience.',
   },
 ];
 
