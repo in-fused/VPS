@@ -487,6 +487,26 @@ document.addEventListener('alpine:init', () => {
           sessions._streamingMsg.time = timeNow();
           sessions._streamingMsg = null;
         }
+        sessions._sending = false;
+
+        // Update session metadata
+        const session = sessions.active;
+        if (session) {
+          const lastMsg = sessions.messages[sessions.messages.length - 1];
+          session.lastMessage = (lastMsg?.content || '').slice(0, 60);
+          session.updatedAt = Date.now();
+        }
+
+        // Update agent stats
+        const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+        if (agent) {
+          agent.tasksCompleted++;
+          agent.lastActive = 'Just now';
+          Alpine.store('agents')._persist();
+        }
+
+        sessions._persistMessages();
+        sessions._persist();
       });
 
       oc.on('chat.error', (payload) => {
@@ -496,6 +516,8 @@ document.addEventListener('alpine:init', () => {
           sessions._streamingMsg.streaming = false;
           sessions._streamingMsg = null;
         }
+        sessions._sending = false;
+        sessions._persistMessages();
         Alpine.store('monitor').addLog('error', `Chat error: ${payload.message}`);
       });
 
@@ -694,9 +716,38 @@ document.addEventListener('alpine:init', () => {
       return this.list.find(s => s.id === this.activeId) || null;
     },
 
-    select(id) {
+    async select(id) {
       this.activeId = id;
-      this.messages = this._messageStore[id] || [];
+
+      // Check in-memory cache first
+      if (this._messageStore[id] && this._messageStore[id].length > 0) {
+        this.messages = this._messageStore[id];
+        return;
+      }
+
+      // Try loading from OpenClaw server
+      if (ocMode === 'connected' && window.openclawClient?.authenticated) {
+        try {
+          const history = await window.openclawClient.getHistory(id);
+          if (history && history.length > 0) {
+            this.messages = history.map(m => ({
+              id: m.id || generateId(),
+              role: m.role === 'assistant' ? 'agent' : m.role,
+              content: m.content || '',
+              time: m.time || m.timestamp || '',
+            }));
+            this._messageStore[id] = this.messages;
+            Alpine.store('monitor').addLog('info', `Loaded ${history.length} messages from OpenClaw`);
+            return;
+          }
+        } catch (err) {
+          console.warn('[Sessions] OpenClaw history load failed:', err.message);
+        }
+      }
+
+      // Fallback: load from localStorage
+      this.messages = this._loadMessages(id);
+      this._messageStore[id] = this.messages;
     },
 
     createSession(agentId) {
@@ -735,6 +786,10 @@ document.addEventListener('alpine:init', () => {
       if (session) {
         session.lastMessage = text.slice(0, 60);
         session.updatedAt = Date.now();
+        // Auto-set title from first message
+        if (session.title === 'New conversation') {
+          session.title = text.slice(0, 40) + (text.length > 40 ? '...' : '');
+        }
       }
 
       // Scroll to bottom
@@ -756,6 +811,17 @@ document.addEventListener('alpine:init', () => {
           });
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
+
+          // Safety timeout: if no chat.complete arrives within 60s, unblock sending
+          setTimeout(() => {
+            if (this._sending && this._streamingMsg === botMsg) {
+              botMsg.streaming = false;
+              this._streamingMsg = null;
+              this._sending = false;
+              this._persistMessages();
+              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 60s');
+            }
+          }, 60000);
         } catch (e) {
           botMsg.content = 'Error: ' + e.message;
           botMsg.streaming = false;
@@ -810,6 +876,7 @@ document.addEventListener('alpine:init', () => {
         }
 
         this._persist();
+        this._persistMessages();
         this._scrollToBottom();
         return;
       }
@@ -820,6 +887,7 @@ document.addEventListener('alpine:init', () => {
         botMsg.streaming = false;
         botMsg.time = timeNow();
         this._sending = false;
+        this._persistMessages();
         this._scrollToBottom();
       }, 500);
     },
@@ -837,6 +905,27 @@ document.addEventListener('alpine:init', () => {
         agentEmoji: s.agentEmoji, title: s.title,
         lastMessage: s.lastMessage, updatedAt: s.updatedAt, unread: 0,
       })));
+    },
+
+    _persistMessages() {
+      if (!this.activeId || !this.messages) return;
+      this._messageStore[this.activeId] = this.messages;
+      // Save non-streaming messages to localStorage (capped at 100 per session)
+      const toSave = this.messages
+        .filter(m => !m.streaming)
+        .slice(-100)
+        .map(m => ({ id: m.id, role: m.role, content: m.content, time: m.time }));
+      storage.save('msgs-' + this.activeId, toSave);
+    },
+
+    _loadMessages(sessionId) {
+      const saved = storage.load('msgs-' + sessionId, []);
+      return saved.map(m => ({
+        id: m.id || generateId(),
+        role: m.role || 'user',
+        content: m.content || '',
+        time: m.time || '',
+      }));
     },
   });
 
