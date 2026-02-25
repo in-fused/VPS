@@ -69,7 +69,7 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
       # Security
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
-      - WEBUI_AUTH=true
+      - WEBUI_AUTH=false
       # Features
       - ENABLE_RAG_WEB_SEARCH=true
       - ENABLE_IMAGE_GENERATION=false
