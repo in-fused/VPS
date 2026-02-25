@@ -161,7 +161,8 @@
        MAIN APPLICATION SHELL
        ==================================================================== -->
   <div x-data x-show="$store.auth.ok && !$store.app.booting" x-cloak
-       class="flex h-screen w-screen overflow-hidden" style="height: 100dvh">
+       class="flex h-screen w-screen overflow-hidden"
+       style="height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px)">
 
     <!-- Mobile Sidebar Backdrop -->
     <div class="mc-sidebar-backdrop"
@@ -175,7 +176,7 @@
              $store.app.mobile ? 'mc-sidebar-mobile' : ($store.app.sidebarOpen ? 'w-60 min-w-[240px]' : 'w-16 min-w-[64px]'),
              $store.app.sidebarOpen ? 'open' : ''
            ]"
-           class="bg-mc-surface border-r border-mc-border flex flex-col transition-all duration-200 z-20">
+           class="bg-mc-surface border-r border-mc-border flex flex-col transition-all duration-200">
 
       <!-- Logo -->
       <div class="h-14 flex items-center gap-3 px-4 border-b border-mc-border flex-shrink-0">
