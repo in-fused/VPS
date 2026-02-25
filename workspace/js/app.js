@@ -378,7 +378,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     async boot() {
-      await new Promise(r => setTimeout(r, 1800));
+      await new Promise(r => setTimeout(r, 1000));
       this.booting = false;
 
       const monitor = Alpine.store('monitor');
@@ -421,8 +421,16 @@ document.addEventListener('alpine:init', () => {
         }
       }
 
-      // Start periodic health checks (every 30s)
-      healthChecker.startPolling(h => this._applyHealth(h), 30000);
+      // Start adaptive health polling: faster when disconnected (15s), slower when stable (45s)
+      const pollInterval = (this.connected && this.ocConnected) ? 45000 : 15000;
+      healthChecker.startPolling(h => {
+        this._applyHealth(h);
+        // Adjust poll interval based on connection state
+        if (h.litellm && h.openclaw && healthChecker._interval) {
+          clearInterval(healthChecker._interval);
+          healthChecker._interval = setInterval(() => healthChecker.check().then(hh => this._applyHealth(hh)), 45000);
+        }
+      }, pollInterval);
     },
 
     async _syncAgentsFromOpenClaw() {
@@ -595,6 +603,20 @@ document.addEventListener('alpine:init', () => {
 
       if (health.openclaw) {
         Alpine.store('monitor').addLog('info', 'OpenClaw is online');
+        // Attempt WebSocket reconnect if not already connected
+        if (ocMode !== 'connected' && window.openclawClient && !window.openclawClient.authenticated) {
+          try {
+            const pw = sessionStorage.getItem('mc-oc-pw') || '';
+            await window.openclawClient.connect(pw, { maxRetries: 1 });
+            ocMode = 'connected';
+            Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
+            await this._syncAgentsFromOpenClaw();
+            await this._syncSessionsFromOpenClaw();
+            this._setupOpenClawEvents();
+          } catch (err) {
+            Alpine.store('monitor').addLog('warn', `OpenClaw WebSocket reconnect failed: ${err.message}`);
+          }
+        }
       }
     },
   });
@@ -1264,6 +1286,49 @@ document.addEventListener('alpine:init', () => {
     _persist() {
       storage.save('governance-metrics', this.metrics);
       storage.save('governance-teams', this.teams);
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // STORE: SETTINGS — sidebar customization & preferences
+  // --------------------------------------------------------------------------
+
+  Alpine.store('settings', {
+    // Which sidebar nav items are visible (all default to true)
+    sidebar: {
+      dashboard: true,
+      agents: true,
+      workflows: true,
+      chat: true,
+      teams: true,
+      monitor: true,
+    },
+    settingsOpen: false,
+
+    init() {
+      const saved = storage.load('settings', null);
+      if (saved && saved.sidebar) {
+        this.sidebar = { ...this.sidebar, ...saved.sidebar };
+      }
+    },
+
+    toggle(key) {
+      if (this.sidebar.hasOwnProperty(key)) {
+        this.sidebar[key] = !this.sidebar[key];
+        this._persist();
+        // If the hidden view is currently active, switch to dashboard
+        if (!this.sidebar[key] && Alpine.store('app').view === key) {
+          Alpine.store('app').setView('dashboard');
+        }
+      }
+    },
+
+    isVisible(key) {
+      return this.sidebar[key] !== false;
+    },
+
+    _persist() {
+      storage.save('settings', { sidebar: { ...this.sidebar } });
     },
   });
 

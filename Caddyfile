@@ -122,13 +122,50 @@
 	}
 
 	# =========================================================================
-	# OpenClaw WebSocket — root path upgrade (authenticated)
+	# Mission Control WebSocket — /ws/openclaw (dedicated, conflict-free)
 	# =========================================================================
-	# The Control UI JavaScript connects its WebSocket to wss://host/
-	# (root path, ignoring basePath). Route root-path WebSocket upgrades
-	# to OpenClaw. Open WebUI's WebSocket uses /socket.io/ so no conflict.
-	# Requires the mc_oc auth cookie — unauthenticated WS requests get 403.
-	# When auth is disabled, accept any root WebSocket upgrade
+	# Dedicated WebSocket path for Mission Control → OpenClaw gateway.
+	# handle_path strips /ws/openclaw so OpenClaw receives connections at /
+	# (which is what its gateway expects). This avoids conflicts with
+	# Open WebUI's root path and the @openclawws legacy matcher below.
+	handle_path /ws/openclaw {
+		@wsmc_noauth {
+			header Upgrade websocket
+			expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		}
+		handle @wsmc_noauth {
+			reverse_proxy openclaw:18789 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				flush_interval -1
+			}
+		}
+
+		@wsmc_authed {
+			header Upgrade websocket
+			header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		}
+		handle @wsmc_authed {
+			reverse_proxy openclaw:18789 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				flush_interval -1
+			}
+		}
+
+		handle {
+			respond "Unauthorized" 403
+		}
+	}
+
+	# =========================================================================
+	# OpenClaw WebSocket — root path upgrade (legacy / native Control UI)
+	# =========================================================================
+	# The native OpenClaw Control UI connects its WebSocket to wss://host/
+	# (root path, ignoring basePath). Kept for backward compatibility when
+	# accessing /openclaw/ directly. Mission Control uses /ws/openclaw above.
 	@openclawws_noauth {
 		path /
 		header Upgrade websocket

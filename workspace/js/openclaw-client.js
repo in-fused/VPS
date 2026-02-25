@@ -19,30 +19,65 @@ class OpenClawClient {
   }
 
   // ---------------------------------------------------------------------------
-  // CONNECTION
+  // CONNECTION — uses /ws/openclaw (dedicated route, avoids root-path conflicts)
+  // Falls back to / (legacy root WebSocket) if the dedicated route fails.
   // ---------------------------------------------------------------------------
 
-  connect(password) {
+  connect(password, { maxRetries = 2 } = {}) {
     this._password = password;
+    return this._attemptConnect(password, maxRetries);
+  }
+
+  async _attemptConnect(password, retriesLeft) {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Dedicated WebSocket path — Caddy strips /ws/openclaw and proxies to
+    // openclaw:18789/ so the gateway sees a connection at root (as expected).
+    const paths = ['/ws/openclaw', '/'];
+
+    for (const path of paths) {
+      try {
+        const result = await this._connectToPath(`${proto}//${location.host}${path}`);
+        return result;
+      } catch (err) {
+        console.warn(`[OpenClaw] WebSocket ${path} failed: ${err.message}`);
+        // Try next path
+      }
+    }
+
+    // All paths failed — retry with backoff if retries remain
+    if (retriesLeft > 0) {
+      const delay = (3 - retriesLeft) * 3000; // 3s, 6s
+      console.log(`[OpenClaw] All paths failed, retrying in ${delay / 1000}s (${retriesLeft} left)...`);
+      await new Promise(r => setTimeout(r, delay));
+      return this._attemptConnect(password, retriesLeft - 1);
+    }
+
+    throw new Error('Connection timeout');
+  }
+
+  _connectToPath(url) {
     return new Promise((resolve, reject) => {
       try {
-        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const url = `${proto}//${location.host}/`;
+        const ws = new WebSocket(url);
+        let settled = false;
 
-        this.ws = new WebSocket(url);
-        this.ws.onopen = () => {
-          console.log('[OpenClaw] WebSocket connected, awaiting handshake...');
+        ws.onopen = () => {
+          console.log(`[OpenClaw] WebSocket connected to ${url}, awaiting handshake...`);
         };
 
-        this.ws.onmessage = (event) => {
-          this._handleMessage(event.data, resolve, reject);
+        ws.onmessage = (event) => {
+          this._handleMessage(event.data, (result) => {
+            if (!settled) { settled = true; resolve(result); }
+          }, (err) => {
+            if (!settled) { settled = true; reject(err); }
+          });
         };
 
-        this.ws.onerror = (err) => {
+        ws.onerror = (err) => {
           console.warn('[OpenClaw] WebSocket error:', err);
         };
 
-        this.ws.onclose = (event) => {
+        ws.onclose = (event) => {
           const wasAuth = this.authenticated;
           this.connected = false;
           this.authenticated = false;
@@ -64,18 +99,24 @@ class OpenClawClient {
           }
 
           // If we never authenticated, reject the connect promise
-          if (!wasAuth) {
+          if (!wasAuth && !settled) {
+            settled = true;
             reject(new Error(`Connection closed (code: ${event.code})`));
           }
         };
 
+        // Store ws reference so _handleMessage and _sendHandshake work
+        this.ws = ws;
+
         // Timeout the initial connection
         setTimeout(() => {
-          if (!this.authenticated) {
-            this.disconnect();
-            reject(new Error('Connection timeout'));
+          if (!this.authenticated && !settled) {
+            ws.onclose = null; // prevent auto-reconnect for this attempt
+            ws.close();
+            settled = true;
+            reject(new Error('Handshake timeout'));
           }
-        }, 10000);
+        }, 8000);
 
       } catch (err) {
         reject(err);
@@ -108,7 +149,7 @@ class OpenClawClient {
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
       try {
-        await this.connect(this._password);
+        await this.connect(this._password, { maxRetries: 1 });
         this._reconnectDelay = 2000; // reset on success
         this._emit('reconnect', {});
       } catch {
