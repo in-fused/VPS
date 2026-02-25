@@ -34,6 +34,11 @@ function initWorkflowCanvas() {
   canvas.render_curved_connections = true;
   canvas.connections_width = 2;
 
+  // Mobile / touch support
+  canvas.allow_interaction = true;
+  canvas.allow_dragnodes = true;
+  canvas.allow_searchbox = false; // search popup is unusable on mobile
+
   LiteGraph.NODE_DEFAULT_COLOR = '#1f2937';
   LiteGraph.NODE_DEFAULT_BGCOLOR = '#111827';
   LiteGraph.NODE_DEFAULT_BOXCOLOR = '#06b6d4';

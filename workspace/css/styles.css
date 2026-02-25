@@ -329,6 +329,14 @@ html, body {
 .lgraphcanvas {
   background-color: var(--mc-bg) !important;
 }
+
+/* ---- LiteGraph.js Touch Support (iOS / mobile) ---- */
+#workflow-canvas,
+.lgraphcanvas {
+  touch-action: none;      /* Prevent browser from hijacking touch for scroll/zoom */
+  -webkit-user-select: none;
+  user-select: none;
+}
 .litegraph .litecontextmenu {
   background: var(--mc-surface) !important;
   border: 1px solid var(--mc-border) !important;
