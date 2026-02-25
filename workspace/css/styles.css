@@ -38,12 +38,18 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  height: 100dvh; /* iOS Safari: accounts for dynamic toolbar */
   overflow: hidden;
   background: var(--mc-bg);
   color: var(--mc-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Safe area padding for notch/Dynamic Island devices */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* ---- Scrollbars ---- */
@@ -225,11 +231,14 @@ html, body {
   user-select: none;
   transition: all 150ms ease;
 }
-.mc-palette-node:hover {
+.mc-palette-node:hover, .mc-palette-node:active {
   border-color: var(--mc-primary);
   transform: translateX(2px);
 }
 .mc-palette-node:active { cursor: grabbing; }
+@media (pointer: coarse) {
+  .mc-palette-node { min-height: 44px; }
+}
 
 /* ---- Sidebar Tooltip (collapsed mode) ---- */
 .mc-sidebar-collapsed .mc-nav-btn[data-tip]::after {
@@ -251,6 +260,10 @@ html, body {
   z-index: 100;
 }
 .mc-sidebar-collapsed .mc-nav-btn[data-tip]:hover::after { opacity: 1; }
+/* Hide CSS tooltips on touch — they cause ghost taps */
+@media (pointer: coarse) {
+  .mc-sidebar-collapsed .mc-nav-btn[data-tip]::after { display: none; }
+}
 
 /* ---- Input Focus Ring ---- */
 .mc-input-focus:focus {
@@ -259,8 +272,8 @@ html, body {
   outline: none;
 }
 
-/* ---- Card Hover Glow ---- */
-.mc-card-glow:hover {
+/* ---- Card Hover/Active Glow ---- */
+.mc-card-glow:hover, .mc-card-glow:active {
   border-color: rgba(6, 182, 212, 0.3);
   box-shadow: 0 0 24px rgba(6, 182, 212, 0.06);
 }
@@ -279,7 +292,7 @@ html, body {
   border: 2px solid transparent;
   transition: all 150ms ease;
 }
-.mc-emoji-btn:hover { background: var(--mc-elevated); }
+.mc-emoji-btn:hover, .mc-emoji-btn:active { background: var(--mc-elevated); }
 .mc-emoji-btn.selected {
   border-color: var(--mc-primary);
   background: var(--mc-primary-dim);
@@ -343,10 +356,13 @@ html, body {
     top: 0;
     width: 260px;
     height: 100%;
+    height: 100dvh;
     z-index: 50;
     box-shadow: 4px 0 32px rgba(0, 0, 0, 0.6);
     transform: translateX(-100%);
     transition: transform 250ms ease;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
   }
   .mc-sidebar-mobile.open {
     transform: translateX(0);
@@ -391,11 +407,13 @@ html, body {
     bottom: 0;
     z-index: 35;
     max-height: 50vh;
+    max-height: 50dvh;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
     transform: translateY(100%);
     transition: transform 250ms ease;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .mc-workflow-panel-mobile.open {
     transform: translateY(0);
@@ -434,13 +452,42 @@ html, body {
 /* ---- Touch-friendly targets ---- */
 @media (pointer: coarse) {
   .mc-log-filter-btn {
-    min-height: 36px;
-    min-width: 36px;
-    padding: 6px 10px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 12px;
   }
   .mc-emoji-btn {
     width: 44px;
     height: 44px;
+  }
+  /* Navigation buttons: ensure 44px minimum tap targets */
+  nav button, .mc-nav-btn {
+    min-height: 44px;
+  }
+  /* Toggle switches */
+  .mc-toggle {
+    width: 48px;
+    height: 28px;
+  }
+  /* Wizard step dots */
+  .mc-step-dot {
+    width: 36px;
+    height: 36px;
+  }
+  /* Status dots: enlarge tap area via padding (visual size stays small) */
+  .mc-dot {
+    padding: 10px;
+    margin: -10px;
+    position: relative;
+  }
+  /* General interactive elements */
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+  /* Buttons in forms */
+  button, [role="button"] {
+    min-height: 44px;
   }
 }
 

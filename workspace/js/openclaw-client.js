@@ -16,6 +16,28 @@ class OpenClawClient {
     this._reconnectDelay = 2000;
     this._maxReconnectDelay = 30000;
     this._password = null;
+    this._backgrounded = false;
+
+    // iOS/mobile: pause reconnection when app is backgrounded to save battery.
+    // Force a clean reconnect when the user returns.
+    this._onVisibilityChange = () => {
+      if (document.hidden) {
+        this._backgrounded = true;
+        // Cancel any pending reconnect timers — no point retrying while hidden
+        if (this._reconnectTimer) {
+          clearTimeout(this._reconnectTimer);
+          this._reconnectTimer = null;
+        }
+      } else {
+        this._backgrounded = false;
+        // If we were authenticated but the socket died while backgrounded, reconnect
+        if (this._password && !this.authenticated) {
+          this._reconnectDelay = 2000; // reset backoff — user is actively returning
+          this._scheduleReconnect();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
   }
 
   // ---------------------------------------------------------------------------
@@ -126,6 +148,7 @@ class OpenClawClient {
 
   disconnect() {
     this._password = null;
+    this._backgrounded = false;
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
@@ -145,6 +168,8 @@ class OpenClawClient {
 
   _scheduleReconnect() {
     if (this._reconnectTimer) return;
+    // Don't attempt reconnection while iOS/mobile has us backgrounded
+    if (this._backgrounded) return;
     console.log(`[OpenClaw] Reconnecting in ${this._reconnectDelay / 1000}s...`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Mission Control — in-fused.org</title>
   <meta name="description" content="AI Agent Mission Control — manage, orchestrate, and monitor autonomous agents">
 
@@ -56,8 +56,14 @@
   <!-- Alpine.js (deferred — runs after app.js registers stores) -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 
-  <!-- Favicon -->
+  <!-- Favicon + PWA -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mission Ctrl">
+  <meta name="theme-color" content="#0a0e17">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
 
   <!-- x-cloak: hide Alpine elements until initialized -->
   <style>[x-cloak] { display: none !important; }</style>
@@ -155,7 +161,7 @@
        MAIN APPLICATION SHELL
        ==================================================================== -->
   <div x-data x-show="$store.auth.ok && !$store.app.booting" x-cloak
-       class="flex h-screen w-screen overflow-hidden">
+       class="flex h-screen w-screen overflow-hidden" style="height: 100dvh">
 
     <!-- Mobile Sidebar Backdrop -->
     <div class="mc-sidebar-backdrop"

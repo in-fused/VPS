@@ -2,12 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>OpenClaw — Authentication</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f0e1a">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -29,6 +32,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -126,8 +130,13 @@
       transition: filter 0.2s, box-shadow 0.2s;
       box-shadow: 0 4px 16px var(--accent-glow);
     }
-    .btn:hover { filter: brightness(1.1); }
+    .btn:hover, .btn:active { filter: brightness(1.1); }
     .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    /* Prevent iOS zoom on input focus */
+    @media (pointer: coarse) {
+      input { font-size: 16px; min-height: 44px; }
+      .btn { min-height: 44px; }
+    }
     .footer {
       text-align: center;
       margin-top: 24px;
