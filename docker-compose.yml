@@ -198,6 +198,8 @@ services:
       - NODE_OPTIONS=--max-old-space-size=1024 --disable-warning=ExperimentalWarning
       # Gateway auth — password required to access the /openclaw/ web UI
       - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_PASSWORD}
+      # Domain for OpenClaw allowedOrigins (v2026.2.24+ requirement)
+      - DOMAIN=${DOMAIN:-}
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1

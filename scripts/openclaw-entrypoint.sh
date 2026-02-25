@@ -30,6 +30,14 @@ config.gateway.controlUi.basePath = '/openclaw/';
 // Without this, each new browser requires manual CLI approval even after
 // entering the correct password (device pairing is a separate auth layer).
 config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+// v2026.2.24+: non-loopback bind requires explicit allowedOrigins or the
+// Host-header fallback flag. Set both — explicit origin for production,
+// fallback for dev/IP access.
+var domain = process.env.DOMAIN || '';
+config.gateway.controlUi.allowedOrigins = domain
+  ? ['https://' + domain]
+  : [];
+config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
 
 // Remove any unknown keys that cause config validation errors
 delete config.gateway.trustProxy;
