@@ -8,6 +8,89 @@
 window.workflowGraph = null;
 window.workflowCanvas = null;
 
+// ============================================================================
+// TOUCH-TO-MOUSE BRIDGE — makes LiteGraph canvas fully usable on mobile
+// Translates touch events into mouse events the canvas understands.
+// Supports: single-finger pan/drag, two-finger pinch-zoom.
+// ============================================================================
+
+function _bridgeTouchEvents(canvasEl) {
+  // Only apply on touch-capable devices
+  if (!('ontouchstart' in window)) return;
+
+  let _lastPinchDist = 0;
+
+  function touchToMouse(type, touch, e) {
+    const mouseEvent = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      button: 0,
+      buttons: type === 'mouseup' ? 0 : 1,
+    });
+    // Tag so we can identify synthetic events if needed
+    mouseEvent._fromTouch = true;
+    canvasEl.dispatchEvent(mouseEvent);
+    e.preventDefault();
+  }
+
+  canvasEl.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 1) {
+      touchToMouse('mousedown', e.touches[0], e);
+    } else if (e.touches.length === 2) {
+      // Start pinch-zoom tracking
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      _lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+    }
+  }, { passive: false });
+
+  canvasEl.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 1) {
+      touchToMouse('mousemove', e.touches[0], e);
+    } else if (e.touches.length === 2 && window.workflowCanvas) {
+      // Pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (_lastPinchDist > 0) {
+        const scale = dist / _lastPinchDist;
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        // Simulate wheel zoom at the midpoint
+        const wheelEvent = new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          clientX: midX,
+          clientY: midY,
+          deltaY: scale < 1 ? 100 : -100,
+          deltaMode: 0,
+        });
+        canvasEl.dispatchEvent(wheelEvent);
+      }
+      _lastPinchDist = dist;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  canvasEl.addEventListener('touchend', function (e) {
+    if (e.changedTouches.length > 0) {
+      touchToMouse('mouseup', e.changedTouches[0], e);
+    }
+    if (e.touches.length === 0) {
+      _lastPinchDist = 0;
+    }
+  }, { passive: false });
+
+  canvasEl.addEventListener('touchcancel', function (e) {
+    if (e.changedTouches.length > 0) {
+      touchToMouse('mouseup', e.changedTouches[0], e);
+    }
+    _lastPinchDist = 0;
+  }, { passive: false });
+}
+
 function initWorkflowCanvas() {
   if (typeof LiteGraph === 'undefined') {
     console.warn('LiteGraph not loaded yet');
@@ -38,6 +121,11 @@ function initWorkflowCanvas() {
   canvas.allow_interaction = true;
   canvas.allow_dragnodes = true;
   canvas.allow_searchbox = false; // search popup is unusable on mobile
+
+  // Touch-to-mouse bridge: LiteGraph's built-in touch handling is incomplete.
+  // Synthesize mouse events from touch events so pan, drag, and node
+  // interaction work on mobile/tablet.
+  _bridgeTouchEvents(container);
 
   LiteGraph.NODE_DEFAULT_COLOR = '#1f2937';
   LiteGraph.NODE_DEFAULT_BGCOLOR = '#111827';

@@ -47,6 +47,9 @@ class OpenClawClient {
 
   connect(password, { maxRetries = 2 } = {}) {
     this._password = password;
+    // Re-attach visibility handler if it was removed by disconnect()
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
     return this._attemptConnect(password, maxRetries);
   }
 
@@ -160,6 +163,9 @@ class OpenClawClient {
     }
     this.connected = false;
     this.authenticated = false;
+
+    // Remove visibility change handler to prevent leaked listeners
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
 
     // Clear all event handlers so re-connecting after logout doesn't
     // accumulate duplicate listeners from previous sessions.
@@ -328,14 +334,15 @@ class OpenClawClient {
   _emit(event, payload) {
     const handlers = this._eventHandlers.get(event);
     if (handlers) {
-      for (const cb of handlers) {
+      // Snapshot the Set so handlers can safely unsubscribe during iteration
+      for (const cb of [...handlers]) {
         try { cb(payload); } catch (e) { console.error('[OpenClaw] Event handler error:', e); }
       }
     }
     // Also emit wildcard
     const wild = this._eventHandlers.get('*');
     if (wild) {
-      for (const cb of wild) {
+      for (const cb of [...wild]) {
         try { cb(event, payload); } catch {}
       }
     }

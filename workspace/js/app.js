@@ -322,6 +322,9 @@ document.addEventListener('alpine:init', () => {
       document.cookie = 'mc_oc=; path=/; max-age=0';
       this.ok = false;
 
+      // Stop health checker polling to prevent leaked intervals
+      healthChecker.stop();
+
       // Disconnect the OpenClaw WebSocket to prevent leaked sockets.
       // Without this, logging back in opens a second socket and re-registers
       // event handlers, causing duplicated deltas/completions.

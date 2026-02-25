@@ -337,11 +337,45 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* LiteGraph widget text dialogs: ensure scrollable on overflow */
+.litegraph .graphdialog,
+.litegraph .dialog {
+  max-height: 60vh !important;
+  max-height: 60dvh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.litegraph .graphdialog textarea,
+.litegraph .dialog textarea {
+  max-height: 40vh !important;
+  max-height: 40dvh !important;
+  overflow-y: auto !important;
+  resize: vertical !important;
+  -webkit-overflow-scrolling: touch;
+  font-size: 14px !important;
+}
+/* Make LiteGraph popup inputs touch-friendly */
+@media (pointer: coarse) {
+  .litegraph .graphdialog input,
+  .litegraph .graphdialog textarea,
+  .litegraph .graphdialog select {
+    min-height: 44px !important;
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+  .litegraph .graphdialog button,
+  .litegraph .graphdialog .btn {
+    min-height: 44px !important;
+  }
+}
+
 .litegraph .litecontextmenu {
   background: var(--mc-surface) !important;
   border: 1px solid var(--mc-border) !important;
   color: var(--mc-text) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  max-height: 70vh !important;
+  overflow-y: auto !important;
 }
 .litegraph .litecontextmenu .litemenu-entry {
   color: var(--mc-text-sec) !important;
@@ -412,14 +446,17 @@ html, body {
     right: 0;
     bottom: 0;
     z-index: 35;
-    max-height: 50vh;
-    max-height: 50dvh;
+    max-height: 65vh;
+    max-height: 65dvh;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
     transform: translateY(100%);
     transition: transform 250ms ease;
     padding-bottom: env(safe-area-inset-bottom);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain; /* prevent scroll-chaining to canvas behind */
   }
   .mc-workflow-panel-mobile.open {
     transform: translateY(0);

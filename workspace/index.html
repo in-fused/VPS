@@ -597,6 +597,11 @@
           <!-- Workflow Sidebar (desktop: inline panel, mobile: bottom sheet) -->
           <div :class="$store.app.mobile ? 'mc-workflow-panel-mobile' + ($store.app.workflowPanelOpen ? ' open' : '') : 'w-52 min-w-[208px]'"
                class="bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
+            <!-- Mobile drag handle -->
+            <div x-show="$store.app.mobile" class="flex justify-center pt-2 pb-1 flex-shrink-0"
+                 @click="$store.app.workflowPanelOpen = false">
+              <div class="w-10 h-1 rounded-full bg-mc-border"></div>
+            </div>
             <div class="p-4 border-b border-mc-border">
               <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-3">Node Palette</div>
               <div class="space-y-1.5">
