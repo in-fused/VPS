@@ -57,13 +57,13 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
 
   <!-- Favicon + PWA -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2322d3ee'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%2306b6d4' stroke-width='2' opacity='0.3'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.4'/%3E%3Ccircle cx='32' cy='32' r='8' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.5'/%3E%3Ccircle cx='32' cy='32' r='3' fill='url(%23g)'/%3E%3Cline x1='32' y1='32' x2='52' y2='16' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' opacity='0.8'/%3E%3Ccircle cx='52' cy='16' r='2.5' fill='%2322d3ee'/%3E%3Ccircle cx='20' cy='22' r='2' fill='%2306b6d4' opacity='0.7'/%3E%3Ccircle cx='44' cy='42' r='2' fill='%2306b6d4' opacity='0.7'/%3E%3C/svg%3E">
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Mission Ctrl">
   <meta name="theme-color" content="#0a0e17">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2322d3ee'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230a0e17'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%2306b6d4' stroke-width='2' opacity='0.3'/%3E%3Ccircle cx='32' cy='32' r='15' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.4'/%3E%3Ccircle cx='32' cy='32' r='6' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.5'/%3E%3Ccircle cx='32' cy='32' r='3' fill='url(%23g)'/%3E%3Cline x1='32' y1='32' x2='48' y2='18' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' opacity='0.8'/%3E%3Ccircle cx='48' cy='18' r='2.5' fill='%2322d3ee'/%3E%3C/svg%3E">
 
   <!-- x-cloak: hide Alpine elements until initialized -->
   <style>[x-cloak] { display: none !important; }</style>
@@ -81,7 +81,19 @@
     <div class="w-full max-w-sm mx-4">
       <!-- Branding -->
       <div class="text-center mb-8">
-        <div class="text-5xl mb-4" style="filter: drop-shadow(0 0 20px rgba(6,182,212,0.3))">🛰️</div>
+        <div class="mb-4 flex justify-center" style="filter: drop-shadow(0 0 20px rgba(6,182,212,0.3))">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-14 h-14">
+            <defs><linearGradient id="mc-grad-login" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
+            <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2" opacity="0.3"/>
+            <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="1.5" opacity="0.4"/>
+            <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
+            <circle cx="32" cy="32" r="3" fill="url(#mc-grad-login)"/>
+            <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            <circle cx="52" cy="16" r="2.5" fill="#22d3ee"/>
+            <circle cx="20" cy="22" r="2" fill="#06b6d4" opacity="0.7"/>
+            <circle cx="44" cy="42" r="2" fill="#06b6d4" opacity="0.7"/>
+          </svg>
+        </div>
         <div class="text-xl font-bold text-cyan-400 tracking-[0.2em]">MISSION CONTROL</div>
         <div class="text-xs text-mc-text-muted mt-2 font-mono tracking-wider">in-fused.org</div>
       </div>
@@ -145,7 +157,19 @@
        class="fixed inset-0 z-[100] bg-mc-bg flex items-center justify-center">
     <div class="mc-boot-scanline"></div>
     <div class="text-center">
-      <div class="text-4xl mb-4">🛰️</div>
+      <div class="mb-4 flex justify-center">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12">
+          <defs><linearGradient id="mc-grad-boot" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2" opacity="0.3"/>
+          <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="1.5" opacity="0.4"/>
+          <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
+          <circle cx="32" cy="32" r="3" fill="url(#mc-grad-boot)"/>
+          <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+          <circle cx="52" cy="16" r="2.5" fill="#22d3ee"/>
+          <circle cx="20" cy="22" r="2" fill="#06b6d4" opacity="0.7"/>
+          <circle cx="44" cy="42" r="2" fill="#06b6d4" opacity="0.7"/>
+        </svg>
+      </div>
       <div class="text-xl font-bold text-cyan-400 tracking-wider mb-2">MISSION CONTROL</div>
       <div class="mc-boot-text text-xs text-mc-text-muted font-mono">Initializing systems...</div>
       <div class="mt-6 w-48 mx-auto h-0.5 bg-mc-border rounded overflow-hidden">
@@ -180,7 +204,14 @@
 
       <!-- Logo -->
       <div class="h-14 flex items-center gap-3 px-4 border-b border-mc-border flex-shrink-0">
-        <span class="text-xl flex-shrink-0">🛰️</span>
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 flex-shrink-0">
+          <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2.5" opacity="0.3"/>
+          <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="2" opacity="0.4"/>
+          <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="2" opacity="0.5"/>
+          <circle cx="32" cy="32" r="3.5" fill="#22d3ee"/>
+          <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+          <circle cx="52" cy="16" r="3" fill="#22d3ee"/>
+        </svg>
         <span x-show="$store.app.sidebarOpen || $store.app.mobile" x-transition
               class="font-semibold text-sm tracking-wide text-cyan-400 whitespace-nowrap">
           MISSION CONTROL
