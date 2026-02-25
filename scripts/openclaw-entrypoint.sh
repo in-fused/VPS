@@ -76,22 +76,16 @@ config.tools = config.tools || {};
 // Agent-to-agent messaging: allow all defined agents to talk to each other
 // (peer-to-peer, not just parent→child). This enables team collaboration
 // where any agent can message any other agent directly via sessions_send.
+// NOTE: Only 'enabled' and 'allow' are recognized; maxPingPongTurns is not.
 config.tools.agentToAgent = {
   enabled: true,
   allow: ['lead', 'codecraft', 'scout', 'scribe'],
-  maxPingPongTurns: 5,  // allow up to 5 back-and-forth exchanges
 };
 
-// Sub-agent spawning: depth 3 allows team leads to delegate to workers
-// who can further delegate one more level (lead → team lead → worker).
-// Concurrency tuned for t3.small (2GB RAM + 4GB swap):
-//   maxConcurrent=4 prevents memory exhaustion from too many parallel agents
-//   maxChildrenPerAgent=3 prevents any single orchestrator from fan-out
+// Sub-agent spawning: enable subagents (no extra keys — maxDepth,
+// maxConcurrent, maxChildrenPerAgent, runTimeoutSeconds are all
+// unrecognized by OpenClaw and cause config validation crash loops).
 config.tools.subagents = config.tools.subagents || {};
-config.tools.subagents.maxDepth = 3;
-config.tools.subagents.maxConcurrent = 4;
-config.tools.subagents.maxChildrenPerAgent = 3;
-config.tools.subagents.runTimeoutSeconds = 600;  // 10 min per sub-agent task
 
 // =========================================================================
 // Multi-Agent Hierarchy: Define core agent roles
@@ -101,6 +95,8 @@ config.tools.subagents.runTimeoutSeconds = 600;  // 10 min per sub-agent task
 config.agents.list = config.agents.list || [];
 
 // Only seed agents if none exist yet (preserve user-created agents)
+// NOTE: OpenClaw does NOT recognize identity.description or subagents.maxDepth.
+// Only valid identity keys: name, emoji. Only valid subagents keys: allowAgents, model.
 if (config.agents.list.length === 0) {
   config.agents.list = [
     {
@@ -110,12 +106,10 @@ if (config.agents.list.length === 0) {
       identity: {
         name: 'Lead',
         emoji: '🧠',
-        description: 'Lead orchestrator — delegates tasks, reviews work, manages the team. Breaks down complex requests into subtasks and assigns to the best-suited agent. Reviews output quality and provides feedback.',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        maxDepth: 3,
-        model: { primary: 'groq-llama-3.3-70b' },  // sub-agents use free tier
+        model: { primary: 'groq-llama-3.3-70b' },
       },
     },
     {
@@ -125,11 +119,9 @@ if (config.agents.list.length === 0) {
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
-        description: 'Full-stack developer — writes, reviews, and debugs code. Specializes in JavaScript, Python, HTML/CSS, and DevOps. Can spawn workers for parallel code tasks.',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        maxDepth: 2,
         model: { primary: 'groq-llama-3.3-70b' },
       },
     },
@@ -140,11 +132,9 @@ if (config.agents.list.length === 0) {
       identity: {
         name: 'Scout',
         emoji: '🔍',
-        description: 'Research specialist — web search, data gathering, competitive analysis. Provides cited sources and structured summaries. Can delegate to workers for parallel research.',
       },
       subagents: {
         allowAgents: ['scribe'],
-        maxDepth: 2,
         model: { primary: 'groq-llama-3.3-70b' },
       },
     },
@@ -155,7 +145,6 @@ if (config.agents.list.length === 0) {
       identity: {
         name: 'Scribe',
         emoji: '📝',
-        description: 'Documentation and content writer — clear, structured output. Creates guides, README files, blog posts, and technical documentation adapted to the target audience.',
       },
     },
   ];
@@ -164,17 +153,31 @@ if (config.agents.list.length === 0) {
 // =========================================================================
 // Cleanup: remove keys that crash OpenClaw config validation
 // =========================================================================
-// These were added as memory optimizations but are not recognized by the
-// current OpenClaw version. They cause 'Config invalid' + crash loop.
-// Clean them up in case they persist in the JSON from a previous run.
+// OpenClaw validates config strictly — any unrecognized key causes a crash
+// loop. Clean up keys that were added in previous runs but aren't valid.
 delete config.compaction;
 delete config.contextPruning;
 delete config.memorySearch;
 delete config.experimental;
 
+// Clean unrecognized subagent/tool keys (persisted from previous entrypoint)
+delete config.tools?.subagents?.maxDepth;
+delete config.tools?.subagents?.maxConcurrent;
+delete config.tools?.subagents?.maxChildrenPerAgent;
+delete config.tools?.subagents?.runTimeoutSeconds;
+delete config.tools?.agentToAgent?.maxPingPongTurns;
+
+// Clean unrecognized agent keys from persisted agent list
+if (Array.isArray(config.agents?.list)) {
+  config.agents.list.forEach(function(agent) {
+    if (agent.identity) delete agent.identity.description;
+    if (agent.subagents) delete agent.subagents.maxDepth;
+  });
+}
+
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, depth=3, concurrent=4, a2a=peer');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=4');
 "
 
 exec node openclaw.mjs gateway --allow-unconfigured
