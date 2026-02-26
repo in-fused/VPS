@@ -293,6 +293,21 @@
           <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Monitor</span>
         </button>
 
+        <!-- Staging -->
+        <button x-show="$store.settings.isVisible('staging')"
+                @click="$store.app.setView('staging')"
+                :class="$store.app.view === 'staging' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Staging</span>
+          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.staging.pendingCount > 0"
+                class="ml-auto w-5 h-5 flex items-center justify-center text-[10px] bg-amber-500 text-mc-bg rounded-full font-bold"
+                x-text="$store.staging.pendingCount"></span>
+        </button>
+
         <!-- Divider -->
         <div class="my-2 border-t border-mc-border/50"></div>
 
@@ -400,6 +415,40 @@
         <div x-show="$store.app.view === 'dashboard'"
              x-transition:enter="animate-fade-up"
              class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
+
+          <!-- Away Report Banner (shown when agents worked while you were away) -->
+          <div x-show="$store.app.awayReport" x-transition
+               class="mb-6 bg-mc-secondary-dim border border-violet-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="text-2xl">&#128203;</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-mc-text">While You Were Away</div>
+                <div class="text-xs text-mc-text-muted" x-text="($store.app.awayReport?.duration || '') + ' since last visit'"></div>
+              </div>
+              <button @click="$store.app.awayReport = null"
+                      class="text-mc-text-muted hover:text-mc-text text-xs px-2 py-1 rounded hover:bg-mc-elevated transition-all">
+                Dismiss
+              </button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div class="bg-mc-bg rounded-lg p-3">
+                <div class="text-mc-text-muted">Tasks Completed</div>
+                <div class="text-lg font-bold text-emerald-400" x-text="$store.app.awayReport?.tasksCompleted || 0"></div>
+              </div>
+              <div class="bg-mc-bg rounded-lg p-3">
+                <div class="text-mc-text-muted">Workflows Run</div>
+                <div class="text-lg font-bold text-cyan-400" x-text="$store.app.awayReport?.workflowsRun || 0"></div>
+              </div>
+              <div class="bg-mc-bg rounded-lg p-3">
+                <div class="text-mc-text-muted">Staging Items</div>
+                <div class="text-lg font-bold text-amber-400" x-text="$store.app.awayReport?.stagingItems || 0"></div>
+              </div>
+              <div class="bg-mc-bg rounded-lg p-3">
+                <div class="text-mc-text-muted">Errors</div>
+                <div class="text-lg font-bold text-red-400" x-text="$store.app.awayReport?.errors || 0"></div>
+              </div>
+            </div>
+          </div>
 
           <!-- Stats Row -->
           <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -633,27 +682,70 @@
             </div>
             <div class="flex-1 overflow-y-auto p-4">
               <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-3">Saved Workflows</div>
+              <button @click="$store.workflows.create(prompt('Workflow name:', 'Untitled Workflow'))"
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 mb-3 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                New Workflow
+              </button>
               <div class="space-y-1.5">
                 <template x-for="wf in $store.workflows.list" :key="wf.id">
-                  <button @click="$store.workflows.load(wf.id)"
-                          class="w-full text-left px-3 py-2 rounded-lg text-xs transition-all"
-                          :class="$store.workflows.activeId === wf.id ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated'">
-                    <div class="font-medium truncate" x-text="wf.name"></div>
-                    <div class="text-mc-text-muted mt-0.5" x-text="wf.nodes + ' nodes · ' + wf.lastRun"></div>
-                  </button>
+                  <div class="group relative">
+                    <button @click="$store.workflows.load(wf.id)"
+                            class="w-full text-left px-3 py-2 rounded-lg text-xs transition-all"
+                            :class="$store.workflows.activeId === wf.id ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated'">
+                      <div class="font-medium truncate flex items-center gap-1.5">
+                        <span x-text="wf.name"></span>
+                        <span x-show="wf.createdBy && wf.createdBy !== 'user'"
+                              class="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0">agent</span>
+                      </div>
+                      <div class="text-mc-text-muted mt-0.5" x-text="wf.nodes + ' nodes · ' + wf.lastRun"></div>
+                    </button>
+                    <div class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 flex gap-0.5 transition-opacity">
+                      <button @click.stop="$store.workflows.rename(wf.id, prompt('Rename workflow:', wf.name))"
+                              class="p-1 rounded text-mc-text-muted hover:text-cyan-400 transition-colors" title="Rename">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/>
+                        </svg>
+                      </button>
+                      <button @click.stop="$store.workflows.duplicate(wf.id)"
+                              class="p-1 rounded text-mc-text-muted hover:text-violet-400 transition-colors" title="Duplicate">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/>
+                        </svg>
+                      </button>
+                      <button @click.stop="if(confirm('Delete this workflow?')) $store.workflows.delete(wf.id)"
+                              class="p-1 rounded text-mc-text-muted hover:text-red-400 transition-colors" title="Delete">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </template>
+                <div x-show="$store.workflows.list.length === 0" class="p-3 text-center text-xs text-mc-text-muted">
+                  No workflows yet. Create one to get started.
+                </div>
               </div>
             </div>
             <div class="p-3 border-t border-mc-border space-y-1.5">
               <button @click="$store.workflows.save()"
-                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all">
+                      :disabled="!$store.workflows.activeId"
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all disabled:opacity-30">
                 Save
               </button>
               <button @click="$store.workflows.run()"
-                      :disabled="$store.workflows.running"
+                      :disabled="$store.workflows.running || !$store.workflows.activeId"
                       class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                      :class="$store.workflows.running ? 'bg-mc-warning-dim text-amber-400 cursor-wait' : 'bg-cyan-500 text-mc-bg hover:brightness-110'">
+                      :class="$store.workflows.running ? 'bg-mc-warning-dim text-amber-400 cursor-wait' : 'bg-cyan-500 text-mc-bg hover:brightness-110'"
+                      :style="(!$store.workflows.running && !$store.workflows.activeId) ? 'opacity:0.3;cursor:not-allowed' : ''">
                 <span x-text="$store.workflows.running ? 'Running...' : 'Run Workflow'"></span>
+              </button>
+              <button @click="$store.workflows.runInBackground()"
+                      :disabled="$store.workflows.running || !$store.workflows.activeId || !$store.app.ocConnected"
+                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-secondary-dim text-violet-400 hover:bg-violet-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                Background Run
               </button>
             </div>
           </div>
@@ -1041,6 +1133,88 @@
         </div>
 
         <!-- ==========================================
+             VIEW: STAGING
+             ========================================== -->
+        <div x-show="$store.app.view === 'staging'"
+             x-transition:enter="animate-fade-up"
+             class="h-full flex overflow-hidden relative">
+
+          <!-- Staging List (desktop: inline panel, mobile: slide-in overlay) -->
+          <div :class="$store.app.mobile ? 'mc-chat-panel-mobile' + ($store.app.stagingPanelOpen ? ' open' : '') : 'w-64 min-w-[256px]'"
+               class="bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
+            <div class="p-4 border-b border-mc-border">
+              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted">Agent Staging</div>
+              <div class="text-[11px] text-mc-text-muted mt-1">Review agent-generated content</div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2">
+              <template x-for="item in $store.staging.items" :key="item.id">
+                <button @click="$store.staging.selectedId = item.id; if($store.app.mobile) $store.app.stagingPanelOpen = false"
+                        class="w-full text-left px-3 py-3 rounded-lg mb-1 transition-all"
+                        :class="$store.staging.selectedId === item.id ? 'bg-mc-primary-dim' : 'hover:bg-mc-elevated'">
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg" x-text="item.type === 'html' ? '&#127760;' : '&#128196;'"></span>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs font-medium text-mc-text truncate" x-text="item.name"></div>
+                      <div class="text-[11px] text-mc-text-muted truncate" x-text="item.createdBy"></div>
+                    </div>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full"
+                          :class="item.status === 'approved' ? 'bg-mc-success-dim text-emerald-400' : item.status === 'rejected' ? 'bg-mc-danger-dim text-red-400' : 'bg-mc-warning-dim text-amber-400'"
+                          x-text="item.status"></span>
+                  </div>
+                </button>
+              </template>
+              <div x-show="$store.staging.items.length === 0" class="p-4 text-center text-xs text-mc-text-muted">
+                No staged content yet. Agents will post previews here.
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Area -->
+          <div class="flex-1 flex flex-col min-w-0">
+            <!-- Mobile toggle -->
+            <button @click="$store.app.stagingPanelOpen = !$store.app.stagingPanelOpen"
+                    class="mc-mobile-panel-toggle absolute top-3 left-3 z-10 flex items-center gap-2 px-3 py-2 bg-mc-surface border border-mc-border rounded-lg text-xs text-mc-text-sec shadow-lg">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+              </svg>
+              Items
+            </button>
+
+            <template x-if="$store.staging.selected">
+              <div class="flex-1 flex flex-col">
+                <div class="h-12 flex items-center px-4 border-b border-mc-border gap-3">
+                  <span class="text-sm font-semibold text-mc-text truncate flex-1"
+                        x-text="$store.staging.selected.name"></span>
+                  <span class="text-[11px] text-mc-text-muted" x-text="$store.staging.selected.description"></span>
+                  <button @click="$store.staging.approve($store.staging.selected.id)"
+                          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                    Approve
+                  </button>
+                  <button @click="$store.staging.reject($store.staging.selected.id, prompt('Reason for rejection:'))"
+                          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-danger-dim text-red-400 hover:bg-red-500/20 transition-all">
+                    Reject
+                  </button>
+                </div>
+                <iframe :src="$store.staging.selected.previewUrl"
+                        class="flex-1 w-full border-0 bg-white"
+                        sandbox="allow-scripts allow-same-origin"></iframe>
+              </div>
+            </template>
+            <template x-if="!$store.staging.selected">
+              <div class="flex-1 flex items-center justify-center">
+                <div class="text-center text-mc-text-muted">
+                  <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <div class="text-xs">Select a staged item to preview</div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- ==========================================
              VIEW: SETTINGS
              ========================================== -->
         <div x-show="$store.app.view === 'settings'"
@@ -1160,6 +1334,24 @@
                   </div>
                   <button @click="$store.settings.toggle('monitor')"
                           class="mc-toggle" :class="$store.settings.sidebar.monitor ? 'on' : ''">
+                    <div class="mc-toggle-knob"></div>
+                  </button>
+                </div>
+
+                <!-- Staging -->
+                <div class="flex items-center justify-between py-2">
+                  <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-mc-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <div>
+                      <div class="text-sm text-mc-text">Staging</div>
+                      <div class="text-[11px] text-mc-text-muted">Agent content preview and approval</div>
+                    </div>
+                  </div>
+                  <button @click="$store.settings.toggle('staging')"
+                          class="mc-toggle" :class="$store.settings.sidebar.staging ? 'on' : ''">
                     <div class="mc-toggle-knob"></div>
                   </button>
                 </div>
@@ -1424,6 +1616,7 @@
   <script src="js/app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.18/build/litegraph.min.js"></script>
   <script src="js/workflow.js"></script>
+  <script src="js/workflow-bridge.js"></script>
 
 </body>
 </html>

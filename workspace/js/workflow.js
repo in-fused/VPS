@@ -99,6 +99,13 @@ function _bridgeTouchEvents(canvasEl) {
   }, { passive: false });
 }
 
+function _resizeCanvas(container) {
+  const rect = container.parentElement.getBoundingClientRect();
+  container.width = rect.width;
+  container.height = rect.height;
+  if (window.workflowCanvas) window.workflowCanvas.resize();
+}
+
 function initWorkflowCanvas() {
   if (typeof LiteGraph === 'undefined') {
     console.warn('LiteGraph not loaded yet');
@@ -107,7 +114,20 @@ function initWorkflowCanvas() {
 
   const container = document.getElementById('workflow-canvas');
   if (!container) return;
-  if (window.workflowCanvas && window.workflowCanvas._mounted) return;
+
+  // Already mounted: just resize and ensure the active workflow is loaded
+  if (window.workflowCanvas && window.workflowCanvas._mounted) {
+    _resizeCanvas(container);
+    // Re-load active workflow if the graph is empty but we have saved data
+    const wfStore = Alpine?.store('workflows');
+    if (wfStore?.activeId && window.workflowGraph?._nodes?.length === 0) {
+      const data = localStorage.getItem('mc-workflow-' + wfStore.activeId);
+      if (data) {
+        try { window.workflowGraph.configure(JSON.parse(data)); } catch {}
+      }
+    }
+    return;
+  }
 
   if (!LiteGraph.registered_node_types['mission/agent']) {
     registerCustomNodes();
@@ -152,18 +172,23 @@ function initWorkflowCanvas() {
 
   graph.start();
 
+  // Load the active workflow from store, or default if none active
+  const wfStore = Alpine?.store('workflows');
+  if (wfStore?.activeId) {
+    const data = localStorage.getItem('mc-workflow-' + wfStore.activeId);
+    if (data) {
+      try { graph.configure(JSON.parse(data)); } catch {}
+    }
+  }
   if (graph._nodes.length === 0) {
     addDefaultWorkflow(graph);
   }
 
-  function resizeCanvas() {
-    const rect = container.parentElement.getBoundingClientRect();
-    container.width = rect.width;
-    container.height = rect.height;
-    canvas.resize();
-  }
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
+  _resizeCanvas(container);
+  window.addEventListener('resize', () => _resizeCanvas(container));
+
+  // Start auto-save
+  if (wfStore) wfStore.setupAutoSave();
 }
 
 window.initWorkflowCanvas = initWorkflowCanvas;
@@ -291,6 +316,22 @@ function registerCustomNodes() {
 
     return { response: '[Demo] Agent would process: ' + fullPrompt.slice(0, 100) };
   };
+  // Dynamically refresh the Agent combo widget so it always reflects current agents
+  AgentNode.prototype.onDrawForeground = function () {
+    const widget = this.widgets?.find(w => w.name === 'Agent');
+    if (widget) {
+      const agentNames = ['(Auto)'];
+      try {
+        const agents = Alpine.store('agents')?.list || [];
+        agents.forEach(a => agentNames.push(a.name));
+      } catch {}
+      widget.options.values = agentNames;
+      if (!agentNames.includes(this.properties.agent)) {
+        this.properties.agent = '(Auto)';
+        widget.value = '(Auto)';
+      }
+    }
+  };
   AgentNode.prototype._waitForResponse = function (timeoutMs, runId) {
     return new Promise((resolve) => {
       let content = '';
@@ -393,20 +434,27 @@ function registerCustomNodes() {
   };
   ToolNode.prototype.runAsync = async function (inputs) {
     const input = inputs.input || '';
-    // Tools execute through an agent prompt that requests the specific tool
-    const toolPrompt = `Use the ${this.properties.tool} tool to: ${input}`;
+    const toolName = this.properties.tool;
+    let config = {};
+    try { config = JSON.parse(this.properties.config || '{}'); } catch {}
+
+    const toolPrompt = `TOOL_INVOCATION:\nTool: ${toolName}\nInput: ${input}\nConfig: ${JSON.stringify(config)}\n\nExecute the "${toolName}" tool with the given input and return the result.`;
 
     if (window.openclawClient?.authenticated) {
       try {
-        const result = await window.openclawClient.sendChat(toolPrompt);
-        const response = await AgentNode.prototype._waitForResponse.call(this, 10000, result?.runId);
+        const result = await window.openclawClient.sendChat(toolPrompt, {
+          agentId: config.agentId || undefined,
+        });
+        const response = await AgentNode.prototype._waitForResponse.call(this, 15000, result?.runId);
         this._lastResult = response;
         return { result: response };
-      } catch {}
+      } catch (e) {
+        this._lastResult = `[${toolName} Error]: ${e.message}`;
+        return { result: this._lastResult };
+      }
     }
 
-    // Fallback
-    this._lastResult = `[${this.properties.tool}] Executed: ${input.slice(0, 100)}`;
+    this._lastResult = `[${toolName}] Executed: ${input.slice(0, 100)}`;
     return { result: this._lastResult };
   };
   LiteGraph.registerNodeType('mission/tool', ToolNode);
@@ -509,9 +557,15 @@ function registerCustomNodes() {
   LoopNode.prototype.onExecute = function () {};
   LoopNode.prototype.runAsync = async function (inputs) {
     const items = inputs.items || '';
-    // Simple: split by newlines
     const parts = items.split('\n').filter(Boolean).slice(0, this.properties.maxIter);
-    return { items: parts, count: parts.length };
+    // Return _loop marker for the executor to handle iteration
+    return {
+      _loop: true,
+      _items: parts,
+      item: parts[0] || '',
+      index: 0,
+      done: parts.length === 0,
+    };
   };
   LiteGraph.registerNodeType('mission/loop', LoopNode);
 
@@ -546,9 +600,37 @@ function registerCustomNodes() {
       case 'JSON Merge':
         try { merged = JSON.stringify({ ...JSON.parse(a), ...JSON.parse(b) }); } catch { merged = a + '\n' + b; }
         break;
+
       case 'Pick Best':
-        merged = a.length > b.length ? a : b;
+        if (window.litellmApi && a && b) {
+          try {
+            merged = await litellmApi.chat('groq-llama-3.3-70b', [
+              { role: 'system', content: 'Compare two text responses and return ONLY the better one verbatim. Do not add commentary.' },
+              { role: 'user', content: `Response A:\n${a}\n\nResponse B:\n${b}\n\nReturn the better response:` },
+            ]);
+          } catch {
+            merged = a.length > b.length ? a : b;
+          }
+        } else {
+          merged = a.length > b.length ? a : b;
+        }
         break;
+
+      case 'Summary':
+        if (window.litellmApi && (a || b)) {
+          try {
+            merged = await litellmApi.chat('groq-llama-3.3-70b', [
+              { role: 'system', content: 'Summarize the following inputs into a concise unified summary.' },
+              { role: 'user', content: `Input 1:\n${a}\n\nInput 2:\n${b}` },
+            ]);
+          } catch {
+            merged = [a, b].filter(Boolean).join('\n---\n');
+          }
+        } else {
+          merged = [a, b].filter(Boolean).join('\n---\n');
+        }
+        break;
+
       default:
         merged = [a, b].filter(Boolean).join('\n---\n');
     }
@@ -587,8 +669,12 @@ class WorkflowExecutor {
     const sorted = this._topologicalSort(nodes);
     monitor?.addLog('info', `Workflow executing: ${sorted.length} nodes`);
 
+    // Track nodes already executed by loop iteration so main loop skips them
+    const loopExecuted = new Set();
+
     for (const node of sorted) {
       if (!this.running) break;
+      if (loopExecuted.has(node.id)) continue;
 
       // Highlight executing node
       node.boxcolor = '#f59e0b'; // amber = running
@@ -599,9 +685,6 @@ class WorkflowExecutor {
         const inputs = this._gatherInputs(node);
 
         // Branch gating: skip nodes whose connected inputs are all null.
-        // This prevents inactive condition branches from running (e.g.,
-        // ConditionNode returns { true: input, false: null } — nodes on
-        // the false branch receive null and should not execute).
         const inputValues = Object.values(inputs);
         const hasConnectedInputs = node.inputs && node.inputs.some(inp => inp.link != null);
         if (hasConnectedInputs && inputValues.length > 0 && inputValues.every(v => v === null || v === undefined)) {
@@ -615,9 +698,72 @@ class WorkflowExecutor {
         // Execute the node's async handler
         if (typeof node.runAsync === 'function') {
           const output = await node.runAsync(inputs);
+
+          // Handle loop iteration: re-run downstream subgraph for each item
+          if (output?._loop && output._items?.length > 0) {
+            const downstreamIds = this._getDownstreamNodes(node.id);
+            const downstreamSorted = sorted.filter(n => downstreamIds.has(n.id));
+
+            monitor?.addLog('info', `Loop "${node.title}": iterating ${output._items.length} items`);
+
+            for (let i = 0; i < output._items.length; i++) {
+              const iterOutput = { item: output._items[i], index: i, done: i === output._items.length - 1 };
+              this.results.set(node.id, iterOutput);
+
+              for (const dn of downstreamSorted) {
+                if (!this.running) break;
+                dn.boxcolor = '#f59e0b';
+                this.graph.setDirtyCanvas(true);
+
+                try {
+                  const dnInputs = this._gatherInputs(dn);
+                  const dnInputValues = Object.values(dnInputs);
+                  const dnHasConnected = dn.inputs?.some(inp => inp.link != null);
+                  if (dnHasConnected && dnInputValues.length > 0 && dnInputValues.every(v => v === null || v === undefined)) {
+                    dn.boxcolor = '#6b7280';
+                    continue;
+                  }
+                  if (typeof dn.runAsync === 'function') {
+                    const dnOutput = await dn.runAsync(dnInputs);
+                    this.results.set(dn.id, dnOutput);
+                    dn.boxcolor = '#10b981';
+
+                    // Governance: record Agent node tasks during loop
+                    if (dn.type === 'mission/agent' && dnOutput?.response) {
+                      this._recordAgentGovernance(dn, dnOutput);
+                    }
+                  }
+                } catch (dnErr) {
+                  monitor?.addLog('error', `Loop iteration ${i}: Node "${dn.title}" failed: ${dnErr.message}`);
+                  dn.boxcolor = '#ef4444';
+                  this.results.set(dn.id, { error: dnErr.message });
+                }
+                this.graph.setDirtyCanvas(true);
+              }
+            }
+
+            // Mark downstream as already executed so main loop skips them
+            for (const did of downstreamIds) loopExecuted.add(did);
+
+            // Set final loop output
+            this.results.set(node.id, {
+              item: output._items[output._items.length - 1],
+              index: output._items.length - 1,
+              done: true,
+            });
+            node.boxcolor = '#10b981';
+            this.graph.setDirtyCanvas(true);
+            continue;
+          }
+
           this.results.set(node.id, output);
           monitor?.addLog('debug', `Node "${node.title}" completed`);
           node.boxcolor = '#10b981'; // green = success
+
+          // Governance: record Agent node tasks
+          if (node.type === 'mission/agent' && output?.response) {
+            this._recordAgentGovernance(node, output);
+          }
         } else {
           node.boxcolor = '#6b7280'; // gray = skipped
         }
@@ -694,6 +840,39 @@ class WorkflowExecutor {
     }
 
     return sorted;
+  }
+
+  _getDownstreamNodes(nodeId) {
+    const downstream = new Set();
+    const queue = [nodeId];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (this.graph.links) {
+        for (const linkId in this.graph.links) {
+          const link = this.graph.links[linkId];
+          if (link && link.origin_id === current && !downstream.has(link.target_id)) {
+            downstream.add(link.target_id);
+            queue.push(link.target_id);
+          }
+        }
+      }
+    }
+    return downstream;
+  }
+
+  _recordAgentGovernance(node, output) {
+    try {
+      const agentName = node.properties?.agent;
+      if (!agentName || agentName === '(Auto)') return;
+      const agent = Alpine.store('agents')?.list.find(a => a.name === agentName);
+      if (!agent) return;
+      const tokens = Math.round((output.response || '').length / 4);
+      Alpine.store('governance')?.recordTask(agent.id, {
+        success: !(output.response || '').startsWith('Error:'),
+        tokens,
+        taskType: 'workflow',
+      });
+    } catch {}
   }
 
   _gatherInputs(node) {

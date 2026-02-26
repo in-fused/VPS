@@ -325,6 +325,26 @@ document.addEventListener('alpine:init', () => {
       // Stop health checker polling to prevent leaked intervals
       healthChecker.stop();
 
+      // Stop workflow bridge polling
+      if (window.workflowBridge) window.workflowBridge.stopPolling();
+
+      // Stop staging polling
+      if (Alpine.store('staging')) Alpine.store('staging').stopPolling();
+
+      // Stop last-active timer
+      const appStore = Alpine.store('app');
+      if (appStore?._lastActiveTimer) {
+        clearInterval(appStore._lastActiveTimer);
+        appStore._lastActiveTimer = null;
+      }
+
+      // Stop workflow auto-save timer
+      const wfStore = Alpine.store('workflows');
+      if (wfStore?._autoSaveTimer) {
+        clearInterval(wfStore._autoSaveTimer);
+        wfStore._autoSaveTimer = null;
+      }
+
       // Disconnect the OpenClaw WebSocket to prevent leaked sockets.
       // Without this, logging back in opens a second socket and re-registers
       // event handlers, causing duplicated deltas/completions.
@@ -349,6 +369,8 @@ document.addEventListener('alpine:init', () => {
     connected: false,     // true if LiteLLM is reachable (chat works)
     ocConnected: false,   // true if OpenClaw is reachable
     demoMode: true,       // false when LiteLLM is reachable
+    awayReport: null,     // populated on boot if agents worked while you were away
+    stagingPanelOpen: false, // mobile: toggleable staging panel
 
     init() {
       // Listen for screen resize to update mobile state
@@ -375,6 +397,7 @@ document.addEventListener('alpine:init', () => {
       // Reset panel states on view change
       this.chatPanelOpen = false;
       this.workflowPanelOpen = false;
+      this.stagingPanelOpen = false;
       if (v === 'workflows' && window.initWorkflowCanvas) {
         setTimeout(() => window.initWorkflowCanvas(), 100);
       }
@@ -423,6 +446,22 @@ document.addEventListener('alpine:init', () => {
           ocMode = 'fallback';
         }
       }
+
+      // Start workflow bridge polling (agent-to-workflow sync)
+      if (window.workflowBridge) {
+        window.workflowBridge.startPolling(15000);
+      }
+
+      // Start staging environment polling
+      if (Alpine.store('staging')) {
+        Alpine.store('staging').startPolling(15000);
+      }
+
+      // Track last active timestamp for away-report
+      sessionStorage.setItem('mc-last-active', Date.now().toString());
+      this._lastActiveTimer = setInterval(() => {
+        sessionStorage.setItem('mc-last-active', Date.now().toString());
+      }, 60000);
 
       // Start adaptive health polling: faster when disconnected (15s), slower when stable (45s)
       const pollInterval = (this.connected && this.ocConnected) ? 45000 : 15000;
@@ -536,6 +575,35 @@ document.addEventListener('alpine:init', () => {
           Alpine.store('governance').recordTask(agent.id, {
             success: true, tokens, taskType: 'chat-openclaw',
           });
+        }
+
+        // Check for governance self-tuning proposals from agents
+        const lastMsgContent = sessions.messages[sessions.messages.length - 1]?.content || '';
+        if (lastMsgContent.includes('GOVERNANCE_ADJUST:')) {
+          try {
+            const match = lastMsgContent.match(/GOVERNANCE_ADJUST:\s*(\{[\s\S]*?\})/);
+            if (match) {
+              const adjustment = JSON.parse(match[1]);
+              const staging = Alpine.store('staging');
+              if (staging) {
+                staging.items.push({
+                  id: 'gov-' + Date.now(),
+                  name: 'Governance Adjustment',
+                  path: '',
+                  type: 'config',
+                  createdBy: payload.agentId || session?.agentId || 'lead',
+                  createdAt: Date.now(),
+                  description: `Agent suggests: ${JSON.stringify(adjustment)}`,
+                  status: 'pending',
+                  previewUrl: '',
+                  _data: adjustment,
+                });
+                Alpine.store('monitor').addLog('info',
+                  'Agent proposed governance adjustment (pending approval in Staging)'
+                );
+              }
+            }
+          } catch {}
         }
 
         sessions._persistMessages();
@@ -997,42 +1065,175 @@ document.addEventListener('alpine:init', () => {
   // --------------------------------------------------------------------------
 
   Alpine.store('workflows', {
-    list: [
-      { id: 'wf-1', name: 'Code Review Pipeline', nodes: 4, lastRun: 'Never', status: 'ready' },
-      { id: 'wf-2', name: 'Security Scan', nodes: 3, lastRun: 'Never', status: 'ready' },
-    ],
+    list: storage.load('workflows', []),
     activeId: null,
     running: false,
+    _autoSaveTimer: null,
+    _lastSerialized: null,
 
     get active() {
       return this.list.find(w => w.id === this.activeId) || null;
     },
 
+    // Start auto-save polling (LiteGraph has no onChange callback)
+    setupAutoSave() {
+      if (this._autoSaveTimer) clearInterval(this._autoSaveTimer);
+      this._autoSaveTimer = setInterval(() => {
+        if (this.activeId && window.workflowGraph) this._autoSave();
+      }, 5000);
+    },
+
+    _autoSave() {
+      if (!this.activeId || !window.workflowGraph) return;
+      const data = JSON.stringify(window.workflowGraph.serialize());
+      if (data !== this._lastSerialized) {
+        this._lastSerialized = data;
+        localStorage.setItem('mc-workflow-' + this.activeId, data);
+        const wf = this.active;
+        if (wf) {
+          wf.nodes = window.workflowGraph._nodes?.length || 0;
+          wf.updatedAt = Date.now();
+        }
+        this._persistList();
+      }
+    },
+
     create(name) {
+      if (!name) return null;
       const wf = {
         id: generateId(),
-        name: name || 'Untitled Workflow',
-        nodes: 0, lastRun: 'Never', status: 'draft',
+        name: name,
+        nodes: 0,
+        lastRun: 'Never',
+        status: 'draft',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdBy: 'user',
       };
-      this.list.push(wf);
+      this.list.unshift(wf);
+      this._persistList();
+
+      // Clear current graph and load default template
       this.activeId = wf.id;
+      if (window.workflowGraph) {
+        window.workflowGraph.clear();
+        if (window.addDefaultWorkflow) addDefaultWorkflow(window.workflowGraph);
+      }
+      this.save();
+      this.setupAutoSave();
+      Alpine.store('monitor').addLog('info', `Workflow "${wf.name}" created`);
       return wf;
     },
 
     save() {
-      if (window.workflowGraph) {
-        const data = JSON.stringify(window.workflowGraph.serialize());
-        localStorage.setItem('mc-workflow-' + this.activeId, data);
-        Alpine.store('monitor').addLog('info', 'Workflow saved');
+      if (!this.activeId || !window.workflowGraph) return;
+      const data = JSON.stringify(window.workflowGraph.serialize());
+      this._lastSerialized = data;
+      localStorage.setItem('mc-workflow-' + this.activeId, data);
+      const wf = this.active;
+      if (wf) {
+        wf.nodes = window.workflowGraph._nodes?.length || 0;
+        wf.updatedAt = Date.now();
       }
+      this._persistList();
+      Alpine.store('monitor').addLog('info', 'Workflow saved');
     },
 
     load(id) {
+      // Auto-save current workflow before switching
+      if (this.activeId && this.activeId !== id) this._autoSave();
+
       this.activeId = id;
       const data = localStorage.getItem('mc-workflow-' + id);
       if (data && window.workflowGraph) {
-        window.workflowGraph.configure(JSON.parse(data));
+        try {
+          window.workflowGraph.configure(JSON.parse(data));
+          this._lastSerialized = data;
+        } catch (e) {
+          Alpine.store('monitor').addLog('error', `Failed to load workflow: ${e.message}`);
+        }
+      } else if (window.workflowGraph) {
+        window.workflowGraph.clear();
+        this._lastSerialized = null;
       }
+      this.setupAutoSave();
+    },
+
+    rename(id, newName) {
+      if (!newName) return;
+      const wf = this.list.find(w => w.id === id);
+      if (wf) {
+        wf.name = newName;
+        wf.updatedAt = Date.now();
+        this._persistList();
+      }
+    },
+
+    delete(id) {
+      this.list = this.list.filter(w => w.id !== id);
+      localStorage.removeItem('mc-workflow-' + id);
+      if (this.activeId === id) {
+        this.activeId = null;
+        this._lastSerialized = null;
+        if (window.workflowGraph) window.workflowGraph.clear();
+      }
+      this._persistList();
+      Alpine.store('monitor').addLog('info', 'Workflow deleted');
+    },
+
+    duplicate(id) {
+      const source = this.list.find(w => w.id === id);
+      if (!source) return null;
+      const newId = generateId();
+      const newWf = {
+        ...JSON.parse(JSON.stringify(source)),
+        id: newId,
+        name: source.name + ' (copy)',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const graphData = localStorage.getItem('mc-workflow-' + id);
+      if (graphData) localStorage.setItem('mc-workflow-' + newId, graphData);
+      this.list.unshift(newWf);
+      this._persistList();
+      Alpine.store('monitor').addLog('info', `Duplicated workflow "${source.name}"`);
+      return newWf;
+    },
+
+    // Export workflow as JSON (used by agent bridge)
+    exportJSON(id) {
+      const wf = this.list.find(w => w.id === id);
+      const graphData = localStorage.getItem('mc-workflow-' + id);
+      if (!wf) return null;
+      return {
+        meta: { ...wf },
+        graph: graphData ? JSON.parse(graphData) : null,
+      };
+    },
+
+    // Import workflow from JSON (used by agent bridge)
+    importJSON(json) {
+      if (!json?.meta?.id || !json?.graph) return null;
+      const wf = {
+        id: json.meta.id,
+        name: json.meta.name || 'Agent Workflow',
+        nodes: json.meta.nodes || json.graph.nodes?.length || 0,
+        lastRun: json.meta.lastRun || 'Never',
+        status: json.meta.status || 'draft',
+        createdAt: json.meta.createdAt || Date.now(),
+        updatedAt: json.meta.updatedAt || Date.now(),
+        createdBy: json.meta.createdBy || 'agent',
+      };
+      // Update existing or add new
+      const idx = this.list.findIndex(w => w.id === wf.id);
+      if (idx >= 0) {
+        this.list[idx] = wf;
+      } else {
+        this.list.unshift(wf);
+      }
+      localStorage.setItem('mc-workflow-' + wf.id, JSON.stringify(json.graph));
+      this._persistList();
+      return wf;
     },
 
     async run() {
@@ -1041,7 +1242,6 @@ document.addEventListener('alpine:init', () => {
         const executor = new WorkflowExecutor(window.workflowGraph);
         await executor.execute();
       } else {
-        // Fallback: demo execution
         this.running = true;
         Alpine.store('monitor').addLog('info', `Workflow "${this.active?.name}" executing...`);
         setTimeout(() => {
@@ -1051,6 +1251,41 @@ document.addEventListener('alpine:init', () => {
           Alpine.store('monitor').addLog('info', 'Workflow completed (demo mode)');
         }, 2000);
       }
+    },
+
+    // Send workflow to OpenClaw for background execution (server-side, survives browser close)
+    async runInBackground() {
+      if (!this.activeId || this.running) return;
+      if (!window.openclawClient?.authenticated) {
+        Alpine.store('monitor').addLog('warn', 'Background run requires OpenClaw connection');
+        return;
+      }
+      const wf = this.active;
+      if (!wf) return;
+      const graphData = localStorage.getItem('mc-workflow-' + this.activeId);
+      if (!graphData) return;
+
+      try {
+        await window.openclawClient.sendChat(
+          `EXECUTE_WORKFLOW:${this.activeId}\nWorkflow: ${wf.name}\n${graphData}`,
+          { agentId: 'lead' }
+        );
+        wf.status = 'running-bg';
+        wf.lastRun = 'Background';
+        this._persistList();
+        Alpine.store('monitor').addLog('info', `Workflow "${wf.name}" sent to OpenClaw for background execution`);
+      } catch (e) {
+        Alpine.store('monitor').addLog('error', `Background run failed: ${e.message}`);
+      }
+    },
+
+    _persistList() {
+      storage.save('workflows', this.list.map(w => ({
+        id: w.id, name: w.name, nodes: w.nodes,
+        lastRun: w.lastRun, status: w.status,
+        createdAt: w.createdAt, updatedAt: w.updatedAt,
+        createdBy: w.createdBy,
+      })));
     },
   });
 
@@ -1296,6 +1531,97 @@ document.addEventListener('alpine:init', () => {
   // STORE: SETTINGS — sidebar customization & preferences
   // --------------------------------------------------------------------------
 
+  // --------------------------------------------------------------------------
+  // STORE: STAGING — agent-generated content preview & approval
+  // --------------------------------------------------------------------------
+
+  Alpine.store('staging', {
+    items: [],
+    selectedId: null,
+    _pollTimer: null,
+
+    get selected() {
+      return this.items.find(i => i.id === this.selectedId) || null;
+    },
+
+    get pendingCount() {
+      return this.items.filter(i => i.status === 'pending').length;
+    },
+
+    startPolling(intervalMs = 15000) {
+      this.stopPolling();
+      this._poll();
+      this._pollTimer = setInterval(() => this._poll(), intervalMs);
+    },
+
+    stopPolling() {
+      if (this._pollTimer) {
+        clearInterval(this._pollTimer);
+        this._pollTimer = null;
+      }
+    },
+
+    async _poll() {
+      try {
+        const resp = await fetch('/workspace/staging/index.json', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        this.items = (data.items || []).map(item => ({
+          id: item.id || item.path,
+          name: item.name || item.path,
+          path: item.path,
+          type: item.type || 'html',
+          createdBy: item.createdBy || 'agent',
+          createdAt: item.createdAt || Date.now(),
+          description: item.description || '',
+          status: item.status || 'pending',
+          previewUrl: '/workspace/staging/' + item.path,
+        }));
+      } catch {}
+    },
+
+    approve(id) {
+      const item = this.items.find(i => i.id === id);
+      if (!item) return;
+      item.status = 'approved';
+      Alpine.store('monitor').addLog('info', `Staging item "${item.name}" approved`);
+
+      if (window.openclawClient?.authenticated) {
+        window.openclawClient.sendChat(
+          `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner.`,
+          { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
+        ).catch(() => {});
+      }
+
+      Alpine.store('governance')?.recordTask(item.createdBy, {
+        success: true,
+        taskType: 'staging-approved',
+      });
+    },
+
+    reject(id, reason) {
+      const item = this.items.find(i => i.id === id);
+      if (!item) return;
+      item.status = 'rejected';
+      Alpine.store('monitor').addLog('info', `Staging item "${item.name}" rejected: ${reason || 'no reason'}`);
+
+      if (window.openclawClient?.authenticated) {
+        window.openclawClient.sendChat(
+          `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise.`,
+          { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
+        ).catch(() => {});
+      }
+
+      Alpine.store('governance')?.recordTask(item.createdBy, {
+        success: false,
+        taskType: 'staging-rejected',
+      });
+    },
+  });
+
   Alpine.store('settings', {
     // Which sidebar nav items are visible (all default to true)
     sidebar: {
@@ -1305,6 +1631,7 @@ document.addEventListener('alpine:init', () => {
       chat: true,
       teams: true,
       monitor: true,
+      staging: true,
     },
     settingsOpen: false,
 
