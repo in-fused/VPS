@@ -56,7 +56,10 @@ services:
   # ChatGPT-like interface that connects to all your AI providers.
   # First user to sign up becomes admin.
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    build:
+      context: ./webui-theme
+      dockerfile: Dockerfile
+    image: in-fused/open-webui:latest
     container_name: open-webui
     restart: unless-stopped
     volumes:

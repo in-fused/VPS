@@ -19,6 +19,7 @@ function _bridgeTouchEvents(canvasEl) {
   if (!('ontouchstart' in window)) return;
 
   let _lastPinchDist = 0;
+  let _isPinching = false;
 
   function touchToMouse(type, touch, e) {
     const mouseEvent = new MouseEvent(type, {
@@ -29,45 +30,45 @@ function _bridgeTouchEvents(canvasEl) {
       button: 0,
       buttons: type === 'mouseup' ? 0 : 1,
     });
-    // Tag so we can identify synthetic events if needed
     mouseEvent._fromTouch = true;
     canvasEl.dispatchEvent(mouseEvent);
     e.preventDefault();
   }
 
   canvasEl.addEventListener('touchstart', function (e) {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !_isPinching) {
       touchToMouse('mousedown', e.touches[0], e);
     } else if (e.touches.length === 2) {
-      // Start pinch-zoom tracking
+      // Cancel any in-progress single-finger drag before starting pinch
+      if (!_isPinching) {
+        touchToMouse('mouseup', e.touches[0], e);
+      }
+      _isPinching = true;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       _lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+      e.preventDefault();
     }
   }, { passive: false });
 
   canvasEl.addEventListener('touchmove', function (e) {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !_isPinching) {
       touchToMouse('mousemove', e.touches[0], e);
-    } else if (e.touches.length === 2 && window.workflowCanvas) {
-      // Pinch zoom
+    } else if (e.touches.length === 2 && _isPinching && window.workflowCanvas) {
+      // Pinch zoom — directly manipulate LiteGraph's DragAndScale
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (_lastPinchDist > 0) {
-        const scale = dist / _lastPinchDist;
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        // Simulate wheel zoom at the midpoint
-        const wheelEvent = new WheelEvent('wheel', {
-          bubbles: true,
-          cancelable: true,
-          clientX: midX,
-          clientY: midY,
-          deltaY: scale < 1 ? 100 : -100,
-          deltaMode: 0,
-        });
-        canvasEl.dispatchEvent(wheelEvent);
+        const scaleFactor = dist / _lastPinchDist;
+        const canvas = window.workflowCanvas;
+        const rect = canvasEl.getBoundingClientRect();
+        // Zoom toward the midpoint between the two fingers
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        const newScale = Math.max(0.15, Math.min(4, canvas.ds.scale * scaleFactor));
+        canvas.ds.changeScale(newScale, [midX, midY]);
+        canvas.setDirty(true, true);
       }
       _lastPinchDist = dist;
       e.preventDefault();
@@ -75,18 +76,25 @@ function _bridgeTouchEvents(canvasEl) {
   }, { passive: false });
 
   canvasEl.addEventListener('touchend', function (e) {
-    if (e.changedTouches.length > 0) {
-      touchToMouse('mouseup', e.changedTouches[0], e);
-    }
     if (e.touches.length === 0) {
+      if (_isPinching) {
+        // Pinch ended — don't fire mouseup (no drag was active)
+        _isPinching = false;
+      } else if (e.changedTouches.length > 0) {
+        touchToMouse('mouseup', e.changedTouches[0], e);
+      }
+      _lastPinchDist = 0;
+    } else if (e.touches.length === 1 && _isPinching) {
+      // Went from 2→1 fingers: stay idle, don't start a new drag
       _lastPinchDist = 0;
     }
   }, { passive: false });
 
   canvasEl.addEventListener('touchcancel', function (e) {
-    if (e.changedTouches.length > 0) {
+    if (!_isPinching && e.changedTouches.length > 0) {
       touchToMouse('mouseup', e.changedTouches[0], e);
     }
+    _isPinching = false;
     _lastPinchDist = 0;
   }, { passive: false });
 }
