@@ -27,10 +27,16 @@ The project owner frequently deploys from **iOS mobile** using **AWS Session Man
 ### Quick Deploy Commands (copy-paste ready)
 ```bash
 # Full deploy from GitHub (run from EC2 via SSM):
-cd /home/VPS && sudo git pull origin master && sudo bash scripts/deploy.sh
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin master && sudo bash scripts/deploy.sh
 
-# Deploy from a feature branch:
-cd /home/VPS && sudo git fetch origin && sudo git checkout master && sudo git merge origin/<branch-name> && sudo bash scripts/deploy.sh
+# Deploy from a feature branch (replace <branch-name>):
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git fetch origin <branch-name> && sudo git checkout master && sudo git merge origin/<branch-name> && sudo bash scripts/deploy.sh
+
+# Merge a feature branch to master and push (no deploy):
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git fetch origin <branch-name> && sudo git checkout master && sudo git merge origin/<branch-name> && sudo git push origin master
+
+# Update a single service (e.g., openclaw) without full redeploy:
+cd /home/VPS && sudo docker compose pull openclaw && sudo docker compose rm -sf openclaw && sudo docker compose up -d openclaw && sleep 10 && sudo docker compose logs --tail=50 openclaw
 
 # Quick restart (no image pull):
 cd /home/VPS && sudo docker compose restart
@@ -41,9 +47,17 @@ sudo docker compose ps
 # View recent logs:
 sudo docker compose logs --tail=50
 
-# If git complains about safe directory:
-sudo git config --global --add safe.directory /home/VPS
+# View logs for a specific service:
+sudo docker compose logs --tail=50 openclaw
 ```
+
+### Current Feature Branch
+The active development branch is **`claude/debug-chat-loading-TtNOm`** (note: the `O` before the `m` is a capital letter O, not zero — they look identical on mobile).
+
+### SSM Gotchas
+- **Always include** `sudo git config --global --add safe.directory /home/VPS` before any git command — EC2 runs as ssm-user, not the repo owner
+- **Branch names are case-sensitive** — copy exact branch names, don't retype them on mobile
+- The EC2 repo lives at `/home/VPS` (not `/home/user/VPS` — that's the dev environment)
 
 ### Access Methods
 - **Mobile**: AWS Console → Systems Manager → Session Manager → Start Session → select EC2 instance
