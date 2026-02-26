@@ -58,6 +58,8 @@ The active development branch is **`claude/debug-chat-loading-TtNOm`** (note: th
 - **Always include** `sudo git config --global --add safe.directory /home/VPS` before any git command — EC2 runs as ssm-user, not the repo owner
 - **Branch names are case-sensitive** — copy exact branch names, don't retype them on mobile
 - The EC2 repo lives at `/home/VPS` (not `/home/user/VPS` — that's the dev environment)
+- **EC2 has no `master` or `main` branch** — the server is checked out directly on the feature branch. To update, just `sudo git pull origin <branch-name>` (no merge needed)
+- **Default remote HEAD** points to `origin/claude/setup-ec2-vps-nN6Gj` (the original setup branch)
 
 ### Access Methods
 - **Mobile**: AWS Console → Systems Manager → Session Manager → Start Session → select EC2 instance
