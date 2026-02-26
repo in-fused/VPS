@@ -1,10 +1,9 @@
 /* ==========================================================================
    in-fused.org — Golden Cyber Techno Theme for Open WebUI
-   Transforms the default dark mode into a gold-accented cyber aesthetic
-   matching the auth/login screen experience.
+   Comprehensive theme with full legibility across all UI surfaces.
    ========================================================================== */
 
-/* ---- Google Fonts (Orbitron for headings, Rajdhani for body) ---- */
+/* ---- Google Fonts ---- */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ---- Theme Tokens ---- */
@@ -20,10 +19,29 @@
   --if-gold-border-bright: rgba(212,175,55,0.35);
   --if-text: #eeedf5;
   --if-text-sec: #b0adc0;
-  --if-text-muted: #5a5670;
+  --if-text-muted: #8a86a0;
 }
 
-/* ---- Base Background ---- */
+/* ---- Open WebUI internal dark mode color overrides ---- */
+.dark {
+  --color-gray-50: #0c0b1a;
+  --color-gray-100: #12112a;
+  --color-gray-200: #1a1838;
+  --color-gray-300: #2a2750;
+  --color-gray-400: #8a86a0;
+  --color-gray-500: #b0adc0;
+  --color-gray-600: #c5c2d0;
+  --color-gray-700: #1a1838;
+  --color-gray-800: #0c0b1a;
+  --color-gray-850: #0a091a;
+  --color-gray-900: var(--if-bg);
+  --color-gray-950: var(--if-bg);
+}
+
+/* ==========================================================================
+   BASE LAYER — background, fonts, grid overlay
+   ========================================================================== */
+
 body,
 body.dark {
   background: var(--if-bg) !important;
@@ -31,7 +49,7 @@ body.dark {
   font-family: 'Rajdhani', system-ui, sans-serif !important;
 }
 
-/* Golden grid overlay on the main page */
+/* Subtle golden grid overlay */
 body::before {
   content: '';
   position: fixed;
@@ -57,8 +75,7 @@ body::after {
   z-index: 0;
 }
 
-/* Ensure main app container is above the grid overlay, but don't
-   force position/z-index on every child (breaks modals & dropdowns) */
+/* App container above grid — scoped to avoid breaking modals */
 body > div#app,
 body > div[id="app"],
 body > div:first-child {
@@ -66,17 +83,40 @@ body > div:first-child {
   z-index: 1;
 }
 
-/* ---- Sidebar ---- */
+/* ==========================================================================
+   GLOBAL TEXT — ensure all text is readable everywhere
+   ========================================================================== */
+
+/* All paragraph, span, label, and description text */
+p, span, label, legend, figcaption, caption, summary, dt, dd, li {
+  color: inherit;
+}
+
+/* Muted/secondary text should still be readable */
+.text-gray-400, .text-gray-500, .text-gray-600,
+[class*="text-muted"], [class*="text-secondary"],
+.dark .text-gray-400, .dark .text-gray-500, .dark .text-gray-600 {
+  color: var(--if-text-sec) !important;
+}
+
+/* Small helper/description text */
+.text-xs, .text-sm {
+  color: var(--if-text-sec);
+}
+
+/* ==========================================================================
+   SIDEBAR
+   ========================================================================== */
+
 #sidebar,
 [id="sidebar"],
 nav[class*="sidebar"],
-aside,
 .sidebar {
   background: var(--if-surface) !important;
   border-right: 1px solid var(--if-gold-border) !important;
 }
 
-/* Sidebar header/brand */
+/* Sidebar header brand text */
 #sidebar .font-semibold,
 #sidebar [class*="font-bold"],
 .sidebar .font-semibold {
@@ -87,9 +127,10 @@ aside,
   background-clip: text !important;
 }
 
-/* Chat list items in sidebar */
+/* Sidebar items */
 #sidebar button,
 #sidebar a {
+  color: var(--if-text) !important;
   border-radius: 6px !important;
 }
 #sidebar button:hover,
@@ -103,28 +144,80 @@ aside,
   border-left: 2px solid var(--if-gold) !important;
 }
 
-/* ---- Main Chat Area ---- */
+/* Sidebar text should always be readable */
+#sidebar span,
+#sidebar p,
+#sidebar div {
+  color: var(--if-text) !important;
+}
+#sidebar .text-xs,
+#sidebar .text-sm,
+#sidebar [class*="truncate"] {
+  color: var(--if-text-sec) !important;
+}
+
+/* ==========================================================================
+   MAIN CHAT AREA
+   ========================================================================== */
+
 main,
-[role="main"],
-.relative.flex.h-full {
+[role="main"] {
   background: var(--if-bg) !important;
 }
 
-/* ---- Chat Messages ---- */
-/* User messages */
-[class*="bg-"][class*="rounded"][data-message-role="user"],
-.bg-gray-50,
-.dark .bg-gray-800,
-.dark\:bg-gray-800 {
+/* User message bubbles */
+[data-message-role="user"] {
   background: rgba(212,175,55,0.06) !important;
   border: 1px solid var(--if-gold-border) !important;
   border-radius: 12px !important;
 }
 
-/* ---- Chat Input Area ---- */
+/* All chat message text must be high contrast */
+[class*="prose"],
+[class*="markdown"],
+[class*="message-content"],
+[data-message-role] {
+  color: var(--if-text) !important;
+}
+
+/* Chat message headings — readable, not gradient */
+[class*="prose"] h1, [class*="prose"] h2, [class*="prose"] h3, [class*="prose"] h4,
+[class*="markdown"] h1, [class*="markdown"] h2, [class*="markdown"] h3, [class*="markdown"] h4,
+[class*="message"] h1, [class*="message"] h2, [class*="message"] h3, [class*="message"] h4 {
+  font-family: 'Orbitron', sans-serif !important;
+  -webkit-text-fill-color: var(--if-gold-light) !important;
+  background: none !important;
+  color: var(--if-gold-light) !important;
+}
+
+/* Chat message body text */
+[class*="prose"] p, [class*="prose"] li, [class*="prose"] td, [class*="prose"] th,
+[class*="prose"] span, [class*="prose"] strong, [class*="prose"] em,
+[class*="markdown"] p, [class*="markdown"] li, [class*="markdown"] span {
+  color: var(--if-text) !important;
+}
+
+/* Chat message links */
+[class*="prose"] a,
+[class*="markdown"] a,
+[class*="message"] a {
+  color: var(--if-gold-light) !important;
+  text-decoration: underline !important;
+}
+
+/* ==========================================================================
+   FORM INPUTS — textarea, text inputs, search bars, selects
+   ========================================================================== */
+
 textarea,
 [contenteditable],
 input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+select,
 .chat-input,
 #chat-textarea,
 #chat-input {
@@ -137,27 +230,42 @@ input[type="text"],
   font-weight: 500 !important;
   transition: border-color 0.3s, box-shadow 0.3s !important;
 }
+
 textarea:focus,
 [contenteditable]:focus,
 input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+select:focus,
 #chat-textarea:focus,
 #chat-input:focus {
   border-color: var(--if-gold) !important;
   box-shadow: 0 0 0 3px var(--if-gold-dim), 0 0 20px rgba(212,175,55,0.08) !important;
   outline: none !important;
 }
+
 textarea::placeholder,
 input::placeholder {
   color: var(--if-text-muted) !important;
 }
 
-/* The input container/wrapper */
-.w-full.flex.flex-col,
-form[class*="relative"] {
-  position: relative;
+/* Select/option dropdowns */
+select option {
+  background: var(--if-surface) !important;
+  color: var(--if-text) !important;
 }
 
-/* ---- Primary Buttons (Send, Submit, etc.) ---- */
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+/* Base transition for all buttons */
+button {
+  transition: all 0.2s ease !important;
+}
+
+/* Primary action buttons (Send, Submit, Save, etc.) */
 button[type="submit"],
 button.primary,
 button[class*="bg-black"],
@@ -182,200 +290,6 @@ button.primary:hover,
   transform: translateY(-1px) !important;
 }
 
-/* ---- Secondary Buttons (UI chrome only) ---- */
-button {
-  transition: all 0.2s ease !important;
-}
-#sidebar button:hover,
-nav button:hover,
-header button:hover {
-  background-color: var(--if-gold-dim) !important;
-}
-
-/* ---- Dropdown Menus & Popovers ---- */
-[role="menu"],
-[role="listbox"],
-.dropdown-content,
-[data-popover],
-.popover {
-  background: var(--if-surface) !important;
-  border: 1px solid var(--if-gold-border) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 1px var(--if-gold-border) !important;
-}
-[role="menuitem"]:hover,
-[role="option"]:hover,
-[role="option"][aria-selected="true"] {
-  background: var(--if-gold-dim) !important;
-}
-
-/* ---- Modal / Dialog ---- */
-[role="dialog"],
-.modal,
-dialog {
-  background: var(--if-surface) !important;
-  border: 1px solid var(--if-gold-border-bright) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 2px var(--if-gold-border) !important;
-  backdrop-filter: blur(20px) !important;
-}
-
-/* ---- Headings (outside chat messages only) ---- */
-h1, h2, h3 {
-  font-family: 'Orbitron', sans-serif !important;
-}
-/* Gold gradient only on top-level UI headings, NOT inside chat/message content */
-#sidebar h1, #sidebar h2, #sidebar h3,
-nav h1, nav h2, nav h3,
-header h1, header h2, header h3,
-.flex.flex-col.items-center h1,
-.flex.flex-col.items-center h2 {
-  background: linear-gradient(135deg, var(--if-gold-light), var(--if-gold)) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-}
-/* Chat message headings should be plain readable text */
-[id*="message"] h1, [id*="message"] h2, [id*="message"] h3,
-[class*="message"] h1, [class*="message"] h2, [class*="message"] h3,
-[class*="prose"] h1, [class*="prose"] h2, [class*="prose"] h3,
-[class*="markdown"] h1, [class*="markdown"] h2, [class*="markdown"] h3 {
-  -webkit-text-fill-color: var(--if-text) !important;
-  background: none !important;
-  color: var(--if-gold-light) !important;
-}
-
-/* ---- Model Selector / Dropdown ---- */
-.model-selector,
-button[aria-label*="model" i],
-button[aria-label*="Model" i] {
-  border: 1px solid var(--if-gold-border) !important;
-  border-radius: 8px !important;
-}
-.model-selector:hover,
-button[aria-label*="model" i]:hover {
-  border-color: var(--if-gold-border-bright) !important;
-  background: var(--if-gold-dim) !important;
-}
-
-/* ---- Scrollbars (gold-tinted) ---- */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--if-gold-border-bright);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--if-gold);
-}
-
-/* ---- Toggle Switches ---- */
-input[type="checkbox"][role="switch"] + *,
-.toggle {
-  --toggle-active: var(--if-gold) !important;
-}
-
-/* ---- Links ---- */
-a {
-  color: var(--if-gold) !important;
-}
-a:hover {
-  color: var(--if-gold-light) !important;
-}
-/* Links inside chat messages should be more readable */
-[class*="prose"] a,
-[class*="markdown"] a,
-[class*="message"] a {
-  color: var(--if-gold-light) !important;
-  text-decoration: underline !important;
-}
-
-/* ---- Code Blocks ---- */
-pre, code {
-  font-family: 'JetBrains Mono', monospace !important;
-  background: rgba(6,6,14,0.8) !important;
-  border: 1px solid var(--if-gold-border) !important;
-}
-
-/* ---- Landing State (no chat selected) ---- */
-/* Only target actual large display text, not every element with "text-" and "xl" */
-.text-3xl.font-semibold,
-.text-4xl.font-semibold {
-  font-family: 'Orbitron', sans-serif !important;
-}
-
-/* ---- Settings Panel ---- */
-.settings-panel,
-[class*="settings"] {
-  background: var(--if-surface) !important;
-}
-
-/* ---- Badges / Tags ---- */
-.badge,
-[class*="badge"] {
-  background: var(--if-gold-dim) !important;
-  color: var(--if-gold) !important;
-  border: 1px solid var(--if-gold-border) !important;
-}
-
-/* ---- Dividers ---- */
-hr {
-  border-color: var(--if-gold-border) !important;
-}
-
-/* ---- Tooltips ---- */
-[role="tooltip"],
-.tooltip {
-  background: var(--if-surface) !important;
-  border: 1px solid var(--if-gold-border) !important;
-  color: var(--if-text) !important;
-}
-
-/* ---- SVG Icons ---- */
-svg {
-  color: currentColor;
-}
-
-/* ---- Shimmer animation on the landing title ---- */
-@keyframes if-shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-
-/* Apply shimmer to the main welcome text */
-.text-2xl.font-semibold,
-.text-3xl.font-semibold,
-h1.text-3xl {
-  background: linear-gradient(135deg, var(--if-gold-light) 0%, var(--if-gold) 40%, #c49b2a 60%, var(--if-gold-light) 100%) !important;
-  background-size: 200% 100% !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  animation: if-shimmer 4s ease-in-out infinite !important;
-}
-
-/* ---- Scanline effect (subtle CRT feel) ---- */
-@keyframes if-scan {
-  0% { top: -3px; }
-  100% { top: 100vh; }
-}
-
-/* Inject scanline via body first-child pseudo-approach won't work.
-   Instead, we create it via a fixed outline on body */
-
-/* ---- Floating particles via CSS-only (no JS needed) ---- */
-@keyframes if-float {
-  0% { opacity: 0; transform: translateY(100vh) scale(0.5); }
-  10% { opacity: 0.6; }
-  90% { opacity: 0.2; }
-  100% { opacity: 0; transform: translateY(-10vh) scale(0); }
-}
-
-/* Generate a few particles via box-shadows on body::before
-   (already used for radial gradients, so we add them there) */
-
-/* ---- Open WebUI Specific Overrides ---- */
-
 /* New Chat button */
 button[aria-label="New Chat"],
 #new-chat-button {
@@ -392,57 +306,479 @@ button[aria-label="New Chat"]:hover,
   box-shadow: 0 4px 20px var(--if-gold-glow) !important;
 }
 
-/* Top navbar */
+/* UI chrome button hovers (sidebar, nav, header) */
+#sidebar button:hover,
+nav button:hover,
+header button:hover {
+  background-color: var(--if-gold-dim) !important;
+}
+
+/* Ensure button text is always readable */
+button {
+  color: var(--if-text);
+}
+
+/* ==========================================================================
+   DROPDOWNS, MENUS, POPOVERS, MODEL SELECTOR
+   ========================================================================== */
+
+[role="menu"],
+[role="listbox"],
+.dropdown-content,
+[data-popover],
+.popover {
+  background: var(--if-surface) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 1px var(--if-gold-border) !important;
+}
+
+/* Dropdown/menu items — readable text */
+[role="menuitem"],
+[role="option"],
+[role="listbox"] > *,
+[role="menu"] > *,
+.dropdown-content > * {
+  color: var(--if-text) !important;
+}
+[role="menuitem"]:hover,
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+  background: var(--if-gold-dim) !important;
+  color: var(--if-text) !important;
+}
+
+/* Model selector button */
+.model-selector,
+button[aria-label*="model" i],
+button[aria-label*="Model" i] {
+  border: 1px solid var(--if-gold-border) !important;
+  border-radius: 8px !important;
+  color: var(--if-text) !important;
+}
+.model-selector:hover,
+button[aria-label*="model" i]:hover {
+  border-color: var(--if-gold-border-bright) !important;
+  background: var(--if-gold-dim) !important;
+}
+
+/* Model list items — name and description must be legible */
+[class*="model"] span,
+[class*="model"] p,
+[class*="model"] div {
+  color: var(--if-text) !important;
+}
+[class*="model"] .text-xs,
+[class*="model"] .text-sm,
+[class*="model"] [class*="description"],
+[class*="model"] [class*="subtitle"] {
+  color: var(--if-text-sec) !important;
+}
+
+/* ==========================================================================
+   MODAL / DIALOG
+   ========================================================================== */
+
+[role="dialog"],
+.modal,
+dialog {
+  background: var(--if-surface) !important;
+  border: 1px solid var(--if-gold-border-bright) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 2px var(--if-gold-border) !important;
+  backdrop-filter: blur(20px) !important;
+  color: var(--if-text) !important;
+}
+
+/* All text inside dialogs */
+[role="dialog"] p,
+[role="dialog"] span,
+[role="dialog"] label,
+[role="dialog"] div,
+[role="dialog"] h1,
+[role="dialog"] h2,
+[role="dialog"] h3,
+dialog p,
+dialog span,
+dialog label {
+  color: var(--if-text) !important;
+}
+[role="dialog"] .text-xs,
+[role="dialog"] .text-sm,
+dialog .text-xs,
+dialog .text-sm {
+  color: var(--if-text-sec) !important;
+}
+
+/* ==========================================================================
+   HEADINGS — Orbitron font, gold gradient only on UI chrome
+   ========================================================================== */
+
+h1, h2, h3 {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--if-text) !important;
+}
+
+/* Gold gradient only for navigation/sidebar/welcome headings */
+#sidebar h1, #sidebar h2, #sidebar h3,
+nav h1, nav h2, nav h3,
+header h1, header h2, header h3,
+.flex.flex-col.items-center h1,
+.flex.flex-col.items-center h2 {
+  background: linear-gradient(135deg, var(--if-gold-light), var(--if-gold)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+/* ==========================================================================
+   TABLES — leaderboard, admin panels, data tables
+   ========================================================================== */
+
+table {
+  border-collapse: collapse !important;
+}
+th {
+  color: var(--if-gold) !important;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid var(--if-gold-border-bright) !important;
+  padding: 8px 12px !important;
+}
+td {
+  color: var(--if-text) !important;
+  border-bottom: 1px solid var(--if-gold-border) !important;
+  padding: 8px 12px !important;
+}
+tr:hover td {
+  background: var(--if-gold-dim) !important;
+}
+
+/* ==========================================================================
+   TABS / PILL NAVIGATION (Users, Analytics, Evaluations, etc.)
+   ========================================================================== */
+
+[role="tablist"] {
+  border-bottom: 1px solid var(--if-gold-border) !important;
+}
+[role="tab"] {
+  color: var(--if-text-sec) !important;
+  transition: color 0.2s, border-color 0.2s !important;
+}
+[role="tab"]:hover {
+  color: var(--if-gold-light) !important;
+}
+[role="tab"][aria-selected="true"],
+[role="tab"].active {
+  color: var(--if-gold) !important;
+  border-bottom: 2px solid var(--if-gold) !important;
+}
+
+/* Pill-style tabs */
+[class*="tab"][class*="active"],
+[class*="tab"][class*="selected"] {
+  background: var(--if-gold-dim) !important;
+  color: var(--if-gold) !important;
+}
+
+/* ==========================================================================
+   CARDS — suggested prompts, model cards, info cards
+   ========================================================================== */
+
+/* Generic cards */
+[class*="card"],
+[class*="rounded-lg"][class*="border"],
+[class*="rounded-xl"][class*="border"] {
+  background: var(--if-surface) !important;
+  border-color: var(--if-gold-border) !important;
+  color: var(--if-text) !important;
+}
+
+/* Suggested prompt cards on the welcome screen */
+[class*="suggestion"],
+[class*="prompt-suggestion"] {
+  background: var(--if-elevated) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  color: var(--if-text) !important;
+}
+[class*="suggestion"]:hover,
+[class*="prompt-suggestion"]:hover {
+  background: var(--if-gold-dim) !important;
+  border-color: var(--if-gold-border-bright) !important;
+}
+
+/* ==========================================================================
+   ADMIN PANEL / SETTINGS
+   ========================================================================== */
+
+/* Settings panels */
+.settings-panel,
+[class*="settings"] {
+  background: var(--if-surface) !important;
+  color: var(--if-text) !important;
+}
+
+/* Admin page content */
+[class*="admin"] {
+  color: var(--if-text) !important;
+}
+
+/* Stat numbers and values */
+[class*="stat"],
+[class*="count"],
+[class*="rating"],
+[class*="score"] {
+  color: var(--if-gold-light) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* ==========================================================================
+   TOP NAVBAR / HEADER
+   ========================================================================== */
+
 nav,
 header,
 [class*="navbar"] {
   background: var(--if-surface) !important;
   border-bottom: 1px solid var(--if-gold-border) !important;
+  color: var(--if-text) !important;
 }
 
-/* Chat message avatars */
+/* Nav text */
+nav span,
+nav a,
+nav button,
+header span,
+header a {
+  color: var(--if-text) !important;
+}
+
+/* ==========================================================================
+   LINKS
+   ========================================================================== */
+
+a {
+  color: var(--if-gold) !important;
+}
+a:hover {
+  color: var(--if-gold-light) !important;
+}
+
+/* ==========================================================================
+   CODE BLOCKS
+   ========================================================================== */
+
+/* Block-level code */
+pre {
+  font-family: 'JetBrains Mono', monospace !important;
+  background: rgba(6,6,14,0.8) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  border-radius: 8px !important;
+  color: var(--if-text) !important;
+}
+
+/* Inline code */
+:not(pre) > code {
+  font-family: 'JetBrains Mono', monospace !important;
+  background: rgba(212,175,55,0.08) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+  color: var(--if-gold-light) !important;
+  font-size: 0.9em !important;
+}
+
+/* Code inside pre blocks (no double border) */
+pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: inherit !important;
+}
+
+/* ==========================================================================
+   SCROLLBARS
+   ========================================================================== */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--if-gold-border-bright);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--if-gold);
+}
+
+/* ==========================================================================
+   TOGGLE SWITCHES / CHECKBOXES / RADIO
+   ========================================================================== */
+
+input[type="checkbox"][role="switch"] + *,
+.toggle {
+  --toggle-active: var(--if-gold) !important;
+}
+
+/* Checkbox/radio labels */
+label {
+  color: var(--if-text) !important;
+}
+
+/* ==========================================================================
+   BADGES / TAGS
+   ========================================================================== */
+
+.badge,
+[class*="badge"] {
+  background: var(--if-gold-dim) !important;
+  color: var(--if-gold) !important;
+  border: 1px solid var(--if-gold-border) !important;
+}
+
+/* ==========================================================================
+   DIVIDERS
+   ========================================================================== */
+
+hr {
+  border-color: var(--if-gold-border) !important;
+}
+
+/* ==========================================================================
+   TOOLTIPS
+   ========================================================================== */
+
+[role="tooltip"],
+.tooltip {
+  background: var(--if-surface) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  color: var(--if-text) !important;
+}
+
+/* ==========================================================================
+   SVG ICONS
+   ========================================================================== */
+
+svg {
+  color: currentColor;
+}
+
+/* ==========================================================================
+   AVATARS
+   ========================================================================== */
+
 img[alt*="profile" i],
 .avatar {
   border: 2px solid var(--if-gold-border-bright) !important;
   border-radius: 50% !important;
 }
 
-/* ---- Open WebUI's internal dark mode vars ---- */
-.dark {
-  --color-gray-50: #0c0b1a;
-  --color-gray-100: #12112a;
-  --color-gray-200: #1a1838;
-  --color-gray-300: #2a2750;
-  --color-gray-400: var(--if-text-muted);
-  --color-gray-500: var(--if-text-sec);
-  --color-gray-600: var(--if-text-sec);
-  --color-gray-700: #1a1838;
-  --color-gray-800: #0c0b1a;
-  --color-gray-850: #0a091a;
-  --color-gray-900: var(--if-bg);
-  --color-gray-950: var(--if-bg);
-}
+/* ==========================================================================
+   WELCOME / LANDING SCREEN (no chat selected)
+   ========================================================================== */
 
-/* ---- Welcome screen (when no chat is selected) ---- */
 .flex.flex-col.items-center.justify-center {
   font-family: 'Rajdhani', sans-serif !important;
 }
 
-/* The big model name / welcome text */
+/* Big model/welcome text */
 .font-primary,
 [class*="font-primary"] {
   font-family: 'Orbitron', sans-serif !important;
+  color: var(--if-text) !important;
 }
 
-/* ---- Ensure gold accent on focus rings globally ---- */
+/* Large display text */
+.text-3xl.font-semibold,
+.text-4xl.font-semibold {
+  font-family: 'Orbitron', sans-serif !important;
+}
+
+/* ==========================================================================
+   SHIMMER ANIMATION — welcome title
+   ========================================================================== */
+
+@keyframes if-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.text-2xl.font-semibold,
+.text-3xl.font-semibold,
+h1.text-3xl {
+  background: linear-gradient(135deg, var(--if-gold-light) 0%, var(--if-gold) 40%, #c49b2a 60%, var(--if-gold-light) 100%) !important;
+  background-size: 200% 100% !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  animation: if-shimmer 4s ease-in-out infinite !important;
+}
+
+/* ==========================================================================
+   FOCUS RINGS
+   ========================================================================== */
+
 *:focus-visible {
   outline-color: var(--if-gold) !important;
   outline-offset: 2px;
 }
 
-/* ---- File upload / drag-drop zone ---- */
+/* ==========================================================================
+   FILE UPLOAD / DRAG-DROP
+   ========================================================================== */
+
 [class*="dropzone"],
 [class*="drag"] {
   border-color: var(--if-gold-border-bright) !important;
   background: var(--if-gold-dim) !important;
+}
+
+/* ==========================================================================
+   TOAST / NOTIFICATION
+   ========================================================================== */
+
+[class*="toast"],
+[class*="notification"],
+[role="alert"] {
+  background: var(--if-surface) !important;
+  border: 1px solid var(--if-gold-border) !important;
+  color: var(--if-text) !important;
+}
+
+/* ==========================================================================
+   LOADING / SKELETON STATES
+   ========================================================================== */
+
+[class*="skeleton"],
+[class*="loading"],
+[class*="animate-pulse"] {
+  background: var(--if-elevated) !important;
+}
+
+/* ==========================================================================
+   EMPTY STATES — "No data", dashes, placeholders
+   ========================================================================== */
+
+[class*="empty"],
+[class*="no-data"],
+[class*="placeholder"] {
+  color: var(--if-text-muted) !important;
+}
+
+/* ==========================================================================
+   UNUSED KEYFRAMES (kept for future use)
+   ========================================================================== */
+
+@keyframes if-scan {
+  0% { top: -3px; }
+  100% { top: 100vh; }
+}
+
+@keyframes if-float {
+  0% { opacity: 0; transform: translateY(100vh) scale(0.5); }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.2; }
+  100% { opacity: 0; transform: translateY(-10vh) scale(0); }
 }
