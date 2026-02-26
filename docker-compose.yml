@@ -242,7 +242,12 @@ services:
       - ./workspace:/seed:ro
       - agent-workspace:/workspace
     command: >
-      sh -c "cp -r /seed/. /workspace/ && echo 'Workspace synced from seed'"
+      sh -c "cp -r /seed/. /workspace/ &&
+        mkdir -p /workspace/agent-workflows /workspace/staging /workspace/agent-activity &&
+        [ -f /workspace/agent-workflows/index.json ] || echo '{\"workflows\":[]}' > /workspace/agent-workflows/index.json &&
+        [ -f /workspace/staging/index.json ] || echo '{\"items\":[]}' > /workspace/staging/index.json &&
+        [ -f /workspace/agent-activity/log.json ] || echo '{\"events\":[]}' > /workspace/agent-activity/log.json &&
+        echo 'Workspace synced + bridge dirs ready'"
     restart: "no"
 
   # ===========================================================================

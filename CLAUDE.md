@@ -147,6 +147,58 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
 
+Each agent has a comprehensive system prompt with awareness of the team structure, file system protocols, and project context. Prompts are defined in two places:
+- `workspace/js/app.js` `DEMO_AGENTS` array — used by the LiteLLM SSE fallback path and as the UI default
+- `scripts/openclaw-entrypoint.sh` `instructions` field — injected into OpenClaw on first run (condensed version)
+
+### Agent Communication Protocols
+
+**Workflow Bridge** — Agents can create visual workflows that appear in Mission Control:
+- Write LiteGraph JSON to `/workspace/agent-workflows/{id}.json`
+- Update index: `/workspace/agent-workflows/index.json` → `{ "workflows": [{ "id", "name", "file", "createdBy", "updatedAt", "status" }] }`
+- Mission Control polls every 15s and auto-imports new workflows
+
+**Staging** — Agents propose content for owner review:
+- Write HTML/CSS/JS to `/workspace/staging/{path}`
+- Update index: `/workspace/staging/index.json` → `{ "items": [{ "id", "name", "path", "type", "createdBy", "description", "status": "pending" }] }`
+- Owner approves/rejects from phone → agent notified via OpenClaw chat → governance score updated
+
+**Activity Log** — Agents log events for the "While You Were Away" report:
+- Append to `/workspace/agent-activity/log.json` → `{ "events": [{ "time", "level", "type", "message" }] }`
+- Types: `task-complete`, `workflow-complete`, `staging-new`
+
+**Governance Self-Tuning** — Agents can propose scoring changes:
+- Include `GOVERNANCE_ADJUST: {"key": "value"}` in a chat response
+- Appears in Staging view for owner approval (never auto-applied)
+
+**Background Execution** — Owner sends workflows via "Background Run" button:
+- Serialized graph sent to Lead agent as `EXECUTE_WORKFLOW:{id}\n{json}`
+- Lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
+
+### Bridge Directories (auto-created by workspace-init)
+```
+/workspace/agent-workflows/     ← Agent-created workflows + index.json
+/workspace/agent-workflows/results/  ← Background execution results
+/workspace/staging/             ← Agent content for owner review + index.json
+/workspace/agent-activity/      ← Event log for away-report + log.json
+```
+These directories persist in the Docker volume and are NOT overwritten by workspace-init (only seeded if missing).
+
+### How to Start Using Agents
+
+1. Open Mission Control: `https://in-fused.org/workspace/`
+2. Log in with the site password
+3. Go to **Chat** in the sidebar
+4. Click **New Conversation**, pick **Lead** (the orchestrator)
+5. Give Lead a task — it will delegate to the right specialist:
+   - "Review the Caddyfile for security issues" → Lead delegates to CodeCraft
+   - "Research the latest OpenClaw API changes" → Lead delegates to Scout
+   - "Write a getting-started guide for the project" → Lead delegates to Scribe
+6. For direct specialist access, start a conversation with any agent directly
+7. Check **Teams** view to see governance scores and team performance
+8. Check **Staging** view for any content agents have produced for review
+9. Check **Workflows** view for any workflows agents have created
+
 ### OpenClaw Config Validation (DO NOT ADD THESE KEYS — causes crash loop)
 - `identity.description` — only `name`, `emoji` are valid
 - `subagents.maxDepth/maxConcurrent/maxChildrenPerAgent/runTimeoutSeconds` — not valid
@@ -167,7 +219,8 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 |------|-------|---------|
 | `workspace/index.html` | 1429 | Main SPA shell (Alpine.js templates, all views) |
 | `workspace/js/app.js` | 1352 | All Alpine stores, health checks, chat, governance |
-| `workspace/js/workflow.js` | 796 | LiteGraph nodes, WorkflowExecutor, touch bridge |
+| `workspace/js/workflow.js` | ~860 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
+| `workspace/js/workflow-bridge.js` | ~190 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
 | `workspace/js/openclaw-client.js` | 423 | OpenClaw WebSocket RPC client |
 | `workspace/css/styles.css` | 543 | Custom styles |
 | `workspace/auth.html` | — | Site-wide login page |
@@ -184,6 +237,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | `models` | Fetches models from LiteLLM `/api/mc/v1/models` | auto-populated on boot |
 | `monitor` | System logs, health status | `addLog()` |
 | `governance` | Per-agent performance tracking, team lead promotion | `recordTask()`, `getScore()`, `getLeaderboard()` |
+| `staging` | Agent content preview/approval, polls `/workspace/staging/` | `approve()`, `reject()`, `startPolling()` |
 | `settings` | Sidebar visibility preferences | `toggle()`, `isVisible()` |
 
 ### Chat System — 3-Tier Fallback (Working)
