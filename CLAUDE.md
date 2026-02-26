@@ -17,29 +17,53 @@
 
 ---
 
-## Deployment (Mobile-First via SSM)
+## Deployment & Mobile-First Requirements
 
-Owner deploys from **iOS mobile via AWS Session Manager**. Always provide:
-- Full copy-paste commands (no mid-command editing)
-- Chain with `&&` (SSM doesn't persist shell state)
-- No interactive prompts (`-y` flags, heredocs)
+### The owner manages this entire project from an iPhone via AWS Session Manager (SSM).
+
+This is not occasional — it is the **primary** workflow. Every command, every deploy, every debug session may happen from a mobile screen with no desktop available. This has two major implications:
+
+**1. All deployment commands must be fully copy-paste ready:**
+- Single-line commands chained with `&&` (SSM doesn't persist shell state between lines)
+- No interactive prompts — always use `-y` flags, heredocs, `--non-interactive`
+- No mid-command editing — the owner copies and pastes whole blocks on mobile
+- Keep commands short when possible — SSM on iOS can have clipboard issues with long strings
+- Branch names are case-sensitive and easy to mistype on mobile — always provide the exact name
+
+**2. All UI/UX changes MUST be mobile-optimized:**
+- Mission Control is used on iPhone as a PWA — touch targets, responsive layout, and mobile-safe interactions are **non-negotiable**
+- Any new UI feature must work on mobile-width screens, with touch (not just click), and with iOS safe areas (`viewport-fit=cover`)
+- The LiteGraph workflow canvas has a custom touch-to-mouse bridge — any workflow UI changes must preserve mobile usability
 
 **EC2 path:** `/home/VPS` (not `/home/user/VPS` — that's the dev environment)
+**EC2 has no `master` branch** — the server is checked out directly on the feature branch. Just pull the branch, no merge needed.
+
+### Ready-to-Paste Deploy Commands
 
 ```bash
-# Deploy feature branch directly (EC2 has no master — checked out on feature branch):
+# Full deploy from current feature branch:
 cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/debug-chat-loading-TtNOm && sudo bash scripts/deploy.sh
 
-# Update a single service:
+# Update a single service (e.g., openclaw):
 cd /home/VPS && sudo docker compose pull openclaw && sudo docker compose rm -sf openclaw && sudo docker compose up -d openclaw && sleep 10 && sudo docker compose logs --tail=50 openclaw
 
-# Quick restart / status:
+# Quick restart all services:
 cd /home/VPS && sudo docker compose restart
+
+# Check status:
 sudo docker compose ps
+
+# View recent logs (all services):
 sudo docker compose logs --tail=50
+
+# View logs for one service:
+sudo docker compose logs --tail=50 openclaw
 ```
 
-**SSM gotchas:** Always `sudo git config --global --add safe.directory /home/VPS` before git commands. Branch names are case-sensitive (`TtNOm` — the O is capital, not zero).
+### SSM Gotchas
+- **Always** run `sudo git config --global --add safe.directory /home/VPS` before any git command — SSM runs as ssm-user, not the repo owner
+- Branch name is `claude/debug-chat-loading-TtNOm` — the `O` before `m` is capital letter O, not zero (they look identical on mobile)
+- SSM sessions time out, but `docker compose up -d` runs detached — deploys complete even if the session drops
 
 **Access:** Mobile via SSM | Desktop via `ssh -i key.pem -p 2222 user@in-fused.org`
 
@@ -247,7 +271,18 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 
 ## PRIMARY GOAL: Autonomous Agent Operation
 
-**All OpenClaw agents (Lead, CodeCraft, Scout, Scribe, and sub-agents) must be able to operate autonomously and utilize all Mission Control features.** This means:
+### The Vision
+
+The owner manages this project from a phone. They should be able to open Mission Control, give agents a task, close the browser, and **come back later to find the work done.** OpenClaw runs 24/7 on EC2 — it doesn't stop when the browser closes. The agents (Lead, CodeCraft, Scout, Scribe, and any sub-agents they spawn) must be able to:
+
+- **Operate autonomously in the background** — continue executing workflows, completing tasks, and delegating work after the user leaves the session
+- **Utilize all Mission Control features** — chat, workflows, tools, agent-to-agent messaging, governance tracking
+- **Self-organize** — Lead delegates to specialists, specialists delegate to sub-agents, results flow back up the chain
+- **Be transparent** — all agent activity should be visible in Mission Control when the owner returns (logs, workflow execution history, chat transcripts, governance scores)
+
+This is not a chatbot. This is an autonomous agent system that happens to have a chat interface.
+
+### Implementation Priorities (in order)
 
 ### 1. Reliable Chat Pipeline (verify working)
 - Confirm 3-tier fallback works end-to-end: OpenClaw WS → LiteLLM SSE → demo
@@ -277,6 +312,12 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 ### 6. Loop Node Iteration (fix)
 - Executor should re-run downstream subgraph for each item in the loop
 - Track iteration index and pass individual items through connections
+
+### 7. Background Autonomy (endgame)
+- Agents continue working after the browser tab closes (OpenClaw runs server-side 24/7)
+- Scheduled triggers execute workflows on cron (not just UI-only dropdown)
+- Results accumulate in OpenClaw and sync to Mission Control on next visit
+- Owner opens Mission Control on their phone, sees what the agents accomplished while away
 
 ---
 
@@ -329,6 +370,42 @@ VPS/
 | `WEBUI_SECRET_KEY` | Open WebUI session secret |
 | `DB_PASSWORD` | PostgreSQL for LiteLLM |
 | `COMPOSE_PROJECT_NAME` | ai-hub |
+
+## Wiring & Gotchas (Things That Will Bite You)
+
+These are non-obvious behaviors across the system. A future session that doesn't know these will waste time debugging.
+
+### Caddy Streaming
+- Every proxy handler in the Caddyfile uses `flush_interval -1` to disable response buffering. This is **critical** for SSE streaming and WebSocket upgrades. Without it, chat responses hang indefinitely. Do not remove it during "cleanup."
+
+### WebSocket Path Stripping
+- Caddy's `handle_path /ws/openclaw` strips the `/ws/openclaw` prefix before proxying. OpenClaw receives the WebSocket connection at `/`, not `/ws/openclaw`. This is invisible but intentional — OpenClaw's gateway expects connections at root.
+- There are TWO separate WebSocket matchers: `/ws/openclaw` (dedicated, for Mission Control) and `/` root path (legacy, for OpenClaw's native Control UI). Both are required.
+
+### Model ID Aliasing
+- `litellm_config.yaml` defines upstream models like `groq/llama-3.3-70b-versatile`, but LiteLLM exposes them to clients as `groq-llama-3.3-70b` (the `model_name` field). OpenClaw entrypoint, Mission Control app.js, and all agent configs reference the **alias**, not the upstream ID. If you change one, update all of them.
+
+### localStorage vs OpenClaw State
+- Mission Control stores agents and sessions in both localStorage (client) and OpenClaw (server). If localStorage is cleared (browser reset, new device), agents disappear from the UI but still exist in OpenClaw. A WebSocket reconnect re-syncs them. Don't assume agents are deleted just because the UI is empty.
+
+### Immutable Secrets After First Run
+- `DB_PASSWORD` cannot be changed after the PostgreSQL volume is created — Postgres only reads the password on first bootstrap. deploy.sh guards against this (exits with error if volume exists but password is empty).
+- `LITELLM_SALT_KEY` — changing it invalidates all encrypted data in LiteLLM's database.
+- Both are auto-generated on first deploy and saved to `.env`. Do not rotate them casually.
+
+### Service Startup Order
+- OpenClaw has an explicit `depends_on` for LiteLLM with `condition: service_healthy`. If LiteLLM is unhealthy, OpenClaw won't start at all. When debugging "OpenClaw won't start," check LiteLLM health first.
+
+### workspace-init Overwrites On Every Deploy
+- The `workspace-init` container runs `cp -r /seed/. /workspace/` on every deploy, copying repo `workspace/` files into the Docker volume. This means any manual edits to `index.html`, `app.js`, etc. made directly on the volume (not in the repo) will be **overwritten** on next deploy. Always edit files in the repo, not on the running container.
+
+### OpenClaw Auth Handshake
+- The WebSocket connect message sends the password in **both** `token` and `password` fields: `{ auth: { mode: 'password', token: password, password: password } }`. This is how OpenClaw expects it — removing either field breaks authentication silently.
+
+### LiteLLM `drop_params: true`
+- LiteLLM is configured to silently drop unsupported parameters instead of rejecting requests. This means if you send a parameter that doesn't exist for a model (e.g., `store` for DeepSeek), it won't error — it just ignores it. Good for compatibility, but can hide bugs.
+
+---
 
 ## Resolved Issues (Brief Reference)
 
