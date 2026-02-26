@@ -173,12 +173,12 @@ docker image prune -f > /dev/null 2>&1
 log_ok "Cleanup complete"
 
 ###############################################################################
-# 5. Pull latest images
+# 5. Pull latest images (skip services that use build:)
 ###############################################################################
 log_info "Pulling latest container images..."
 PULL_ATTEMPTS=3
 for i in $(seq 1 $PULL_ATTEMPTS); do
-    if docker compose pull; then
+    if docker compose pull --ignore-buildable; then
         break
     fi
     if [ "$i" -lt "$PULL_ATTEMPTS" ]; then
@@ -190,6 +190,17 @@ for i in $(seq 1 $PULL_ATTEMPTS); do
     fi
 done
 log_ok "Images pulled"
+
+###############################################################################
+# 5b. Build custom images (open-webui with theme)
+###############################################################################
+log_info "Building custom images..."
+if docker compose build; then
+    log_ok "Custom images built"
+else
+    log_error "Build failed"
+    exit 1
+fi
 
 ###############################################################################
 # 6. Start the stack
