@@ -173,12 +173,14 @@ docker image prune -f > /dev/null 2>&1
 log_ok "Cleanup complete"
 
 ###############################################################################
-# 5. Pull latest images (skip services that use build:)
+# 5. Pull latest images (skip open-webui — it's built locally with theme)
 ###############################################################################
-log_info "Pulling latest container images..."
+log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
+# Explicitly list services that use pre-built images (not open-webui which has build:)
+PULL_SERVICES="caddy litellm litellm-db openclaw"
 for i in $(seq 1 $PULL_ATTEMPTS); do
-    if docker compose pull --ignore-buildable; then
+    if docker compose pull $PULL_SERVICES; then
         break
     fi
     if [ "$i" -lt "$PULL_ATTEMPTS" ]; then
@@ -192,13 +194,13 @@ done
 log_ok "Images pulled"
 
 ###############################################################################
-# 5b. Build custom images (open-webui with theme)
+# 5b. Build custom images (open-webui with in-fused.org theme)
 ###############################################################################
-log_info "Building custom images..."
-if docker compose build; then
-    log_ok "Custom images built"
+log_info "Building open-webui with custom theme..."
+if docker compose build open-webui; then
+    log_ok "Custom open-webui image built"
 else
-    log_error "Build failed"
+    log_error "Build failed — check webui-theme/Dockerfile"
     exit 1
 fi
 
