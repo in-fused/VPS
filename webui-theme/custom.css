@@ -57,8 +57,11 @@ body::after {
   z-index: 0;
 }
 
-/* Ensure content is above the grid overlay */
-body > * {
+/* Ensure main app container is above the grid overlay, but don't
+   force position/z-index on every child (breaks modals & dropdowns) */
+body > div#app,
+body > div[id="app"],
+body > div:first-child {
   position: relative;
   z-index: 1;
 }
@@ -179,11 +182,13 @@ button.primary:hover,
   transform: translateY(-1px) !important;
 }
 
-/* ---- Secondary Buttons ---- */
+/* ---- Secondary Buttons (UI chrome only) ---- */
 button {
   transition: all 0.2s ease !important;
 }
-button:hover {
+#sidebar button:hover,
+nav button:hover,
+header button:hover {
   background-color: var(--if-gold-dim) !important;
 }
 
@@ -215,13 +220,29 @@ dialog {
   backdrop-filter: blur(20px) !important;
 }
 
-/* ---- Headings ---- */
+/* ---- Headings (outside chat messages only) ---- */
 h1, h2, h3 {
   font-family: 'Orbitron', sans-serif !important;
+}
+/* Gold gradient only on top-level UI headings, NOT inside chat/message content */
+#sidebar h1, #sidebar h2, #sidebar h3,
+nav h1, nav h2, nav h3,
+header h1, header h2, header h3,
+.flex.flex-col.items-center h1,
+.flex.flex-col.items-center h2 {
   background: linear-gradient(135deg, var(--if-gold-light), var(--if-gold)) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
+}
+/* Chat message headings should be plain readable text */
+[id*="message"] h1, [id*="message"] h2, [id*="message"] h3,
+[class*="message"] h1, [class*="message"] h2, [class*="message"] h3,
+[class*="prose"] h1, [class*="prose"] h2, [class*="prose"] h3,
+[class*="markdown"] h1, [class*="markdown"] h2, [class*="markdown"] h3 {
+  -webkit-text-fill-color: var(--if-text) !important;
+  background: none !important;
+  color: var(--if-gold-light) !important;
 }
 
 /* ---- Model Selector / Dropdown ---- */
@@ -261,6 +282,13 @@ a {
 a:hover {
   color: var(--if-gold-light) !important;
 }
+/* Links inside chat messages should be more readable */
+[class*="prose"] a,
+[class*="markdown"] a,
+[class*="message"] a {
+  color: var(--if-gold-light) !important;
+  text-decoration: underline !important;
+}
 
 /* ---- Code Blocks ---- */
 pre, code {
@@ -270,9 +298,9 @@ pre, code {
 }
 
 /* ---- Landing State (no chat selected) ---- */
-.text-3xl,
-.text-4xl,
-[class*="text-"][class*="xl"] {
+/* Only target actual large display text, not every element with "text-" and "xl" */
+.text-3xl.font-semibold,
+.text-4xl.font-semibold {
   font-family: 'Orbitron', sans-serif !important;
 }
 
@@ -284,17 +312,14 @@ pre, code {
 
 /* ---- Badges / Tags ---- */
 .badge,
-[class*="badge"],
-span[class*="rounded-full"][class*="text-xs"] {
+[class*="badge"] {
   background: var(--if-gold-dim) !important;
   color: var(--if-gold) !important;
   border: 1px solid var(--if-gold-border) !important;
 }
 
 /* ---- Dividers ---- */
-hr,
-[class*="border-b"],
-[class*="divide-"] > * + * {
+hr {
   border-color: var(--if-gold-border) !important;
 }
 

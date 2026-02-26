@@ -76,6 +76,11 @@ services:
       # Features
       - ENABLE_RAG_WEB_SEARCH=true
       - ENABLE_IMAGE_GENERATION=false
+      # Disable auto-LLM calls that burn credits on page load / new chat
+      - ENABLE_AUTOCOMPLETE_GENERATION=false
+      - TITLE_GENERATION_PROMPT_TEMPLATE=false
+      - ENABLE_SEARCH_QUERY_GENERATION=false
+      - ENABLE_TAGS_GENERATION=false
     networks:
       - ai-net
     depends_on:
