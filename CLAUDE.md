@@ -200,11 +200,14 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 9. Check **Workflows** view for any workflows agents have created
 
 ### OpenClaw Config Validation (DO NOT ADD THESE KEYS — causes crash loop)
-- `identity.description` — only `name`, `emoji` are valid
+- `identity.description` — only `name`, `emoji` are valid identity keys
+- `agent.instructions` — NOT a valid agent key (system prompts live in app.js only)
 - `subagents.maxDepth/maxConcurrent/maxChildrenPerAgent/runTimeoutSeconds` — not valid
 - `tools.agentToAgent.maxPingPongTurns` — not valid
 - `compaction`, `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
 - `gateway.trustProxy` — use `gateway.trustedProxies` instead
+
+**Agent system prompts are CLIENT-SIDE ONLY** — defined in `workspace/js/app.js` DEMO_AGENTS array. OpenClaw does not support server-side instructions. The LiteLLM SSE fallback path injects them (app.js line 966-967). The entrypoint cleanup loop scrubs any `instructions` keys from persisted config.
 
 ---
 
