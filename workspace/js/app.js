@@ -1023,7 +1023,18 @@ document.addEventListener('alpine:init', () => {
         this._streamingMsg = botMsg;
         try {
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-          await window.openclawClient.sendChat(text, {
+
+          // Inject system prompt on the first message of each conversation.
+          // OpenClaw doesn't support server-side agent instructions, so we
+          // prepend the identity/context block to the first user message.
+          // Subsequent messages inherit context from OpenClaw's conversation history.
+          let messageText = text;
+          const priorUserMsgs = this.messages.filter(m => m.role === 'user');
+          if (priorUserMsgs.length <= 1 && agent?.systemPrompt) {
+            messageText = `[SYSTEM INSTRUCTIONS — follow these for the entire conversation]\n${agent.systemPrompt}\n[END SYSTEM INSTRUCTIONS]\n\n${text}`;
+          }
+
+          await window.openclawClient.sendChat(messageText, {
             agentId: agent?.id,
             sessionId: session?.id,
           });
