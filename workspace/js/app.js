@@ -56,7 +56,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Lead orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -91,7 +91,7 @@ PRINCIPLES:
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'deepseek-coder', status: 'idle',
+    model: 'litellm/deepseek-coder', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -122,7 +122,7 @@ PRINCIPLES:
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -153,7 +153,7 @@ PRINCIPLES:
   {
     id: 'scribe', name: 'Scribe', emoji: '📝',
     description: 'Documentation and content writer — clear, structured output',
-    model: 'gpt-4o-mini', status: 'idle',
+    model: 'litellm/gpt-4o-mini', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['file-ops'],
@@ -189,7 +189,7 @@ PRINCIPLES:
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform team orchestrator — infrastructure, deployments, monitoring',
-    model: 'groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -222,7 +222,7 @@ PRINCIPLES:
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'deepseek-coder', status: 'idle',
+    model: 'litellm/deepseek-coder', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -252,7 +252,7 @@ PRINCIPLES:
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'deepseek-chat', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
@@ -285,7 +285,7 @@ PRINCIPLES:
   {
     id: 'chronicler', name: 'Chronicler', emoji: '📋',
     description: 'Platform documentation — runbooks, deploy guides, incident reports',
-    model: 'gpt-4o-mini', status: 'idle',
+    model: 'litellm/gpt-4o-mini', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['file-ops'],
@@ -709,7 +709,7 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'groq-llama-3.3-70b',
+            model: a.model?.primary || a.model || 'litellm/groq-llama-3.3-70b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -719,6 +719,8 @@ document.addEventListener('alpine:init', () => {
             systemPrompt: a.systemPrompt || a.identity?.instructions || '',
             _source: 'openclaw', // mark as server-synced
           }));
+          agentStore._persist(); // cache server agents so next load isn't stale
+          agentStore.synced = true;
           Alpine.store('monitor').addLog('info', `Synced ${agents.length} agents from OpenClaw`);
         }
       } catch (err) {
@@ -930,12 +932,13 @@ document.addEventListener('alpine:init', () => {
 
   Alpine.store('agents', {
     list: storage.load('agents', [...DEMO_AGENTS]),
+    synced: false, // true after OpenClaw live agents replace local cache
     selected: null,
     wizardOpen: false,
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'groq-llama-3.3-70b', systemPrompt: '', tools: [],
+      model: 'litellm/groq-llama-3.3-70b', systemPrompt: '', tools: [],
     },
 
     get running() { return this.list.filter(a => a.status === 'running').length; },
@@ -946,7 +949,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'groq-llama-3.3-70b', systemPrompt: '', tools: [],
+        model: 'litellm/groq-llama-3.3-70b', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;
@@ -1195,7 +1198,9 @@ document.addEventListener('alpine:init', () => {
       // Route 2: Direct LiteLLM streaming (fallback when OpenClaw WS unavailable)
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-        const model = agent?.model || 'groq-llama-3.3-70b';
+        // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
+        const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
+        const model = rawModel.replace(/^litellm\//, '');
 
         const apiMessages = [];
         if (agent?.systemPrompt) {

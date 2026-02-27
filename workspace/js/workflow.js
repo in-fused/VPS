@@ -281,7 +281,8 @@ function registerCustomNodes() {
       agent = agents.find(a => a.name === this.properties.agent);
     }
 
-    const model = agent?.model || 'groq-llama-3.3-70b';
+    // Strip litellm/ prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
+    const model = (agent?.model || 'groq-llama-3.3-70b').replace(/^litellm\//, '');
     const messages = [];
     const sysPrompt = this.properties.systemPrompt || agent?.systemPrompt;
     if (sysPrompt) messages.push({ role: 'system', content: sysPrompt });
