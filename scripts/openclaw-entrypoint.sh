@@ -110,14 +110,14 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'gpt-4o-mini' },
+      model: { primary: 'groq-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'gpt-4o-mini' },
+        model: { primary: 'groq-llama-3.3-70b' },
       },
     },
     {
@@ -130,20 +130,20 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'gpt-4o-mini' },
+        model: { primary: 'groq-llama-3.3-70b' },
       },
     },
     {
       id: 'scout',
       workspace: 'Scout',
-      model: { primary: 'gpt-4o-mini' },
+      model: { primary: 'groq-llama-3.3-70b' },
       identity: {
         name: 'Scout',
         emoji: '🔍',
       },
       subagents: {
         allowAgents: ['scribe'],
-        model: { primary: 'gpt-4o-mini' },
+        model: { primary: 'groq-llama-3.3-70b' },
       },
     },
     {
@@ -186,7 +186,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=groq-llama-3.3-70b, lead+scout=gpt-4o-mini, a2a=peer, agents=4');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=4');
 "
 
 exec node openclaw.mjs gateway --allow-unconfigured

@@ -142,9 +142,9 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | gpt-4o-mini | Orchestrator | CodeCraft, Scout, Scribe |
+| Lead | groq-llama-3.3-70b | Orchestrator | CodeCraft, Scout, Scribe |
 | CodeCraft | deepseek-coder | Full-stack developer | Scout, Scribe |
-| Scout | gpt-4o-mini | Research specialist | Scribe |
+| Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
 
 Each agent has a comprehensive system prompt with awareness of the team structure, file system protocols, and project context. Prompts are defined in two places:

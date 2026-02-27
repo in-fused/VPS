@@ -56,7 +56,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Lead orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'gpt-4o-mini', status: 'idle',
+    model: 'groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -64,7 +64,7 @@ const DEMO_AGENTS = [
 
 YOUR TEAM:
 - CodeCraft (deepseek-coder): Full-stack developer. Delegate code writing, reviews, debugging, and security audits.
-- Scout (gpt-4o-mini): Research specialist. Delegate web research, data gathering, competitor analysis, fact-checking.
+- Scout (groq-llama-3.3-70b): Research specialist. Delegate web research, data gathering, competitor analysis, fact-checking.
 - Scribe (gpt-4o-mini): Technical writer. Delegate documentation, README files, guides, changelogs, user-facing content.
 
 HOW TO DELEGATE: Use agent-to-agent messaging. Send clear, scoped tasks with context. Review output before passing it to the owner.
@@ -122,7 +122,7 @@ PRINCIPLES:
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'gpt-4o-mini', status: 'idle',
+    model: 'groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
