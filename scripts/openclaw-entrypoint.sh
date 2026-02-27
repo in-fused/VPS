@@ -74,7 +74,7 @@ config.models.providers.litellm = {
 // Default model — object format with primary key (flat strings break subagents)
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'groq-llama-3.3-70b' };
+config.agents.defaults.model = { primary: 'litellm/groq-llama-3.3-70b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -110,46 +110,46 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'groq-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'groq-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'deepseek-coder' },
+      model: { primary: 'litellm/deepseek-coder' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'groq-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
       id: 'scout',
       workspace: 'Scout',
-      model: { primary: 'groq-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'Scout',
         emoji: '🔍',
       },
       subagents: {
         allowAgents: ['scribe'],
-        model: { primary: 'groq-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
       id: 'scribe',
       workspace: 'Scribe',
-      model: { primary: 'gpt-4o-mini' },
+      model: { primary: 'litellm/gpt-4o-mini' },
       identity: {
         name: 'Scribe',
         emoji: '📝',
@@ -159,46 +159,46 @@ if (config.agents.list.length === 0) {
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'groq-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'groq-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
       id: 'builder',
       workspace: 'Builder',
-      model: { primary: 'deepseek-coder' },
+      model: { primary: 'litellm/deepseek-coder' },
       identity: {
         name: 'Builder',
         emoji: '🔨',
       },
       subagents: {
         allowAgents: ['sentinel', 'chronicler'],
-        model: { primary: 'deepseek-chat' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
       id: 'sentinel',
       workspace: 'Sentinel',
-      model: { primary: 'deepseek-chat' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: {
         name: 'Sentinel',
         emoji: '🛡️',
       },
       subagents: {
         allowAgents: ['chronicler'],
-        model: { primary: 'deepseek-chat' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
       id: 'chronicler',
       workspace: 'Chronicler',
-      model: { primary: 'gpt-4o-mini' },
+      model: { primary: 'litellm/gpt-4o-mini' },
       identity: {
         name: 'Chronicler',
         emoji: '📋',
