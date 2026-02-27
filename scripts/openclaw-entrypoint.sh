@@ -110,7 +110,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'claude-haiku' },
+      model: { primary: 'groq-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',

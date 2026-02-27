@@ -56,7 +56,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Lead orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'claude-haiku', status: 'idle',
+    model: 'groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],

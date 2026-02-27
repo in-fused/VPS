@@ -142,7 +142,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | claude-haiku | Orchestrator | CodeCraft, Scout, Scribe |
+| Lead | groq-llama-3.3-70b | Orchestrator | CodeCraft, Scout, Scribe |
 | CodeCraft | deepseek-coder | Full-stack developer | Scout, Scribe |
 | Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
