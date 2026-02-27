@@ -23,11 +23,20 @@
 
 This is not occasional — it is the **primary** workflow. Every command, every deploy, every debug session may happen from a mobile screen with no desktop available. This has two major implications:
 
-**1. All deployment commands must be fully copy-paste ready:**
-- Single-line commands chained with `&&` (SSM doesn't persist shell state between lines)
-- No interactive prompts — always use `-y` flags, heredocs, `--non-interactive`
-- No mid-command editing — the owner copies and pastes whole blocks on mobile
-- Keep commands short when possible — SSM on iOS can have clipboard issues with long strings
+**1. All commands must be provided in TWO formats:**
+
+Every operational command MUST include both variants, clearly labeled:
+
+```
+📱 iOS/SSM (single-line, copy-paste):
+<command here>
+
+🖥️ Desktop/SSH:
+<same command, can be multi-line for readability>
+```
+
+- **iOS/SSM:** Single-line commands chained with `&&` (SSM doesn't persist shell state between lines). No interactive prompts — always use `-y` flags, heredocs, `--non-interactive`. Keep commands short when possible — SSM on iOS can have clipboard issues with long strings.
+- **Desktop/SSH:** Same commands but may use multi-line format for clarity. Always `cd /home/VPS` first.
 - Branch names are case-sensitive and easy to mistype on mobile — always provide the exact name
 
 **2. All UI/UX changes MUST be mobile-optimized:**
@@ -40,29 +49,72 @@ This is not occasional — it is the **primary** workflow. Every command, every 
 
 ### Ready-to-Paste Deploy Commands
 
+**Full deploy from current feature branch:**
+
+📱 iOS/SSM:
+```
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/autonomous-agents-ios-uToqU && sudo bash scripts/deploy.sh
+```
+
+🖥️ Desktop/SSH:
 ```bash
-# Full deploy from current feature branch:
-cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/debug-chat-loading-TtNOm && sudo bash scripts/deploy.sh
+cd /home/VPS
+sudo git config --global --add safe.directory /home/VPS
+sudo git pull origin claude/autonomous-agents-ios-uToqU
+sudo bash scripts/deploy.sh
+```
 
-# Update a single service (e.g., openclaw):
+**Update a single service (e.g., openclaw):**
+
+📱 iOS/SSM:
+```
 cd /home/VPS && sudo docker compose pull openclaw && sudo docker compose rm -sf openclaw && sudo docker compose up -d openclaw && sleep 10 && sudo docker compose logs --tail=50 openclaw
+```
 
-# Quick restart all services:
+🖥️ Desktop/SSH:
+```bash
+cd /home/VPS
+sudo docker compose pull openclaw
+sudo docker compose rm -sf openclaw
+sudo docker compose up -d openclaw
+sleep 10
+sudo docker compose logs --tail=50 openclaw
+```
+
+**Reset OpenClaw volume (re-seeds all agents from scratch):**
+
+📱 iOS/SSM:
+```
+cd /home/VPS && sudo docker compose rm -sf openclaw openclaw-init && sudo docker volume rm ai-hub_openclaw-data && sudo docker compose up -d openclaw
+```
+
+🖥️ Desktop/SSH:
+```bash
+cd /home/VPS
+sudo docker compose rm -sf openclaw openclaw-init
+sudo docker volume rm ai-hub_openclaw-data
+sudo docker compose up -d openclaw
+```
+
+**Quick restart / status / logs:**
+
+📱 iOS/SSM:
+```
 cd /home/VPS && sudo docker compose restart
-
-# Check status:
+```
+```
 sudo docker compose ps
-
-# View recent logs (all services):
+```
+```
 sudo docker compose logs --tail=50
-
-# View logs for one service:
+```
+```
 sudo docker compose logs --tail=50 openclaw
 ```
 
 ### SSM Gotchas
 - **Always** run `sudo git config --global --add safe.directory /home/VPS` before any git command — SSM runs as ssm-user, not the repo owner
-- Branch name is `claude/debug-chat-loading-TtNOm` — the `O` before `m` is capital letter O, not zero (they look identical on mobile)
+- When removing Docker volumes, you must also remove ALL containers that reference the volume (e.g., both `openclaw` and `openclaw-init` share `openclaw-data`)
 - SSM sessions time out, but `docker compose up -d` runs detached — deploys complete even if the session drops
 
 **Access:** Mobile via SSM | Desktop via `ssh -i key.pem -p 2222 user@in-fused.org`
