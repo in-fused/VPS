@@ -471,7 +471,9 @@
               <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Teams</div>
               <div class="text-2xl font-bold text-mc-text" x-text="$store.governance.teams.length"></div>
               <div class="text-xs text-amber-400 mt-1">
-                Lead: <span x-text="($store.agents.list.find(a => a.id === $store.governance.teams[0]?.lead)?.name) || '—'"></span>
+                <template x-for="(team, i) in $store.governance.teams" :key="team.id">
+                  <span><span x-show="i > 0"> · </span><span x-text="team.name.replace(' Team', '')"></span></span>
+                </template>
               </div>
             </div>
           </div>
@@ -576,63 +578,127 @@
             </button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <template x-for="agent in $store.agents.list" :key="agent.id">
-              <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
-                <div class="p-5">
-                  <div class="flex items-start gap-3 mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="font-semibold text-mc-text" x-text="agent.name"></span>
-                        <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+          <!-- Team-grouped agent cards -->
+          <template x-for="team in $store.governance.teams" :key="team.id">
+            <div class="mb-6">
+              <!-- Team header -->
+              <div class="flex items-center gap-3 mb-3">
+                <h3 class="text-sm font-semibold text-mc-text uppercase tracking-wider" x-text="team.name"></h3>
+                <div class="flex-1 h-px bg-mc-border"></div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      :class="team.id === 'core' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'"
+                      x-text="team.members.length + ' agents'"></span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <template x-for="agent in $store.agents.list.filter(a => team.members.includes(a.id))" :key="agent.id">
+                  <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
+                    <div class="p-5">
+                      <div class="flex items-start gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span class="font-semibold text-mc-text" x-text="agent.name"></span>
+                            <span x-show="team.lead === agent.id" class="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded font-medium">LEAD</span>
+                            <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                          </div>
+                          <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
+                        </div>
                       </div>
-                      <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
+                      <div class="space-y-2 text-xs">
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Tokens Used</span><span class="text-mc-text-sec" x-text="formatTokens(agent.tokensUsed)"></span></div>
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Score</span><span class="text-mc-text-sec font-semibold" x-text="$store.governance.getScore(agent.id)"></span></div>
+                      </div>
+                      <div x-show="agent.tools && agent.tools.length > 0" class="mt-3 flex flex-wrap gap-1">
+                        <template x-for="toolId in agent.tools" :key="toolId">
+                          <span class="text-[10px] px-1.5 py-0.5 bg-mc-elevated rounded text-mc-text-muted"
+                                x-text="(AGENT_TOOLS.find(t => t.id === toolId) || {name: toolId}).name"></span>
+                        </template>
+                      </div>
+                    </div>
+                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
+                      <button @click="$store.agents.toggleAgent(agent.id)"
+                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
+                        <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
+                      </button>
+                      <button @click="$store.sessions.createSession(agent.id)"
+                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
+                        Chat
+                      </button>
+                      <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
+                              class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  <div class="space-y-2 text-xs">
-                    <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
-                    <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
-                    <div class="flex justify-between"><span class="text-mc-text-muted">Tokens Used</span><span class="text-mc-text-sec" x-text="formatTokens(agent.tokensUsed)"></span></div>
-                    <div class="flex justify-between"><span class="text-mc-text-muted">Last Active</span><span class="text-mc-text-sec" x-text="agent.lastActive"></span></div>
-                  </div>
-                  <div x-show="agent.tools && agent.tools.length > 0" class="mt-3 flex flex-wrap gap-1">
-                    <template x-for="toolId in agent.tools" :key="toolId">
-                      <span class="text-[10px] px-1.5 py-0.5 bg-mc-elevated rounded text-mc-text-muted"
-                            x-text="(AGENT_TOOLS.find(t => t.id === toolId) || {name: toolId}).name"></span>
-                    </template>
-                  </div>
-                </div>
-                <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
-                  <button @click="$store.agents.toggleAgent(agent.id)"
-                          class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                          :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
-                    <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
-                  </button>
-                  <button @click="$store.sessions.createSession(agent.id)"
-                          class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
-                    Chat
-                  </button>
-                  <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
-                          class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                    </svg>
-                  </button>
-                </div>
+                </template>
               </div>
-            </template>
-
-            <!-- Add Card -->
-            <div @click="$store.agents.openWizard()"
-                 class="border-2 border-dashed border-mc-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all min-h-[200px]">
-              <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center">
-                <svg class="w-6 h-6 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                </svg>
-              </div>
-              <span class="text-sm text-mc-text-muted">Create New Agent</span>
             </div>
+          </template>
+
+          <!-- Unassigned agents (not in any team) -->
+          <template x-if="$store.agents.list.filter(a => !$store.governance.teams.some(t => t.members.includes(a.id))).length > 0">
+            <div class="mb-6">
+              <div class="flex items-center gap-3 mb-3">
+                <h3 class="text-sm font-semibold text-mc-text-muted uppercase tracking-wider">Unassigned</h3>
+                <div class="flex-1 h-px bg-mc-border"></div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <template x-for="agent in $store.agents.list.filter(a => !$store.governance.teams.some(t => t.members.includes(a.id)))" :key="agent.id">
+                  <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
+                    <div class="p-5">
+                      <div class="flex items-start gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span class="font-semibold text-mc-text" x-text="agent.name"></span>
+                            <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                          </div>
+                          <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
+                        </div>
+                      </div>
+                      <div class="space-y-2 text-xs">
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
+                      </div>
+                    </div>
+                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
+                      <button @click="$store.agents.toggleAgent(agent.id)"
+                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
+                        <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
+                      </button>
+                      <button @click="$store.sessions.createSession(agent.id)"
+                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
+                        Chat
+                      </button>
+                      <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
+                              class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Add Card -->
+          <div @click="$store.agents.openWizard()"
+               class="border-2 border-dashed border-mc-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all min-h-[200px] max-w-sm">
+            <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center">
+              <svg class="w-6 h-6 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+            </div>
+            <span class="text-sm text-mc-text-muted">Create New Agent</span>
           </div>
         </div>
 

@@ -87,7 +87,7 @@ config.tools = config.tools || {};
 // NOTE: Only 'enabled' and 'allow' are recognized; maxPingPongTurns is not.
 config.tools.agentToAgent = {
   enabled: true,
-  allow: ['lead', 'codecraft', 'scout', 'scribe'],
+  allow: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'],
 };
 
 // Sub-agent spawning: enable subagents (no extra keys — maxDepth,
@@ -155,6 +155,55 @@ if (config.agents.list.length === 0) {
         emoji: '📝',
       },
     },
+    // Platform Team
+    {
+      id: 'ops-lead',
+      workspace: 'Ops Lead',
+      model: { primary: 'groq-llama-3.3-70b' },
+      identity: {
+        name: 'Ops Lead',
+        emoji: '🎯',
+      },
+      subagents: {
+        allowAgents: ['builder', 'sentinel', 'chronicler'],
+        model: { primary: 'groq-llama-3.3-70b' },
+      },
+    },
+    {
+      id: 'builder',
+      workspace: 'Builder',
+      model: { primary: 'deepseek-coder' },
+      identity: {
+        name: 'Builder',
+        emoji: '🔨',
+      },
+      subagents: {
+        allowAgents: ['sentinel', 'chronicler'],
+        model: { primary: 'deepseek-chat' },
+      },
+    },
+    {
+      id: 'sentinel',
+      workspace: 'Sentinel',
+      model: { primary: 'deepseek-chat' },
+      identity: {
+        name: 'Sentinel',
+        emoji: '🛡️',
+      },
+      subagents: {
+        allowAgents: ['chronicler'],
+        model: { primary: 'deepseek-chat' },
+      },
+    },
+    {
+      id: 'chronicler',
+      workspace: 'Chronicler',
+      model: { primary: 'gpt-4o-mini' },
+      identity: {
+        name: 'Chronicler',
+        emoji: '📋',
+      },
+    },
   ];
 }
 
@@ -186,7 +235,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=4');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=8 (2 teams)');
 "
 
 exec node openclaw.mjs gateway --allow-unconfigured

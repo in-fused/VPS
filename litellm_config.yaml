@@ -56,6 +56,16 @@ model_list:
     model_info:
       description: "FREE (1K/day) — 70B model on Groq. Very fast."
 
+  # Second Groq account — LiteLLM auto load-balances same model_name entries
+  # Doubles free tier to 2K requests/day. Leave GROQ_API_KEY_2 blank to disable.
+  - model_name: "groq-llama-3.3-70b"
+    litellm_params:
+      model: "groq/llama-3.3-70b-versatile"
+      api_key: "os.environ/GROQ_API_KEY_2"
+      stream: true
+    model_info:
+      description: "FREE (1K/day) — 70B model on Groq (account 2)."
+
   # ===========================================================================
   # TIER 3: CHEAP — $0.14-0.60 per 1M tokens
   # ===========================================================================

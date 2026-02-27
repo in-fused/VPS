@@ -138,7 +138,9 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Default model: `groq-llama-3.3-70b` (object format `{ primary: '...' }`)
 - 10 models exposed, agent-to-agent messaging enabled, subagents enabled
 
-### Agent Hierarchy (seeded on first run, preserved after)
+### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
+
+**Core Team** — General tasks and feature development:
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
@@ -146,6 +148,22 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | CodeCraft | deepseek-coder | Full-stack developer | Scout, Scribe |
 | Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
+
+**Platform Team** — Infrastructure, deployments, monitoring:
+
+| Agent | Model | Role | Delegates To |
+|-------|-------|------|--------------|
+| Ops Lead | groq-llama-3.3-70b | Platform orchestrator | Builder, Sentinel, Chronicler |
+| Builder | deepseek-coder | Infrastructure developer | Sentinel, Chronicler |
+| Sentinel | deepseek-chat | Security & monitoring | Chronicler |
+| Chronicler | gpt-4o-mini | Platform documentation | (none) |
+
+**Model budget strategy:**
+- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (high-frequency orchestration/research)
+- DeepSeek ($0.14/1M): CodeCraft, Builder, Sentinel (code + reasoning, dirt cheap)
+- gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
+
+**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks.
 
 Each agent has a comprehensive system prompt with awareness of the team structure, file system protocols, and project context. Prompts are defined in two places:
 - `workspace/js/app.js` `DEMO_AGENTS` array — used by the LiteLLM SSE fallback path and as the UI default
@@ -418,7 +436,8 @@ VPS/
 | `ANTHROPIC_API_KEY` | Claude models |
 | `OPENAI_API_KEY` | GPT models |
 | `DEEPSEEK_API_KEY` | DeepSeek models |
-| `GROQ_API_KEY` | Groq free tier |
+| `GROQ_API_KEY` | Groq free tier (account 1) |
+| `GROQ_API_KEY_2` | Groq free tier (account 2) — LiteLLM load-balances both |
 | `MINIMAX_API_KEY` | MiniMax M2.5 |
 | `OLLAMA_BASE_URL` | Remote Ollama (Oracle Cloud ARM) |
 | `LITELLM_MASTER_KEY` | LiteLLM auth (must start with `sk-`) |
