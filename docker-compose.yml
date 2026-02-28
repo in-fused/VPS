@@ -212,6 +212,8 @@ services:
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      # Telegram bot integration (optional — set in .env)
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     networks:
       - ai-net
     depends_on:
@@ -244,10 +246,12 @@ services:
       - agent-workspace:/workspace
     command: >
       sh -c "cp -r /seed/. /workspace/ &&
-        mkdir -p /workspace/agent-workflows /workspace/staging /workspace/agent-activity &&
+        mkdir -p /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state &&
         [ -f /workspace/agent-workflows/index.json ] || echo '{\"workflows\":[]}' > /workspace/agent-workflows/index.json &&
+        [ -f /workspace/agent-workflows/results/index.json ] || echo '{\"results\":[]}' > /workspace/agent-workflows/results/index.json &&
         [ -f /workspace/staging/index.json ] || echo '{\"items\":[]}' > /workspace/staging/index.json &&
         [ -f /workspace/agent-activity/log.json ] || echo '{\"events\":[]}' > /workspace/agent-activity/log.json &&
+        [ -f /workspace/mc-state/governance.json ] || echo '{\"agents\":{},\"teams\":[],\"updatedAt\":0}' > /workspace/mc-state/governance.json &&
         echo 'Workspace synced + bridge dirs ready'"
     restart: "no"
 

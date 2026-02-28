@@ -95,6 +95,17 @@ config.tools.agentToAgent = {
 // unrecognized by OpenClaw and cause config validation crash loops).
 config.tools.subagents = config.tools.subagents || {};
 
+// Telegram bot integration (only if token provided via env).
+// Guarded: if the config key format is wrong, OpenClaw will reject it at
+// startup, but the entrypoint cleanup below will catch it on next restart.
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  config.channels = config.channels || {};
+  config.channels.telegram = {
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+  };
+  console.log('[entrypoint] Telegram bot token configured');
+}
+
 // =========================================================================
 // Multi-Agent Hierarchy: Define core agent roles
 // =========================================================================
