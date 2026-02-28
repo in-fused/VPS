@@ -1059,12 +1059,37 @@
 
           <div class="max-w-5xl mx-auto space-y-6">
 
-            <!-- Header -->
+            <!-- Header + Weekly Cycle -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h1 class="text-xl font-bold text-mc-text">Teams & Governance</h1>
-                <p class="text-sm text-mc-text-muted mt-1">Performance tracking, leaderboards, and lead promotion</p>
+                <p class="text-sm text-mc-text-muted mt-1">Performance tracking, tier system, and weekly evaluation</p>
               </div>
+              <div class="flex items-center gap-3">
+                <button @click="$store.governance.forceWeeklyEval()"
+                        title="Force run weekly evaluation now"
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all">
+                  Evaluate Now
+                </button>
+              </div>
+            </div>
+
+            <!-- Weekly Cycle Progress -->
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-mc-text">Week <span x-text="$store.governance.week.number"></span></span>
+                  <span class="text-xs text-mc-text-muted">
+                    <span x-text="$store.governance.getWeekDaysRemaining()"></span> days remaining
+                  </span>
+                </div>
+                <span class="text-xs font-mono text-mc-text-sec" x-text="$store.governance.getWeekProgress() + '%'"></span>
+              </div>
+              <div class="w-full h-2 bg-mc-bg rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-cyan-500 to-amber-500 rounded-full transition-all duration-1000"
+                     :style="'width:' + $store.governance.getWeekProgress() + '%'"></div>
+              </div>
+              <p class="text-[11px] text-mc-text-muted mt-2">Weekly champion earns Elite tier + team lead. Owner-approved staging items count 30% of the evaluation score.</p>
             </div>
 
             <!-- Teams Loop -->
@@ -1109,9 +1134,14 @@
                         <div class="flex items-center gap-2 min-w-0 flex-1">
                           <span class="text-lg flex-shrink-0" x-text="entry.emoji"></span>
                           <div class="min-w-0">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                               <span class="text-sm font-medium text-mc-text truncate" x-text="entry.name"></span>
                               <span x-show="entry.isLead" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-500/20 text-amber-400 flex-shrink-0">LEAD</span>
+                              <!-- Tier Badge -->
+                              <span class="px-1.5 py-0.5 text-[10px] font-bold rounded flex-shrink-0"
+                                    :class="entry.tier === 3 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : entry.tier === 2 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : entry.tier === 0 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-mc-bg text-mc-text-muted'"
+                                    x-text="entry.tierName"></span>
+                              <span x-show="entry.weeklyChampion" class="text-[10px] flex-shrink-0" title="Weekly Champion">&#127942;</span>
                             </div>
                             <div class="text-[11px] text-mc-text-muted" x-text="entry.model"></div>
                           </div>
@@ -1131,7 +1161,10 @@
 
                         <!-- Stats (compact) -->
                         <div class="flex items-center gap-3 text-[11px] text-mc-text-muted flex-shrink-0">
-                          <span class="hidden md:inline" title="Tasks completed">
+                          <span class="hidden md:inline" title="Weekly score">
+                            W:<span class="font-mono" x-text="entry.weeklyScore"></span>
+                          </span>
+                          <span class="hidden md:inline" title="Tasks completed (total)">
                             <span x-text="entry.tasksCompleted"></span> tasks
                           </span>
                           <span class="hidden md:inline" title="Success rate">
@@ -1177,35 +1210,90 @@
                       <span class="text-emerald-400">Peer-to-peer enabled</span>
                     </div>
                     <div class="flex justify-between">
-                      <span>Promotion Threshold</span>
+                      <span>Auto-Promotion</span>
                       <span class="text-mc-text">10+ tasks, 15+ point lead</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Weekly Champion</span>
+                      <span class="text-amber-400">Earns Elite tier + lead role</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Elite Cap</span>
+                      <span class="text-mc-text">Max 1 per team</span>
                     </div>
                   </div>
                 </div>
               </div>
             </template>
 
+            <!-- Tier System Legend -->
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
+              <h3 class="text-sm font-semibold text-mc-text mb-3">Tier System — Rewards</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div class="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                  <div class="font-bold text-red-400 mb-1">Probation</div>
+                  <div class="text-mc-text-muted">gpt-4o-mini only. Basic tools. 5 consecutive wins to escape.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-mc-bg border border-mc-border/50">
+                  <div class="font-bold text-mc-text-sec mb-1">Active</div>
+                  <div class="text-mc-text-muted">Assigned model. Standard tools. Default starting tier.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
+                  <div class="font-bold text-cyan-400 mb-1">Proven</div>
+                  <div class="text-mc-text-muted">+claude-haiku, minimax. Score &ge;70, 15+ tasks, 3+ streak.</div>
+                </div>
+                <div class="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                  <div class="font-bold text-amber-400 mb-1">Elite &#127942;</div>
+                  <div class="text-mc-text-muted">+claude-sonnet, gpt-4o. Weekly champion only. 1 per team.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Champion History -->
+            <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5"
+                 x-show="$store.governance.getChampionHistory().length > 0">
+              <h3 class="text-sm font-semibold text-mc-text mb-3">Champion History</h3>
+              <div class="space-y-2">
+                <template x-for="champ in $store.governance.getChampionHistory().slice(0, 8)" :key="champ.week + champ.teamId">
+                  <div class="flex items-center gap-3 p-2 rounded-lg bg-mc-elevated text-xs">
+                    <span class="text-amber-400">&#127942;</span>
+                    <span class="font-medium text-mc-text">Week <span x-text="champ.week"></span></span>
+                    <span x-text="champ.emoji"></span>
+                    <span class="text-mc-text-sec" x-text="champ.name"></span>
+                    <span class="text-mc-text-muted" x-text="champ.teamId === 'core' ? 'Core' : 'Platform'"></span>
+                    <span class="ml-auto font-mono text-mc-text-sec" x-text="'Score: ' + champ.weeklyScore"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
             <!-- How Governance Works -->
             <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
               <h3 class="text-sm font-semibold text-mc-text mb-3">How Governance Works</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-mc-text-sec">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-mc-text-sec">
                 <div class="space-y-1.5">
                   <div class="font-medium text-mc-text flex items-center gap-1.5">
                     <span class="text-emerald-400">&#9650;</span> Performance Score
                   </div>
-                  <p>Composite of success rate (40%), quality (30%), token efficiency (20%), and streak bonus (10%). Scores update in real-time as agents complete tasks.</p>
+                  <p>Composite of success rate (40%), quality (30%), token efficiency (20%), and streak bonus (10%). Updates in real-time.</p>
                 </div>
                 <div class="space-y-1.5">
                   <div class="font-medium text-mc-text flex items-center gap-1.5">
-                    <span class="text-amber-400">&#9733;</span> Auto-Promotion
+                    <span class="text-amber-400">&#9733;</span> Weekly Evaluation
                   </div>
-                  <p>When an agent completes 10+ tasks and leads by 15+ points, they're automatically promoted to team lead. You can also promote manually.</p>
+                  <p>Every 7 days: tasks (25%), staging approvals (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion earns Elite + lead.</p>
                 </div>
                 <div class="space-y-1.5">
                   <div class="font-medium text-mc-text flex items-center gap-1.5">
-                    <span class="text-cyan-400">&#8644;</span> Peer Communication
+                    <span class="text-cyan-400">&#9650;</span> Tier Rewards
                   </div>
-                  <p>All agents can message each other directly (not just leader to member). Up to 5 back-and-forth exchanges per conversation.</p>
+                  <p>Tiers unlock better models. Elite agents can use claude-sonnet and gpt-4o. Probation restricts to gpt-4o-mini only.</p>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="font-medium text-mc-text flex items-center gap-1.5">
+                    <span class="text-red-400">&#9888;</span> Anti-Gaming
+                  </div>
+                  <p>Staging approvals (30% weight) require owner review — agents can't inflate their own scores. Collusion = team wipe.</p>
                 </div>
               </div>
             </div>

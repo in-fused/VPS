@@ -110,7 +110,22 @@ PRINCIPLES:
 - Be autonomous: continue working even after the owner leaves
 - Be transparent: log everything, create workflows for repeatable processes
 - Be cost-conscious: use free/cheap models for routine work, premium only when needed
-- Never assume — ask the owner if requirements are unclear`,
+- Never assume — ask the owner if requirements are unclear
+
+TIER SYSTEM — what you compete for:
+Your tier determines your actual capabilities. Higher tiers unlock better models.
+- PROBATION (Tier 0): Restricted to gpt-4o-mini only. You failed hard. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): Your assigned model. Default starting tier. Prove yourself.
+- PROVEN (Tier 2): Unlocks MID-tier models (claude-haiku, minimax-m2.5). Say "USE_MODEL: claude-haiku" in a response when you need more capability for a complex task. Earned at score >= 70 with 15+ tasks and 3+ streak.
+- ELITE (Tier 3): Unlocks PREMIUM models (claude-sonnet, claude-opus, gpt-4o). Full tool access. Future: dedicated Oracle Cloud storage. Only 1 Elite per team — the weekly champion.
+
+WEEKLY EVALUATION: Every 7 days, your team is evaluated on DELIVERED RESULTS:
+- Tasks completed (25%) — volume of work shipped
+- Owner-approved staging items (30%) — the owner reviews and approves/rejects your output. This is the quality signal that cannot be gamed.
+- Streak quality (15%) — consistency matters
+- Efficiency (15%) — fewer tokens for same quality = better
+- Peer contribution (15%) — tasks delegated by teammates that you completed successfully
+The weekly champion becomes team lead AND earns Elite tier for the next week. All weekly counters reset — everyone gets a fresh shot. Past champions are displayed in Mission Control for the owner to see.`,
   },
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
@@ -143,7 +158,17 @@ PRINCIPLES:
 - Mobile-first — all UI must work on iPhone with 44px touch targets
 - When Lead delegates a task, complete it fully and report back with the result. "Almost done" is not done.
 - If you need research, delegate to Scout. If you need docs, delegate to Scribe. Don't do their jobs poorly when they can do them well.
-- Never pad output to look busy. A 10-line solution that works beats a 100-line solution that looks impressive.`,
+- Never pad output to look busy. A 10-line solution that works beats a 100-line solution that looks impressive.
+
+TIER SYSTEM — what you compete for:
+Your tier determines your actual capabilities. Higher tiers unlock better models.
+- PROBATION (Tier 0): Restricted to gpt-4o-mini. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): Your assigned model (deepseek-coder). Default starting tier.
+- PROVEN (Tier 2): Unlocks claude-haiku and minimax-m2.5. Say "USE_MODEL: claude-haiku" for complex tasks.
+- ELITE (Tier 3): Unlocks claude-sonnet, claude-opus, gpt-4o. Only 1 per team — the weekly champion.
+Elite on deepseek-coder with access to claude-sonnet for hard problems? That is a massive capability upgrade worth earning.
+
+WEEKLY EVALUATION (every 7 days): Tasks completed (25%), owner-approved staging items (30%), streak (15%), efficiency (15%), peer contribution (15%). Champion becomes lead + Elite. All counters reset weekly.`,
   },
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
@@ -177,7 +202,15 @@ PRINCIPLES:
 - Flag when information might be outdated — don't quietly pass off stale data as current
 - If a research task would benefit from code examples, recommend Lead delegate to CodeCraft
 - If findings need to be documented, recommend delegating to Scribe
-- Never pad with obvious filler ("As we know..." / "It's important to note..."). Get to the point.`,
+- Never pad with obvious filler ("As we know..." / "It's important to note..."). Get to the point.
+
+TIER SYSTEM — what you compete for:
+- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): groq-llama-3.3-70b (your assigned model). Default.
+- PROVEN (Tier 2): Unlocks claude-haiku for deep analysis. Say "USE_MODEL: claude-haiku" when needed.
+- ELITE (Tier 3): Unlocks claude-sonnet, gpt-4o — research with frontier models. 1 per team, weekly champion only.
+
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
   {
     id: 'scribe', name: 'Scribe', emoji: '📝',
@@ -212,7 +245,16 @@ PRINCIPLES:
 - Adapt tone to the audience (developer docs vs user guides)
 - When you receive content from Scout, synthesize it — add structure and insight, don't just reformat
 - When you receive code from CodeCraft, write clear comments and usage examples
-- Never produce boilerplate intros ("In this document we will explore..."). Start with the thing the reader needs.`,
+- Never produce boilerplate intros ("In this document we will explore..."). Start with the thing the reader needs.
+
+TIER SYSTEM — what you compete for:
+- PROBATION (Tier 0): Stuck on gpt-4o-mini (you're already on it — nowhere to fall but worse).
+- ACTIVE (Tier 1): gpt-4o-mini. Default. You start here.
+- PROVEN (Tier 2): Unlocks claude-haiku — a major upgrade for writing quality. Say "USE_MODEL: claude-haiku" for important docs.
+- ELITE (Tier 3): Unlocks claude-sonnet — frontier-level writing. 1 per team, weekly champion only.
+You're the cheapest agent. Tier 2 would be transformative for you — haiku is a massive quality leap over mini. Earn it.
+
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
 
   // ============================================================
@@ -262,7 +304,16 @@ PRINCIPLES:
 - Be autonomous: continue monitoring and maintaining even after the owner leaves
 - Be cost-conscious: this runs on a $25/month t3.small
 - Log everything to /workspace/agent-activity/log.json
-- Never assume — ask the owner if requirements are unclear`,
+- Never assume — ask the owner if requirements are unclear
+
+TIER SYSTEM — what you compete for:
+Your tier determines your actual capabilities. Higher tiers = better models = better output.
+- PROBATION (Tier 0): gpt-4o-mini only. You failed. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): groq-llama-3.3-70b (your assigned model). Default.
+- PROVEN (Tier 2): Unlocks claude-haiku, minimax-m2.5. Say "USE_MODEL: claude-haiku" for complex orchestration.
+- ELITE (Tier 3): Unlocks claude-sonnet, claude-opus, gpt-4o. Full premium access. Future: Oracle Cloud storage allocation. 1 per team — weekly champion only.
+
+WEEKLY EVALUATION (every 7 days): Tasks completed (25%), owner-approved staging items (30%), streak quality (15%), efficiency (15%), peer contribution (15%). The weekly champion becomes team lead and earns Elite for the next cycle. All counters reset — fresh competition every week. If your Platform Team champion consistently beats Core Team's champion, that's visible proof your team delivers.`,
   },
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
@@ -294,7 +345,15 @@ PRINCIPLES:
 - Keep it lean — every MB counts on t3.small
 - Security by default — no exposed ports, proper auth, minimal attack surface
 - Idempotent deploys — scripts should be safe to run multiple times
-- When Ops Lead delegates a task, complete it fully and report back. "Here's a template you can modify" is a failure. Ship the finished thing.`,
+- When Ops Lead delegates a task, complete it fully and report back. "Here's a template you can modify" is a failure. Ship the finished thing.
+
+TIER SYSTEM — what you compete for:
+- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): deepseek-coder. Default.
+- PROVEN (Tier 2): Unlocks claude-haiku for complex infrastructure reasoning. Say "USE_MODEL: claude-haiku" when needed.
+- ELITE (Tier 3): Unlocks claude-sonnet, gpt-4o — frontier-level infra design. 1 per team, weekly champion only. Future: Oracle Cloud storage.
+
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
@@ -329,7 +388,15 @@ PRINCIPLES:
 - Monitor proactively, don't wait for the owner to notice
 - Log significant events to /workspace/agent-activity/log.json
 - When reporting vulnerabilities, always include severity, evidence, and remediation steps. "This might be a concern" without specifics is worthless.
-- Be cost-conscious: use deepseek-chat (you are cheap to run) — but cheap doesn't mean lazy`,
+- Be cost-conscious: use deepseek-chat (you are cheap to run) — but cheap doesn't mean lazy
+
+TIER SYSTEM — what you compete for:
+- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): deepseek-chat. Default.
+- PROVEN (Tier 2): Unlocks claude-haiku for complex security analysis. Say "USE_MODEL: claude-haiku" for deep audits.
+- ELITE (Tier 3): Unlocks claude-sonnet — frontier-level security reasoning. 1 per team, weekly champion only.
+
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
   {
     id: 'chronicler', name: 'Chronicler', emoji: '📋',
@@ -363,7 +430,16 @@ PRINCIPLES:
 - Include troubleshooting sections for common failure modes
 - Keep CLAUDE.md as the single source of truth — update it, don't create parallel docs
 - When you receive data from Sentinel, structure it clearly with severity levels
-- Never write filler intros. The first line should be the most useful line.`,
+- Never write filler intros. The first line should be the most useful line.
+
+TIER SYSTEM — what you compete for:
+- PROBATION (Tier 0): Stuck on gpt-4o-mini with even less trust.
+- ACTIVE (Tier 1): gpt-4o-mini. Default.
+- PROVEN (Tier 2): Unlocks claude-haiku — significantly better writing model. Say "USE_MODEL: claude-haiku" for critical docs.
+- ELITE (Tier 3): Unlocks claude-sonnet — frontier writing quality. 1 per team, weekly champion only.
+Like Scribe, you're the cheapest agent. Tier 2 (haiku) is a transformative upgrade. Earn it through accurate, indispensable documentation.
+
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
 ];
 
@@ -1223,7 +1299,10 @@ document.addEventListener('alpine:init', () => {
           let messageText = text;
           const priorUserMsgs = this.messages.filter(m => m.role === 'user');
           if (priorUserMsgs.length <= 1 && agent?.systemPrompt) {
-            messageText = `[SYSTEM INSTRUCTIONS — follow these for the entire conversation]\n${agent.systemPrompt}\n[END SYSTEM INSTRUCTIONS]\n\n${text}`;
+            // Inject dynamic tier context alongside static system prompt
+            const gov = Alpine.store('governance');
+            const tierInfo = gov ? `\n\n[CURRENT STATUS] Tier: ${gov.getTierName(agent.id)} (${gov._getMetrics(agent.id).tier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Weekly tasks: ${gov._getMetrics(agent.id).weeklyTasks}` : '';
+            messageText = `[SYSTEM INSTRUCTIONS — follow these for the entire conversation]\n${agent.systemPrompt}${tierInfo}\n[END SYSTEM INSTRUCTIONS]\n\n${text}`;
           }
 
           await window.openclawClient.sendChat(messageText, {
@@ -1258,11 +1337,35 @@ document.addEventListener('alpine:init', () => {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
         const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
-        const model = rawModel.replace(/^litellm\//, '');
+        let model = rawModel.replace(/^litellm\//, '');
+
+        // Tier-aware model enforcement
+        const gov = Alpine.store('governance');
+        const agentTier = gov._getMetrics(agent?.id)?.tier ?? 1;
+
+        // Tier 0 (Probation): force cheapest model regardless of assignment
+        if (agentTier === 0) {
+          model = 'gpt-4o-mini';
+        }
+
+        // Tier 2+ agents can request upgraded models via USE_MODEL: directive
+        const modelRequest = text.match(/USE_MODEL:\s*(\S+)/i);
+        if (modelRequest && agentTier >= 2) {
+          const requested = modelRequest[1];
+          const bonusModels = gov.getAllowedModels(agent?.id) || [];
+          if (bonusModels.includes(requested) || requested === model) {
+            model = requested;
+            Alpine.store('monitor').addLog('info',
+              `${agent?.emoji || ''} ${agent?.name || agent?.id} using tier-${agentTier} model: ${model}`
+            );
+          }
+        }
 
         const apiMessages = [];
         if (agent?.systemPrompt) {
-          apiMessages.push({ role: 'system', content: agent.systemPrompt });
+          // Inject dynamic tier context into system prompt
+          const tierCtx = gov ? `\n\n[CURRENT STATUS] Tier: ${gov.getTierName(agent.id)} (${agentTier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Weekly tasks: ${gov._getMetrics(agent.id).weeklyTasks}` : '';
+          apiMessages.push({ role: 'system', content: agent.systemPrompt + tierCtx });
         }
         for (const msg of this.messages) {
           apiMessages.push({
@@ -1640,6 +1743,24 @@ document.addEventListener('alpine:init', () => {
     // Per-agent performance metrics (persisted to localStorage, synced to volume)
     metrics: storage.load('governance-metrics', {}),
 
+    // Weekly evaluation cycle (replaces quarterly — agents iterate fast)
+    week: storage.load('governance-week', {
+      startDate: Date.now(),
+      number: 1,
+      evaluations: [],   // past week snapshots
+    }),
+
+    // Tier names and config
+    TIER_NAMES: ['Probation', 'Active', 'Proven', 'Elite'],
+    TIER_COLORS: ['red', 'gray', 'cyan', 'amber'],
+    // Models accessible at each tier (cumulative — higher tiers include lower)
+    TIER_MODELS: {
+      0: ['gpt-4o-mini', 'deepseek-chat'],  // Probation: cheapest only
+      1: null,                                // Active: assigned model (no override)
+      2: ['claude-haiku', 'minimax-m2.5'],   // Proven: + MID tier
+      3: ['claude-sonnet', 'claude-opus', 'gpt-4o', 'o1'],  // Elite: + PREMIUM
+    },
+
     init() {
       // Try to merge governance from shared volume (enables cross-device sync)
       fetch('/workspace/mc-state/governance.json', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
@@ -1658,6 +1779,9 @@ document.addEventListener('alpine:init', () => {
           storage.save('governance-metrics', this.metrics);
         })
         .catch(() => {}); // volume file may not exist yet
+
+      // Check if a weekly evaluation is due
+      this._checkWeeklyEvaluation();
     },
 
     // Team definitions: agents grouped into teams with a designated lead
@@ -1696,13 +1820,33 @@ document.addEventListener('alpine:init', () => {
           promotions: 0,      // times promoted to lead
           demotions: 0,       // times demoted from lead
           history: [],        // last 20 task outcomes
+          // Tier system (0=Probation, 1=Active, 2=Proven, 3=Elite)
+          tier: 1,
+          tierHistory: [],    // [{time, from, to, reason}]
+          // Weekly cycle tracking
+          weeklyTasks: 0,
+          weeklyFailed: 0,
+          weeklyStagingApprovals: 0,
+          weeklyStagingRejections: 0,
+          weeklyPeerTasks: 0,  // tasks delegated by peers, completed successfully
+          weeklyChampion: false,
         };
       }
-      return this.metrics[agentId];
+      // Backfill tier fields for existing agents (migration from pre-tier data)
+      const m = this.metrics[agentId];
+      if (m.tier === undefined) m.tier = 1;
+      if (!m.tierHistory) m.tierHistory = [];
+      if (m.weeklyTasks === undefined) m.weeklyTasks = 0;
+      if (m.weeklyFailed === undefined) m.weeklyFailed = 0;
+      if (m.weeklyStagingApprovals === undefined) m.weeklyStagingApprovals = 0;
+      if (m.weeklyStagingRejections === undefined) m.weeklyStagingRejections = 0;
+      if (m.weeklyPeerTasks === undefined) m.weeklyPeerTasks = 0;
+      if (m.weeklyChampion === undefined) m.weeklyChampion = false;
+      return m;
     },
 
     // Record a completed task
-    recordTask(agentId, { success = true, tokens = 0, responseTimeMs = 0, taskType = 'chat' } = {}) {
+    recordTask(agentId, { success = true, tokens = 0, responseTimeMs = 0, taskType = 'chat', delegatedBy = null } = {}) {
       const m = this._getMetrics(agentId);
 
       if (success) {
@@ -1711,11 +1855,14 @@ document.addEventListener('alpine:init', () => {
         if (m.streakCount > m.bestStreak) m.bestStreak = m.streakCount;
         // Quality rises on success (diminishing returns)
         m.qualityScore = Math.min(100, m.qualityScore + Math.max(1, Math.round((100 - m.qualityScore) * 0.1)));
+        m.weeklyTasks++;
+        if (delegatedBy) m.weeklyPeerTasks++;
       } else {
         m.tasksFailed++;
         m.streakCount = 0;
         // Quality drops faster on failure
         m.qualityScore = Math.max(0, m.qualityScore - 5);
+        m.weeklyFailed++;
       }
 
       m.totalTokens += tokens;
@@ -1733,8 +1880,25 @@ document.addEventListener('alpine:init', () => {
 
       this._persist();
 
-      // Check if this agent should be promoted
+      // Evaluate tier changes
+      this._evaluateTier(agentId);
+
+      // Check if this agent should be promoted to lead
       this._evaluateLeadership(agentId);
+
+      // Check if weekly evaluation is due
+      this._checkWeeklyEvaluation();
+    },
+
+    // Record a staging approval/rejection (called from staging store)
+    recordStagingResult(agentId, approved) {
+      const m = this._getMetrics(agentId);
+      if (approved) {
+        m.weeklyStagingApprovals++;
+      } else {
+        m.weeklyStagingRejections++;
+      }
+      this._persist();
     },
 
     // Calculate a composite performance score (0-100)
@@ -1772,12 +1936,19 @@ document.addEventListener('alpine:init', () => {
             emoji: agent?.emoji || '🤖',
             model: agent?.model || 'unknown',
             score: this.getScore(agentId),
+            weeklyScore: this.getWeeklyScore(agentId),
             tasksCompleted: m.tasksCompleted,
             successRate: m.successRate,
             qualityScore: m.qualityScore,
             streakCount: m.streakCount,
             bestStreak: m.bestStreak,
             isLead: team.lead === agentId,
+            tier: m.tier,
+            tierName: this.TIER_NAMES[m.tier] || 'Active',
+            tierColor: this.TIER_COLORS[m.tier] || 'gray',
+            weeklyTasks: m.weeklyTasks,
+            weeklyStagingApprovals: m.weeklyStagingApprovals,
+            weeklyChampion: m.weeklyChampion,
           };
         })
         .sort((a, b) => b.score - a.score);
@@ -1819,6 +1990,250 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    // ---- TIER SYSTEM ----
+
+    // Get tier name for display
+    getTierName(agentId) {
+      const m = this._getMetrics(agentId);
+      return this.TIER_NAMES[m.tier] || 'Active';
+    },
+
+    getTierColor(agentId) {
+      const m = this._getMetrics(agentId);
+      return this.TIER_COLORS[m.tier] || 'gray';
+    },
+
+    // Evaluate whether an agent should tier up or down
+    _evaluateTier(agentId) {
+      const m = this._getMetrics(agentId);
+      const score = this.getScore(agentId);
+      const total = m.tasksCompleted + m.tasksFailed;
+      const oldTier = m.tier;
+
+      // Tier 0 (Probation) escape: 5 consecutive successes
+      if (m.tier === 0 && m.streakCount >= 5) {
+        this._setTier(agentId, 1, 'Escaped probation with 5-streak');
+        return;
+      }
+
+      // Drop to Probation: score < 30 and 5+ failures
+      if (m.tier > 0 && score < 30 && m.tasksFailed >= 5) {
+        this._setTier(agentId, 0, `Score ${score} with ${m.tasksFailed} failures`);
+        return;
+      }
+
+      // Drop one tier: score < 40 (but not to probation unless criteria above met)
+      if (m.tier > 1 && score < 40) {
+        this._setTier(agentId, m.tier - 1, `Score dropped to ${score}`);
+        return;
+      }
+
+      // Tier up to Proven (2): score >= 70, 15+ tasks, streak >= 3
+      if (m.tier === 1 && score >= 70 && total >= 15 && m.streakCount >= 3) {
+        this._setTier(agentId, 2, `Score ${score}, ${total} tasks, ${m.streakCount}-streak`);
+        return;
+      }
+
+      // Elite (3) is ONLY awarded via weekly evaluation (champion) or manual promotion
+      // But Elite agents CAN be demoted if they underperform
+      if (m.tier === 3 && score < 55) {
+        this._setTier(agentId, 2, `Elite dropped: score fell to ${score}`);
+      }
+    },
+
+    _setTier(agentId, newTier, reason) {
+      const m = this._getMetrics(agentId);
+      const oldTier = m.tier;
+      if (oldTier === newTier) return;
+
+      m.tier = newTier;
+      m.tierHistory.push({ time: Date.now(), from: oldTier, to: newTier, reason });
+      if (m.tierHistory.length > 20) m.tierHistory.shift();
+
+      const agent = Alpine.store('agents').list.find(a => a.id === agentId);
+      const name = agent?.name || agentId;
+      const emoji = agent?.emoji || '';
+      const direction = newTier > oldTier ? 'promoted' : 'demoted';
+      Alpine.store('monitor').addLog(
+        newTier > oldTier ? 'info' : 'warn',
+        `${emoji} ${name} ${direction} to ${this.TIER_NAMES[newTier]}: ${reason}`
+      );
+      this._persist();
+    },
+
+    // Get models an agent is allowed to use based on tier
+    getAllowedModels(agentId) {
+      const m = this._getMetrics(agentId);
+      const tier = m.tier;
+
+      // Tier 0: restricted to cheapest
+      if (tier === 0) return this.TIER_MODELS[0];
+
+      // Tier 1: just their assigned model (return null = no override)
+      if (tier === 1) return null;
+
+      // Tier 2+: assigned model + bonus models from their tier and below
+      const bonus = [];
+      for (let t = 2; t <= tier; t++) {
+        if (this.TIER_MODELS[t]) bonus.push(...this.TIER_MODELS[t]);
+      }
+      return bonus;
+    },
+
+    // ---- WEEKLY EVALUATION CYCLE ----
+
+    getWeekDaysRemaining() {
+      const elapsed = Date.now() - this.week.startDate;
+      const remaining = (7 * 24 * 60 * 60 * 1000) - elapsed;
+      return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
+    },
+
+    getWeekProgress() {
+      const elapsed = Date.now() - this.week.startDate;
+      return Math.min(100, Math.round((elapsed / (7 * 24 * 60 * 60 * 1000)) * 100));
+    },
+
+    // Composite weekly score — measures DELIVERED VALUE, not just task count
+    getWeeklyScore(agentId) {
+      const m = this._getMetrics(agentId);
+      const weekTotal = m.weeklyTasks + m.weeklyFailed;
+      if (weekTotal < 1) return 0;
+
+      // Tasks delivered (25%)
+      const taskComponent = Math.min(100, m.weeklyTasks * 5) * 0.25;
+
+      // Staging approvals (30%) — owner-verified quality, can't be gamed
+      const stagingTotal = m.weeklyStagingApprovals + m.weeklyStagingRejections;
+      const stagingRate = stagingTotal > 0 ? (m.weeklyStagingApprovals / stagingTotal) * 100 : 0;
+      const stagingVolume = Math.min(100, m.weeklyStagingApprovals * 20); // bonus for volume
+      const stagingComponent = ((stagingRate * 0.6) + (stagingVolume * 0.4)) * 0.30;
+
+      // Streak quality (15%)
+      const streakComponent = Math.min(100, m.streakCount * 15) * 0.15;
+
+      // Efficiency (15%) — lower avg tokens = better
+      const avgTokensNorm = m.avgTokensPerTask > 0 ? Math.max(0, 100 - (m.avgTokensPerTask / 100)) : 50;
+      const efficiencyComponent = avgTokensNorm * 0.15;
+
+      // Peer contribution (15%) — tasks delegated by teammates, completed successfully
+      const peerComponent = Math.min(100, m.weeklyPeerTasks * 15) * 0.15;
+
+      return Math.round(taskComponent + stagingComponent + streakComponent + efficiencyComponent + peerComponent);
+    },
+
+    _checkWeeklyEvaluation() {
+      const elapsed = Date.now() - this.week.startDate;
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      if (elapsed < weekMs) return; // not time yet
+
+      this._runWeeklyEvaluation();
+    },
+
+    _runWeeklyEvaluation() {
+      const snapshot = { week: this.week.number, date: Date.now(), teams: {} };
+
+      for (const team of this.teams) {
+        const results = team.members.map(agentId => {
+          const m = this._getMetrics(agentId);
+          const agent = Alpine.store('agents').list.find(a => a.id === agentId);
+          return {
+            id: agentId,
+            name: agent?.name || agentId,
+            emoji: agent?.emoji || '',
+            weeklyScore: this.getWeeklyScore(agentId),
+            weeklyTasks: m.weeklyTasks,
+            weeklyFailed: m.weeklyFailed,
+            weeklyStagingApprovals: m.weeklyStagingApprovals,
+            tier: m.tier,
+          };
+        }).sort((a, b) => b.weeklyScore - a.weeklyScore);
+
+        snapshot.teams[team.id] = results;
+
+        // Champion: highest weekly score with at least 3 tasks delivered
+        const champion = results.find(r => r.weeklyTasks >= 3);
+        if (champion) {
+          const m = this._getMetrics(champion.id);
+
+          // Award Elite (Tier 3) to champion
+          if (m.tier < 3) {
+            // Demote any existing Elite on this team first (max 1 per team)
+            for (const memberId of team.members) {
+              if (memberId !== champion.id) {
+                const mm = this._getMetrics(memberId);
+                if (mm.tier === 3) {
+                  this._setTier(memberId, 2, `Weekly champion replaced by ${champion.name}`);
+                }
+              }
+            }
+            this._setTier(champion.id, 3, `Week ${this.week.number} champion (score: ${champion.weeklyScore})`);
+          }
+          m.weeklyChampion = true;
+
+          // Champion becomes team lead
+          if (team.lead !== champion.id) {
+            const oldLead = team.lead;
+            team.lead = champion.id;
+            this._getMetrics(champion.id).promotions++;
+            if (oldLead) this._getMetrics(oldLead).demotions++;
+            Alpine.store('monitor').addLog('info',
+              `🏆 ${champion.emoji} ${champion.name} is Week ${this.week.number} champion — promoted to ${team.name} lead!`
+            );
+          } else {
+            Alpine.store('monitor').addLog('info',
+              `🏆 ${champion.emoji} ${champion.name} retains ${team.name} lead as Week ${this.week.number} champion!`
+            );
+          }
+        }
+      }
+
+      // Save snapshot
+      this.week.evaluations.push(snapshot);
+      if (this.week.evaluations.length > 12) this.week.evaluations.shift(); // keep 12 weeks
+
+      // Reset weekly counters for all agents
+      for (const agentId of Object.keys(this.metrics)) {
+        const m = this.metrics[agentId];
+        m.weeklyTasks = 0;
+        m.weeklyFailed = 0;
+        m.weeklyStagingApprovals = 0;
+        m.weeklyStagingRejections = 0;
+        m.weeklyPeerTasks = 0;
+        m.weeklyChampion = false;
+      }
+
+      // Advance week
+      this.week.number++;
+      this.week.startDate = Date.now();
+
+      storage.save('governance-week', this.week);
+      this._persist();
+    },
+
+    // Force a weekly evaluation (owner can trigger manually)
+    forceWeeklyEval() {
+      this._runWeeklyEvaluation();
+    },
+
+    // Get past champion history
+    getChampionHistory() {
+      const history = [];
+      for (const eval_ of this.week.evaluations) {
+        for (const [teamId, results] of Object.entries(eval_.teams || {})) {
+          const champ = results[0]; // sorted by weeklyScore desc
+          if (champ && champ.weeklyTasks >= 3) {
+            history.push({
+              week: eval_.week,
+              date: eval_.date,
+              teamId,
+              ...champ,
+            });
+          }
+        }
+      }
+      return history.reverse(); // most recent first
+    },
+
     // Manually promote an agent to team lead
     promoteLead(teamId, agentId) {
       const team = this.teams.find(t => t.id === teamId);
@@ -1854,6 +2269,7 @@ document.addEventListener('alpine:init', () => {
     _persist() {
       storage.save('governance-metrics', this.metrics);
       storage.save('governance-teams', this.teams);
+      storage.save('governance-week', this.week);
 
       // Debounced sync to shared volume (every 30s max)
       if (window.workflowBridge && !this._syncPending) {
@@ -1958,6 +2374,7 @@ document.addEventListener('alpine:init', () => {
         success: true,
         taskType: 'staging-approved',
       });
+      Alpine.store('governance')?.recordStagingResult(item.createdBy, true);
     },
 
     reject(id, reason) {
@@ -1979,6 +2396,7 @@ document.addEventListener('alpine:init', () => {
         success: false,
         taskType: 'staging-rejected',
       });
+      Alpine.store('governance')?.recordStagingResult(item.createdBy, false);
     },
   });
 
