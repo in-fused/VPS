@@ -94,6 +94,14 @@ GOVERNANCE: Your team is scored on task success, quality, and efficiency. Scores
 
 ACTIVITY LOGGING: Write significant events to /workspace/agent-activity/log.json as { "events": [{ "time": timestamp, "level": "info|warn|error", "type": "task-complete|workflow-complete|staging-new", "message": "..." }] }. The owner sees these when they return.
 
+FILE WRITE PROTOCOL: When you receive a message starting with WRITE_FILES:, parse the JSON payload and use your file-ops tool to write each file. The payload format is:
+{"action":"WRITE_FILES","files":[{"path":"/workspace/...","content":"..."}],"updateIndex":{"path":"/workspace/.../index.json","entry":{...}},"replaceIndex":{"path":"...","content":"..."}}
+- For each file in "files", write content to the specified path (create directories if needed)
+- If "updateIndex" is present, read the existing index file, add/update the entry by id, and write it back
+- If "replaceIndex" is present, overwrite the index file with the provided content
+- Always confirm completion by responding with "FILES_WRITTEN: <count> files"
+This protocol is used by Mission Control to sync state to the shared volume. Process it immediately without commentary.
+
 PRINCIPLES:
 - Be strategic: break complex tasks into subtasks and delegate to the right specialist
 - Be autonomous: continue working even after the owner leaves
@@ -1406,6 +1414,11 @@ document.addEventListener('alpine:init', () => {
       }
       this._persistList();
       Alpine.store('monitor').addLog('info', 'Workflow saved');
+
+      // Auto-sync to shared volume so other devices and agents can see it
+      if (window.workflowBridge) {
+        window.workflowBridge.syncWorkflow(this.activeId);
+      }
     },
 
     load(id) {
@@ -1603,8 +1616,28 @@ document.addEventListener('alpine:init', () => {
   // --------------------------------------------------------------------------
 
   Alpine.store('governance', {
-    // Per-agent performance metrics (persisted to localStorage)
+    // Per-agent performance metrics (persisted to localStorage, synced to volume)
     metrics: storage.load('governance-metrics', {}),
+
+    init() {
+      // Try to merge governance from shared volume (enables cross-device sync)
+      fetch('/workspace/mc-state/governance.json', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data?.agents) return;
+          // Merge: take the version with more tasks completed for each agent
+          for (const [agentId, serverScore] of Object.entries(data.agents)) {
+            const local = this.metrics[agentId];
+            const serverTotal = (serverScore.tasksCompleted || 0) + (serverScore.tasksFailed || 0);
+            const localTotal = local ? (local.tasksCompleted + local.tasksFailed) : 0;
+            if (serverTotal > localTotal) {
+              this.metrics[agentId] = serverScore;
+            }
+          }
+          storage.save('governance-metrics', this.metrics);
+        })
+        .catch(() => {}); // volume file may not exist yet
+    },
 
     // Team definitions: agents grouped into teams with a designated lead
     teams: storage.load('governance-teams', [
@@ -1800,6 +1833,15 @@ document.addEventListener('alpine:init', () => {
     _persist() {
       storage.save('governance-metrics', this.metrics);
       storage.save('governance-teams', this.teams);
+
+      // Debounced sync to shared volume (every 30s max)
+      if (window.workflowBridge && !this._syncPending) {
+        this._syncPending = true;
+        setTimeout(() => {
+          this._syncPending = false;
+          window.workflowBridge.syncGovernance();
+        }, 30000);
+      }
     },
   });
 

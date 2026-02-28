@@ -169,40 +169,130 @@ class WorkflowBridge {
     }
   }
 
-  // Export all Mission Control workflows to the shared volume (for agents to read)
-  async syncToVolume() {
+  // Sync a single workflow to the volume (called on every save)
+  async syncWorkflow(wfId) {
     if (!window.openclawClient?.authenticated) return;
-
     const wfStore = Alpine?.store('workflows');
     if (!wfStore) return;
 
-    const index = { updatedAt: Date.now(), workflows: [] };
-    const workflowData = [];
+    const wf = wfStore.list.find(w => w.id === wfId);
+    const graphData = localStorage.getItem('mc-workflow-' + wfId);
+    if (!wf || !graphData) return;
 
-    for (const wf of wfStore.list) {
-      const graphData = localStorage.getItem('mc-workflow-' + wf.id);
-      if (graphData) {
-        index.workflows.push({
+    // Debounce: don't sync more than once per 10s per workflow
+    const now = Date.now();
+    this._syncTimers = this._syncTimers || {};
+    if (this._syncTimers[wfId] && now - this._syncTimers[wfId] < 10000) return;
+    this._syncTimers[wfId] = now;
+
+    const payload = {
+      action: 'WRITE_FILES',
+      files: [
+        {
+          path: `/workspace/agent-workflows/${wfId}.json`,
+          content: graphData,
+        },
+      ],
+      updateIndex: {
+        path: '/workspace/agent-workflows/index.json',
+        entry: {
           id: wf.id,
           name: wf.name,
           file: wf.id + '.json',
           createdBy: wf.createdBy || 'user',
           createdAt: wf.createdAt,
           updatedAt: wf.updatedAt,
-          status: wf.status,
-        });
-        workflowData.push({ id: wf.id, data: graphData });
-      }
-    }
-
-    const syncPayload = JSON.stringify({ type: 'workflow-sync', index, workflows: workflowData });
+          status: wf.status || 'draft',
+        },
+      },
+    };
 
     try {
       await window.openclawClient.sendChat(
-        `WORKFLOW_SYNC_REQUEST: Write the following workflow data to /workspace/agent-workflows/:\n${syncPayload}`,
+        `WRITE_FILES:${JSON.stringify(payload)}`,
         { agentId: 'lead' }
       );
-      Alpine.store('monitor')?.addLog('info', `Synced ${index.workflows.length} workflows to volume`);
+    } catch {}
+  }
+
+  // Export all Mission Control workflows to the shared volume (full sync)
+  async syncToVolume() {
+    if (!window.openclawClient?.authenticated) return;
+
+    const wfStore = Alpine?.store('workflows');
+    if (!wfStore) return;
+
+    const files = [];
+    const indexEntries = [];
+
+    for (const wf of wfStore.list) {
+      const graphData = localStorage.getItem('mc-workflow-' + wf.id);
+      if (graphData) {
+        files.push({
+          path: `/workspace/agent-workflows/${wf.id}.json`,
+          content: graphData,
+        });
+        indexEntries.push({
+          id: wf.id,
+          name: wf.name,
+          file: wf.id + '.json',
+          createdBy: wf.createdBy || 'user',
+          createdAt: wf.createdAt,
+          updatedAt: wf.updatedAt,
+          status: wf.status || 'draft',
+        });
+      }
+    }
+
+    const payload = {
+      action: 'WRITE_FILES',
+      files,
+      replaceIndex: {
+        path: '/workspace/agent-workflows/index.json',
+        content: JSON.stringify({ updatedAt: Date.now(), workflows: indexEntries }),
+      },
+    };
+
+    try {
+      await window.openclawClient.sendChat(
+        `WRITE_FILES:${JSON.stringify(payload)}`,
+        { agentId: 'lead' }
+      );
+      Alpine.store('monitor')?.addLog('info', `Synced ${files.length} workflows to volume`);
+    } catch {}
+  }
+
+  // Sync governance state to the shared volume
+  async syncGovernance() {
+    if (!window.openclawClient?.authenticated) return;
+    const gov = Alpine?.store('governance');
+    if (!gov) return;
+
+    const state = {
+      agents: {},
+      teams: gov.teams,
+      updatedAt: Date.now(),
+    };
+
+    // Extract per-agent scores
+    for (const agent of (Alpine.store('agents')?.list || [])) {
+      const score = gov.getScore(agent.id);
+      if (score) state.agents[agent.id] = score;
+    }
+
+    const payload = {
+      action: 'WRITE_FILES',
+      files: [{
+        path: '/workspace/mc-state/governance.json',
+        content: JSON.stringify(state, null, 2),
+      }],
+    };
+
+    try {
+      await window.openclawClient.sendChat(
+        `WRITE_FILES:${JSON.stringify(payload)}`,
+        { agentId: 'lead' }
+      );
     } catch {}
   }
 
