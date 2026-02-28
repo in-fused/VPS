@@ -177,8 +177,8 @@ log_ok "Cleanup complete"
 ###############################################################################
 log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
-# Explicitly list services that use pre-built images (not open-webui which has build:)
-PULL_SERVICES="caddy litellm litellm-db openclaw"
+# Explicitly list services that use pre-built images (not open-webui or caddy which have build:)
+PULL_SERVICES="litellm litellm-db openclaw"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
         break
@@ -194,8 +194,16 @@ done
 log_ok "Images pulled"
 
 ###############################################################################
-# 5b. Build custom images (open-webui with in-fused.org theme)
+# 5b. Build custom images (caddy with rate-limit, open-webui with theme)
 ###############################################################################
+log_info "Building caddy with rate-limit module..."
+if docker compose build caddy; then
+    log_ok "Custom caddy image built (with brute force protection)"
+else
+    log_error "Caddy build failed — check caddy/Dockerfile"
+    exit 1
+fi
+
 log_info "Building open-webui with custom theme..."
 if docker compose build open-webui; then
     log_ok "Custom open-webui image built"

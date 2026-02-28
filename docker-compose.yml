@@ -22,7 +22,10 @@ services:
   # Caddy — Reverse Proxy + Auto-HTTPS
   # ===========================================================================
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    image: in-fused/caddy:latest
     container_name: caddy
     restart: unless-stopped
     ports:

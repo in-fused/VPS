@@ -215,6 +215,63 @@
       if (e.key === 'Enter') doLogin();
     });
 
+    /* Brute force protection — client-side lockout (defense-in-depth) */
+    var _bf = {
+      key: 'bf_attempts',
+      get: function() {
+        try {
+          var d = JSON.parse(sessionStorage.getItem(this.key) || '{}');
+          if (d.ts && Date.now() - d.ts > 600000) return { n: 0, ts: 0, lockUntil: 0 };
+          return { n: d.n || 0, ts: d.ts || 0, lockUntil: d.lockUntil || 0 };
+        } catch(e) { return { n: 0, ts: 0, lockUntil: 0 }; }
+      },
+      set: function(d) { try { sessionStorage.setItem(this.key, JSON.stringify(d)); } catch(e) {} },
+      record: function() {
+        var d = this.get();
+        d.n++;
+        d.ts = Date.now();
+        if (d.n >= 8) d.lockUntil = Date.now() + 120000;
+        else if (d.n >= 5) d.lockUntil = Date.now() + 30000;
+        else if (d.n >= 3) d.lockUntil = Date.now() + 10000;
+        this.set(d);
+        return d;
+      },
+      clear: function() { try { sessionStorage.removeItem(this.key); } catch(e) {} },
+      isLocked: function() {
+        var d = this.get();
+        if (d.lockUntil && Date.now() < d.lockUntil) return d.lockUntil;
+        return false;
+      }
+    };
+
+    var _lockTimer = null;
+    function showLockout(until) {
+      var errEl = document.getElementById('error');
+      var btn = document.getElementById('submit');
+      btn.disabled = true;
+      function tick() {
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0) {
+          clearInterval(_lockTimer);
+          _lockTimer = null;
+          errEl.textContent = 'You may try again';
+          btn.disabled = false;
+          btn.textContent = 'Access OpenClaw';
+          return;
+        }
+        errEl.textContent = 'Too many attempts — retry in ' + left + 's';
+        errEl.classList.add('show');
+        btn.textContent = 'LOCKED (' + left + 's)';
+      }
+      tick();
+      _lockTimer = setInterval(tick, 1000);
+    }
+
+    (function() {
+      var locked = _bf.isLocked();
+      if (locked) showLockout(locked);
+    })();
+
     async function doLogin() {
       var errEl = document.getElementById('error');
       var user = document.getElementById('username').value.trim();
@@ -222,6 +279,9 @@
       var btn = document.getElementById('submit');
 
       errEl.classList.remove('show');
+
+      var locked = _bf.isLocked();
+      if (locked) { showLockout(locked); return; }
 
       if (!user || !pass) {
         errEl.textContent = 'Please enter username and password';
@@ -233,7 +293,6 @@
       btn.textContent = 'Verifying...';
 
       try {
-        // Server-side verification via Caddy basicauth
         var resp = await fetch('/auth/verify', {
           method: 'GET',
           headers: {
@@ -242,22 +301,38 @@
         });
 
         if (resp.ok) {
-          // Compute SHA-256 client-side for the cookie value
+          _bf.clear();
           var hash = await sha256(pass);
           var secure = location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
           window.location.reload();
           return;
         }
+
+        if (resp.status === 429) {
+          _bf.record();
+          errEl.textContent = 'Rate limited — too many attempts';
+          errEl.classList.add('show');
+          document.getElementById('password').value = '';
+          btn.disabled = false;
+          btn.textContent = 'Access OpenClaw';
+          var lockUntil = _bf.isLocked();
+          if (lockUntil) showLockout(lockUntil);
+          return;
+        }
       } catch (e) {
         // Network error
       }
 
-      errEl.textContent = 'Invalid credentials';
+      var d = _bf.record();
+      errEl.textContent = 'Invalid credentials (' + d.n + '/5)';
       errEl.classList.add('show');
       document.getElementById('password').value = '';
       btn.disabled = false;
       btn.textContent = 'Access OpenClaw';
+
+      var lockUntil = _bf.isLocked();
+      if (lockUntil) showLockout(lockUntil);
     }
   </script>
 </body>

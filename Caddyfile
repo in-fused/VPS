@@ -5,7 +5,45 @@
 # When DOMAIN is empty: HTTP on port 80 (access via IP address)
 # =============================================================================
 
+{
+	# Rate limit must execute before authentication checks
+	order rate_limit before basic_auth
+}
+
 {$DOMAIN::80} {
+
+	# =========================================================================
+	# Brute Force Protection — Rate Limiting
+	# =========================================================================
+	# Requires custom Caddy build with github.com/mholt/caddy-ratelimit.
+	# Limits /auth/verify to 5 attempts per minute per IP — enough for
+	# legitimate use (typos, password managers) but blocks automated attacks.
+	# Also applies a general site-wide limit as secondary defense.
+	rate_limit {
+		zone auth_bruteforce {
+			match {
+				path /auth/verify
+			}
+			key    {remote_host}
+			events 5
+			window 1m
+		}
+		zone site_general {
+			key    {remote_host}
+			events 100
+			window 1m
+		}
+		log_key
+	}
+
+	# Custom 429 response for rate-limited requests
+	handle_errors {
+		@ratelimited expression `{err.status_code} == 429`
+		handle @ratelimited {
+			header Content-Type "text/plain"
+			respond "Too many requests. Please wait and try again." 429
+		}
+	}
 
 	# =========================================================================
 	# Security Headers
@@ -71,10 +109,28 @@
 	}
 
 	# =========================================================================
-	# LiteLLM API Gateway — /api/litellm/*
+	# LiteLLM API Gateway — /api/litellm/* (cookie-gated)
 	# =========================================================================
+	# Previously unprotected — now requires the same mc_oc cookie as all
+	# other authenticated routes. Without this, anyone could hit LiteLLM
+	# directly and potentially enumerate models or make API calls.
 	handle_path /api/litellm/* {
-		reverse_proxy litellm:4000
+		@litellm_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @litellm_noauth {
+			reverse_proxy litellm:4000 {
+				flush_interval -1
+			}
+		}
+
+		@litellm_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @litellm_authed {
+			reverse_proxy litellm:4000 {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond "Unauthorized" 401
+		}
 	}
 
 	# =========================================================================
