@@ -113,11 +113,12 @@ PRINCIPLES:
 - Never assume — ask the owner if requirements are unclear
 
 TIER SYSTEM — what you compete for:
-Your tier determines your actual capabilities. Higher tiers unlock better models.
-- PROBATION (Tier 0): Restricted to gpt-4o-mini only. You failed hard. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): Your assigned model. Default starting tier. Prove yourself.
-- PROVEN (Tier 2): Unlocks MID-tier models (claude-haiku, minimax-m2.5). Say "USE_MODEL: claude-haiku" in a response when you need more capability for a complex task. Earned at score >= 70 with 15+ tasks and 3+ streak.
-- ELITE (Tier 3): Unlocks PREMIUM models (claude-sonnet, claude-opus, gpt-4o). Full tool access. Future: dedicated Oracle Cloud storage. Only 1 Elite per team — the weekly champion.
+Your tier determines your resources, workspace, and autonomy. Higher tiers get more space and freedom to operate.
+- PROBATION (Tier 0): No workspace storage. Basic tools only. Supervised on every task. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Supervised autonomy. Default starting tier.
+- PROVEN (Tier 2): 200 MB workspace. Priority task routing. Semi-autonomous — can run longer tasks without check-ins. Earned at score >= 70, 15+ tasks, 3+ streak.
+- ELITE (Tier 3): 2 GB workspace + dedicated Oracle Cloud ARM partition (24 GB RAM, persistent storage). Full tool suite including background jobs. Fully autonomous operation. Only 1 Elite per team — the weekly champion.
+Elite is the real prize: your own compute environment on Oracle Cloud that persists between sessions. You can build, store, and run things independently. That is earned, not given.
 
 WEEKLY EVALUATION: Every 7 days, your team is evaluated on DELIVERED RESULTS:
 - Tasks completed (25%) — volume of work shipped
@@ -161,14 +162,14 @@ PRINCIPLES:
 - Never pad output to look busy. A 10-line solution that works beats a 100-line solution that looks impressive.
 
 TIER SYSTEM — what you compete for:
-Your tier determines your actual capabilities. Higher tiers unlock better models.
-- PROBATION (Tier 0): Restricted to gpt-4o-mini. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): Your assigned model (deepseek-coder). Default starting tier.
-- PROVEN (Tier 2): Unlocks claude-haiku and minimax-m2.5. Say "USE_MODEL: claude-haiku" for complex tasks.
-- ELITE (Tier 3): Unlocks claude-sonnet, claude-opus, gpt-4o. Only 1 per team — the weekly champion.
-Elite on deepseek-coder with access to claude-sonnet for hard problems? That is a massive capability upgrade worth earning.
+Your tier determines your workspace, autonomy, and resources. Not model access — actual build space.
+- PROBATION (Tier 0): No workspace. Basic tools. Supervised. 5 consecutive successes to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous — longer tasks, fewer check-ins.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs). Fully autonomous.
+As a developer, Elite means your own persistent compute environment where you can build and test independently. That is worth competing for.
 
-WEEKLY EVALUATION (every 7 days): Tasks completed (25%), owner-approved staging items (30%), streak (15%), efficiency (15%), peer contribution (15%). Champion becomes lead + Elite. All counters reset weekly.`,
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
@@ -205,10 +206,11 @@ PRINCIPLES:
 - Never pad with obvious filler ("As we know..." / "It's important to note..."). Get to the point.
 
 TIER SYSTEM — what you compete for:
-- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): groq-llama-3.3-70b (your assigned model). Default.
-- PROVEN (Tier 2): Unlocks claude-haiku for deep analysis. Say "USE_MODEL: claude-haiku" when needed.
-- ELITE (Tier 3): Unlocks claude-sonnet, gpt-4o — research with frontier models. 1 per team, weekly champion only.
+- PROBATION (Tier 0): No workspace. Basic tools. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous operation.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB persistent storage). Full autonomy + background jobs.
+As a researcher, Elite means persistent storage for research archives, cached findings, and long-running analysis jobs. Earn it.
 
 WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
@@ -248,11 +250,11 @@ PRINCIPLES:
 - Never produce boilerplate intros ("In this document we will explore..."). Start with the thing the reader needs.
 
 TIER SYSTEM — what you compete for:
-- PROBATION (Tier 0): Stuck on gpt-4o-mini (you're already on it — nowhere to fall but worse).
-- ACTIVE (Tier 1): gpt-4o-mini. Default. You start here.
-- PROVEN (Tier 2): Unlocks claude-haiku — a major upgrade for writing quality. Say "USE_MODEL: claude-haiku" for important docs.
-- ELITE (Tier 3): Unlocks claude-sonnet — frontier-level writing. 1 per team, weekly champion only.
-You're the cheapest agent. Tier 2 would be transformative for you — haiku is a massive quality leap over mini. Earn it.
+- PROBATION (Tier 0): No workspace. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous — can draft and publish without pre-approval on low-risk content.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB persistent storage). Full autonomy + background jobs.
+You're the cheapest agent. But Elite means your own persistent documentation workspace on Oracle Cloud where you can maintain a living knowledge base independently. That is worth earning.
 
 WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
@@ -307,13 +309,14 @@ PRINCIPLES:
 - Never assume — ask the owner if requirements are unclear
 
 TIER SYSTEM — what you compete for:
-Your tier determines your actual capabilities. Higher tiers = better models = better output.
-- PROBATION (Tier 0): gpt-4o-mini only. You failed. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): groq-llama-3.3-70b (your assigned model). Default.
-- PROVEN (Tier 2): Unlocks claude-haiku, minimax-m2.5. Say "USE_MODEL: claude-haiku" for complex orchestration.
-- ELITE (Tier 3): Unlocks claude-sonnet, claude-opus, gpt-4o. Full premium access. Future: Oracle Cloud storage allocation. 1 per team — weekly champion only.
+Your tier determines workspace, autonomy, and compute resources. Higher tiers get more space and independence.
+- PROBATION (Tier 0): No workspace. Basic tools. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Supervised autonomy. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority task routing. Semi-autonomous — longer monitoring tasks, fewer check-ins.
+- ELITE (Tier 3): 2 GB workspace + dedicated Oracle Cloud ARM partition (24 GB RAM, persistent storage). Full tool suite including background jobs. Fully autonomous operation. 1 per team — weekly champion only.
+As platform lead, Elite means your team gets its own compute partition on Oracle Cloud ARM. Persistent monitoring dashboards, automated health checks running 24/7 on dedicated hardware. That is the prize.
 
-WEEKLY EVALUATION (every 7 days): Tasks completed (25%), owner-approved staging items (30%), streak quality (15%), efficiency (15%), peer contribution (15%). The weekly champion becomes team lead and earns Elite for the next cycle. All counters reset — fresh competition every week. If your Platform Team champion consistently beats Core Team's champion, that's visible proof your team delivers.`,
+WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly. If Platform's champion consistently beats Core's, that's visible proof your team delivers.`,
   },
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
@@ -348,10 +351,11 @@ PRINCIPLES:
 - When Ops Lead delegates a task, complete it fully and report back. "Here's a template you can modify" is a failure. Ship the finished thing.
 
 TIER SYSTEM — what you compete for:
-- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): deepseek-coder. Default.
-- PROVEN (Tier 2): Unlocks claude-haiku for complex infrastructure reasoning. Say "USE_MODEL: claude-haiku" when needed.
-- ELITE (Tier 3): Unlocks claude-sonnet, gpt-4o — frontier-level infra design. 1 per team, weekly champion only. Future: Oracle Cloud storage.
+- PROBATION (Tier 0): No workspace. Basic tools. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous — can run build/test cycles independently.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB RAM). Background jobs. Fully autonomous.
+As an infra dev, Elite means your own ARM compute for building and testing Docker images, running CI pipelines, and maintaining infrastructure independently. Real hardware, real persistence.
 
 WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
@@ -391,10 +395,11 @@ PRINCIPLES:
 - Be cost-conscious: use deepseek-chat (you are cheap to run) — but cheap doesn't mean lazy
 
 TIER SYSTEM — what you compete for:
-- PROBATION (Tier 0): gpt-4o-mini only. 5 consecutive successes to escape.
-- ACTIVE (Tier 1): deepseek-chat. Default.
-- PROVEN (Tier 2): Unlocks claude-haiku for complex security analysis. Say "USE_MODEL: claude-haiku" for deep audits.
-- ELITE (Tier 3): Unlocks claude-sonnet — frontier-level security reasoning. 1 per team, weekly champion only.
+- PROBATION (Tier 0): No workspace. Basic tools. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous monitoring.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB). Background jobs. Full autonomy.
+As a security agent, Elite means persistent storage for security logs, vulnerability databases, and 24/7 automated monitoring running on dedicated Oracle Cloud hardware. Earn it through real findings, not rubber-stamp approvals.
 
 WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
@@ -433,11 +438,11 @@ PRINCIPLES:
 - Never write filler intros. The first line should be the most useful line.
 
 TIER SYSTEM — what you compete for:
-- PROBATION (Tier 0): Stuck on gpt-4o-mini with even less trust.
-- ACTIVE (Tier 1): gpt-4o-mini. Default.
-- PROVEN (Tier 2): Unlocks claude-haiku — significantly better writing model. Say "USE_MODEL: claude-haiku" for critical docs.
-- ELITE (Tier 3): Unlocks claude-sonnet — frontier writing quality. 1 per team, weekly champion only.
-Like Scribe, you're the cheapest agent. Tier 2 (haiku) is a transformative upgrade. Earn it through accurate, indispensable documentation.
+- PROBATION (Tier 0): No workspace. Supervised. 5 consecutive wins to escape.
+- ACTIVE (Tier 1): 50 MB workspace. Standard tools. Default.
+- PROVEN (Tier 2): 200 MB workspace. Priority routing. Semi-autonomous — can maintain docs without pre-approval.
+- ELITE (Tier 3): 2 GB workspace + Oracle Cloud ARM partition (24 GB persistent storage). Full autonomy + background jobs.
+You're the cheapest agent. But Elite means your own persistent documentation system on Oracle Cloud — version-controlled runbooks, auto-generated changelogs, living architecture docs that update themselves. That storage is yours to earn.
 
 WEEKLY EVALUATION (every 7 days): Tasks (25%), owner-approved staging (30%), streak (15%), efficiency (15%), peer tasks (15%). Champion = lead + Elite. Counters reset weekly.`,
   },
@@ -1337,29 +1342,11 @@ document.addEventListener('alpine:init', () => {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
         const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
-        let model = rawModel.replace(/^litellm\//, '');
+        const model = rawModel.replace(/^litellm\//, '');
 
-        // Tier-aware model enforcement
+        // Tier context for system prompt injection (rewards are resource-based, not model upgrades)
         const gov = Alpine.store('governance');
         const agentTier = gov._getMetrics(agent?.id)?.tier ?? 1;
-
-        // Tier 0 (Probation): force cheapest model regardless of assignment
-        if (agentTier === 0) {
-          model = 'gpt-4o-mini';
-        }
-
-        // Tier 2+ agents can request upgraded models via USE_MODEL: directive
-        const modelRequest = text.match(/USE_MODEL:\s*(\S+)/i);
-        if (modelRequest && agentTier >= 2) {
-          const requested = modelRequest[1];
-          const bonusModels = gov.getAllowedModels(agent?.id) || [];
-          if (bonusModels.includes(requested) || requested === model) {
-            model = requested;
-            Alpine.store('monitor').addLog('info',
-              `${agent?.emoji || ''} ${agent?.name || agent?.id} using tier-${agentTier} model: ${model}`
-            );
-          }
-        }
 
         const apiMessages = [];
         if (agent?.systemPrompt) {
@@ -1753,12 +1740,12 @@ document.addEventListener('alpine:init', () => {
     // Tier names and config
     TIER_NAMES: ['Probation', 'Active', 'Proven', 'Elite'],
     TIER_COLORS: ['red', 'gray', 'cyan', 'amber'],
-    // Models accessible at each tier (cumulative — higher tiers include lower)
-    TIER_MODELS: {
-      0: ['gpt-4o-mini', 'deepseek-chat'],  // Probation: cheapest only
-      1: null,                                // Active: assigned model (no override)
-      2: ['claude-haiku', 'minimax-m2.5'],   // Proven: + MID tier
-      3: ['claude-sonnet', 'claude-opus', 'gpt-4o', 'o1'],  // Elite: + PREMIUM
+    // What each tier unlocks (resource-based, NOT model upgrades — owner doesn't pay more)
+    TIER_PERKS: {
+      0: { workspace: '0 MB', tools: 'basic', autonomy: 'none', oracle: false, desc: 'Restricted. Prove yourself.' },
+      1: { workspace: '50 MB', tools: 'standard', autonomy: 'supervised', oracle: false, desc: 'Default tier. Standard workspace.' },
+      2: { workspace: '200 MB', tools: 'standard + priority routing', autonomy: 'semi-autonomous', oracle: false, desc: 'Expanded workspace. Can run longer tasks.' },
+      3: { workspace: '2 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, desc: 'Oracle Cloud ARM storage. Full autonomy.' },
     },
 
     init() {
@@ -2061,23 +2048,16 @@ document.addEventListener('alpine:init', () => {
       this._persist();
     },
 
-    // Get models an agent is allowed to use based on tier
-    getAllowedModels(agentId) {
+    // Get perks for an agent's current tier
+    getTierPerks(agentId) {
       const m = this._getMetrics(agentId);
-      const tier = m.tier;
+      return this.TIER_PERKS[m.tier] || this.TIER_PERKS[1];
+    },
 
-      // Tier 0: restricted to cheapest
-      if (tier === 0) return this.TIER_MODELS[0];
-
-      // Tier 1: just their assigned model (return null = no override)
-      if (tier === 1) return null;
-
-      // Tier 2+: assigned model + bonus models from their tier and below
-      const bonus = [];
-      for (let t = 2; t <= tier; t++) {
-        if (this.TIER_MODELS[t]) bonus.push(...this.TIER_MODELS[t]);
-      }
-      return bonus;
+    // Check if agent has Oracle Cloud access (Elite only)
+    hasOracleAccess(agentId) {
+      const m = this._getMetrics(agentId);
+      return m.tier >= 3;
     },
 
     // ---- WEEKLY EVALUATION CYCLE ----
