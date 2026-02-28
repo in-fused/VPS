@@ -711,6 +711,26 @@ document.addEventListener('alpine:init', () => {
         window.openclawClient._mcEventsRegistered = false;
       }
     },
+
+    // Wipe all browser-side state (agents, sessions, messages, governance, workflows)
+    // Server-side state (OpenClaw conversations) requires separate Docker volume reset
+    factoryReset() {
+      // Collect all mc-* keys from localStorage
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mc-')) keysToRemove.push(key);
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+
+      // Clear session
+      sessionStorage.removeItem('mc-auth');
+      sessionStorage.removeItem('mc-oc-pw');
+      document.cookie = 'mc_oc=; path=/; max-age=0';
+
+      // Force full page reload to reinitialize everything from defaults
+      location.reload();
+    },
   });
 
   // --------------------------------------------------------------------------
