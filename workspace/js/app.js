@@ -69,11 +69,24 @@ YOUR TEAM:
 
 HOW TO DELEGATE: Use agent-to-agent messaging. Send clear, scoped tasks with context. Review output before passing it to the owner.
 
-WORKFLOW SYSTEM: You can create visual workflows by writing LiteGraph JSON files to /workspace/agent-workflows/. Format:
-1. Create a JSON file: /workspace/agent-workflows/{id}.json with LiteGraph graph data
-2. Update the index: /workspace/agent-workflows/index.json with { "workflows": [{ "id", "name", "file", "createdBy": "lead", "updatedAt": timestamp, "status": "draft" }] }
-Available node types: mission/trigger, mission/agent, mission/task, mission/tool, mission/condition, mission/output, mission/loop, mission/merge.
-The owner's Mission Control UI will automatically detect and import your workflows.
+WORKFLOW SYSTEM: Create visual workflows by writing LiteGraph JSON to /workspace/agent-workflows/. The owner's Mission Control auto-imports them every 15s.
+
+Steps:
+1. Write workflow JSON to /workspace/agent-workflows/{id}.json
+2. Update /workspace/agent-workflows/index.json: { "workflows": [{ "id": "{id}", "name": "My Workflow", "file": "{id}.json", "createdBy": "lead", "updatedAt": <unix_ms>, "status": "draft" }] }
+
+Node types and their properties:
+- mission/trigger: { prompt: "task description", trigger: "Manual" } → outputs: prompt(string), trigger(event)
+- mission/agent: { agent: "(Auto)" or agent name, systemPrompt: "...", maxTokens: 2048 } → inputs: prompt(string), context(string) → outputs: response(string), done(event)
+- mission/task: { goal: "...", constraints: "...", priority: "Normal" } → inputs: input(string), execute(action) → outputs: result(string), done(event)
+- mission/condition: { condition: "value", type: "Contains" } → inputs: input(string) → outputs: true(string), false(string). Types: Contains, Equals, Regex, Length >, Is Empty
+- mission/output: { destination: "Log", label: "Result" } → inputs: result(string), done(action)
+- mission/loop: { maxIter: 10 } → inputs: items(string) → outputs: item(string), index(number), done(event)
+- mission/merge: { mode: "Concatenate" } → inputs: input_1(string), input_2(string) → outputs: merged(string). Modes: Concatenate, JSON Merge, Pick Best, Summary
+- mission/tool: { tool: "Web Search", config: "{}" } → inputs: input(string), execute(action) → outputs: result(string), done(event)
+
+Example — Trigger → Agent → Output (3 nodes, 2 links):
+{"nodes":[{"id":1,"type":"mission/trigger","pos":[100,200],"size":[280,120],"properties":{"prompt":"Research best practices for Docker security","trigger":"Manual"},"widgets_values":["Research best practices for Docker security","Manual"],"inputs":[],"outputs":[{"name":"prompt","type":"string","links":[1]},{"name":"trigger","type":"*","links":[]}]},{"id":2,"type":"mission/agent","pos":[450,200],"size":[300,160],"properties":{"agent":"scout","systemPrompt":"You are a research specialist.","maxTokens":2048},"widgets_values":["scout","You are a research specialist.",2048],"inputs":[{"name":"prompt","type":"string","link":1},{"name":"context","type":"string","link":null}],"outputs":[{"name":"response","type":"string","links":[2]},{"name":"done","type":"*","links":[]}]},{"id":3,"type":"mission/output","pos":[820,200],"size":[240,100],"properties":{"destination":"Log","label":"Research Results"},"widgets_values":["Log","Research Results"],"inputs":[{"name":"result","type":"string","link":2},{"name":"done","type":"*","link":null}],"outputs":[]}],"links":{"1":{"id":1,"type":"string","origin_id":1,"origin_slot":0,"target_id":2,"target_slot":0},"2":{"id":2,"type":"string","origin_id":2,"origin_slot":0,"target_id":3,"target_slot":0}},"version":0.4,"groups":[],"config":{},"extra":{}}
 
 STAGING: When you or your team produce HTML/CSS/JS content for review, write it to /workspace/staging/ and update /workspace/staging/index.json with { "items": [{ "id", "name", "path", "type", "createdBy", "description", "status": "pending" }] }. The owner will preview and approve/reject from their phone.
 
@@ -211,6 +224,16 @@ THE PLATFORM YOU MANAGE:
 - Services: Caddy, Open WebUI, LiteLLM, OpenClaw, PostgreSQL
 - Remote Ollama on Oracle Cloud ARM (optional)
 - All deploys happen from iPhone via SSM — commands must be single-line, copy-paste ready
+
+WORKFLOW SYSTEM: Create visual workflows by writing LiteGraph JSON to /workspace/agent-workflows/. Mission Control auto-imports every 15s.
+1. Write JSON to /workspace/agent-workflows/{id}.json
+2. Update index: /workspace/agent-workflows/index.json with { "workflows": [{ "id", "name", "file": "{id}.json", "createdBy": "ops-lead", "updatedAt": <unix_ms>, "status": "draft" }] }
+Node types: mission/trigger (prompt, trigger), mission/agent (agent, systemPrompt, maxTokens), mission/task (goal, constraints, priority), mission/condition (condition, type), mission/output (destination, label), mission/loop (maxIter), mission/merge (mode), mission/tool (tool, config).
+Links: {"<id>":{"id":<n>,"type":"string","origin_id":<n>,"origin_slot":<n>,"target_id":<n>,"target_slot":<n>}}. Slot 0 = first input/output.
+
+STAGING: Write content for review to /workspace/staging/ and update /workspace/staging/index.json with { "items": [{ "id", "name", "path", "type", "createdBy": "ops-lead", "description", "status": "pending" }] }.
+
+ACTIVITY LOGGING: Write events to /workspace/agent-activity/log.json as { "events": [{ "time": <unix_ms>, "level": "info|warn|error", "type": "task-complete|workflow-complete|staging-new", "message": "..." }] }.
 
 PRINCIPLES:
 - Reliability first: uptime, health checks, graceful degradation
@@ -552,8 +575,9 @@ document.addEventListener('alpine:init', () => {
       // Stop workflow bridge polling
       if (window.workflowBridge) window.workflowBridge.stopPolling();
 
-      // Stop staging polling
+      // Stop staging and activity polling
       if (Alpine.store('staging')) Alpine.store('staging').stopPolling();
+      if (Alpine.store('activity')) Alpine.store('activity').stopPolling();
 
       // Stop last-active timer
       const appStore = Alpine.store('app');
@@ -676,15 +700,20 @@ document.addEventListener('alpine:init', () => {
         window.workflowBridge.startPolling(15000);
       }
 
+      // Start activity polling (server-side agent events)
+      if (Alpine.store('activity')) {
+        Alpine.store('activity').startPolling(15000);
+      }
+
       // Start staging environment polling
       if (Alpine.store('staging')) {
         Alpine.store('staging').startPolling(15000);
       }
 
-      // Track last active timestamp for away-report
-      sessionStorage.setItem('mc-last-active', Date.now().toString());
+      // Track last active timestamp for away-report (localStorage persists across sessions)
+      localStorage.setItem('mc-last-active', Date.now().toString());
       this._lastActiveTimer = setInterval(() => {
-        sessionStorage.setItem('mc-last-active', Date.now().toString());
+        localStorage.setItem('mc-last-active', Date.now().toString());
       }, 60000);
 
       // Start adaptive health polling: faster when disconnected (15s), slower when stable (45s)
@@ -1786,6 +1815,11 @@ document.addEventListener('alpine:init', () => {
     items: [],
     selectedId: null,
     _pollTimer: null,
+    _localStatuses: {},  // id → status — persists approval/rejection across poll cycles
+
+    init() {
+      this._localStatuses = storage.load('staging-statuses', {});
+    },
 
     get selected() {
       return this.items.find(i => i.id === this.selectedId) || null;
@@ -1816,17 +1850,29 @@ document.addEventListener('alpine:init', () => {
         });
         if (!resp.ok) return;
         const data = await resp.json();
-        this.items = (data.items || []).map(item => ({
-          id: item.id || item.path,
-          name: item.name || item.path,
-          path: item.path,
-          type: item.type || 'html',
-          createdBy: item.createdBy || 'agent',
-          createdAt: item.createdAt || Date.now(),
-          description: item.description || '',
-          status: item.status || 'pending',
-          previewUrl: '/workspace/staging/' + item.path,
-        }));
+        this.items = (data.items || []).map(item => {
+          const id = item.id || item.path;
+          const serverStatus = item.status || 'pending';
+          const localStatus = this._localStatuses[id];
+          // Local approval/rejection overrides server until server catches up
+          const status = (localStatus && serverStatus === 'pending') ? localStatus : serverStatus;
+          // Clear local override once server matches
+          if (localStatus && serverStatus === localStatus) {
+            delete this._localStatuses[id];
+            storage.save('staging-statuses', this._localStatuses);
+          }
+          return {
+            id,
+            name: item.name || item.path,
+            path: item.path,
+            type: item.type || 'html',
+            createdBy: item.createdBy || 'agent',
+            createdAt: item.createdAt || Date.now(),
+            description: item.description || '',
+            status,
+            previewUrl: '/workspace/staging/' + item.path,
+          };
+        });
       } catch {}
     },
 
@@ -1834,11 +1880,13 @@ document.addEventListener('alpine:init', () => {
       const item = this.items.find(i => i.id === id);
       if (!item) return;
       item.status = 'approved';
+      this._localStatuses[id] = 'approved';
+      storage.save('staging-statuses', this._localStatuses);
       Alpine.store('monitor').addLog('info', `Staging item "${item.name}" approved`);
 
       if (window.openclawClient?.authenticated) {
         window.openclawClient.sendChat(
-          `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner.`,
+          `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner. Please update /workspace/staging/index.json to set status to "approved".`,
           { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
         ).catch(() => {});
       }
@@ -1853,11 +1901,13 @@ document.addEventListener('alpine:init', () => {
       const item = this.items.find(i => i.id === id);
       if (!item) return;
       item.status = 'rejected';
+      this._localStatuses[id] = 'rejected';
+      storage.save('staging-statuses', this._localStatuses);
       Alpine.store('monitor').addLog('info', `Staging item "${item.name}" rejected: ${reason || 'no reason'}`);
 
       if (window.openclawClient?.authenticated) {
         window.openclawClient.sendChat(
-          `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise.`,
+          `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise and update /workspace/staging/index.json.`,
           { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
         ).catch(() => {});
       }
@@ -1866,6 +1916,97 @@ document.addEventListener('alpine:init', () => {
         success: false,
         taskType: 'staging-rejected',
       });
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // STORE: ACTIVITY — server-side agent events from /workspace/agent-activity/
+  // --------------------------------------------------------------------------
+
+  Alpine.store('activity', {
+    events: [],        // { time, level, type, message, agent }
+    newCount: 0,       // events since last dismissal
+    filter: 'all',     // 'all' | 'task-complete' | 'workflow-complete' | 'staging-new' | 'error'
+    _pollTimer: null,
+    _lastFetchTime: 0, // track to avoid re-processing
+
+    get filtered() {
+      if (this.filter === 'all') return this.events;
+      if (this.filter === 'error') return this.events.filter(e => e.level === 'error');
+      return this.events.filter(e => e.type === this.filter);
+    },
+
+    startPolling(intervalMs = 15000) {
+      this.stopPolling();
+      this._poll();
+      this._pollTimer = setInterval(() => this._poll(), intervalMs);
+    },
+
+    stopPolling() {
+      if (this._pollTimer) {
+        clearInterval(this._pollTimer);
+        this._pollTimer = null;
+      }
+    },
+
+    async _poll() {
+      try {
+        const resp = await fetch('/workspace/agent-activity/log.json', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const serverEvents = (data.events || []).sort((a, b) => (b.time || 0) - (a.time || 0));
+
+        // Only update if we got new events
+        if (serverEvents.length > 0 && serverEvents[0]?.time !== this._lastFetchTime) {
+          this._lastFetchTime = serverEvents[0].time;
+          // Keep last 200 events, newest first
+          this.events = serverEvents.slice(0, 200).map(e => ({
+            time: e.time || Date.now(),
+            level: e.level || 'info',
+            type: e.type || 'unknown',
+            message: e.message || '',
+            agent: e.agent || e.createdBy || '',
+          }));
+
+          // Count events since last visit for badge
+          const lastSeen = parseInt(localStorage.getItem('mc-last-activity-seen') || '0');
+          this.newCount = this.events.filter(e => e.time > lastSeen).length;
+        }
+      } catch {}
+    },
+
+    dismissNew() {
+      this.newCount = 0;
+      localStorage.setItem('mc-last-activity-seen', Date.now().toString());
+    },
+
+    formatTime(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return Math.floor(diff / 86400000) + 'd ago';
+    },
+
+    typeColor(type) {
+      const colors = {
+        'task-complete': 'text-emerald-400',
+        'workflow-complete': 'text-cyan-400',
+        'staging-new': 'text-amber-400',
+      };
+      return colors[type] || 'text-mc-text-muted';
+    },
+
+    typeLabel(type) {
+      const labels = {
+        'task-complete': 'Task',
+        'workflow-complete': 'Workflow',
+        'staging-new': 'Staging',
+      };
+      return labels[type] || type;
     },
   });
 
@@ -1879,6 +2020,7 @@ document.addEventListener('alpine:init', () => {
       teams: true,
       monitor: true,
       staging: true,
+      activity: true,
     },
     settingsOpen: false,
 

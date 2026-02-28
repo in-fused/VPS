@@ -86,7 +86,10 @@ class WorkflowBridge {
         }
       }
 
-      // Also check for activity logs (Phase 5 support)
+      // Check for background execution results
+      this._checkExecutionResults();
+
+      // Also check for activity logs
       this._checkActivityLog();
     } catch {
       // Silently fail — directory may not exist yet
@@ -119,6 +122,50 @@ class WorkflowBridge {
           { agentId: 'lead' }
         );
       } catch {}
+    }
+  }
+
+  // Check for background execution results from /workspace/agent-workflows/results/
+  async _checkExecutionResults() {
+    try {
+      const resp = await fetch(this._basePath + '/results/index.json', {
+        signal: AbortSignal.timeout(5000),
+        cache: 'no-store',
+      });
+      if (!resp.ok) return;
+
+      const index = await resp.json();
+      const wfStore = Alpine?.store('workflows');
+      if (!wfStore) return;
+
+      for (const result of (index.results || [])) {
+        const key = 'bg-result:' + result.id + ':' + result.completedAt;
+        if (this._knownFiles.has(key)) continue;
+
+        // Fetch the full result
+        const resResp = await fetch(this._basePath + '/results/' + result.file, {
+          cache: 'no-store',
+        });
+        if (!resResp.ok) continue;
+
+        const resData = await resResp.json();
+        this._knownFiles.add(key);
+
+        // Update workflow status in store
+        const wf = wfStore.list.find(w => w.id === result.workflowId);
+        if (wf) {
+          wf.lastRun = new Date(result.completedAt).toLocaleString();
+          wf.status = result.success ? 'completed' : 'failed';
+          wf._bgResult = resData;
+        }
+
+        Alpine.store('monitor')?.addLog(
+          result.success ? 'info' : 'warn',
+          `Background workflow "${result.name || result.workflowId}" ${result.success ? 'completed' : 'failed'}`
+        );
+      }
+    } catch {
+      // Results directory may not exist yet
     }
   }
 
@@ -169,18 +216,18 @@ class WorkflowBridge {
       if (!resp.ok) return;
 
       const data = await resp.json();
-      const lastSeen = parseInt(sessionStorage.getItem('mc-last-activity-seen') || '0');
+      // Use localStorage (not sessionStorage) so timestamp persists across browser sessions.
+      // On first-ever visit, initialize to now so we don't show stale events as "new".
+      if (!localStorage.getItem('mc-last-activity-seen')) {
+        localStorage.setItem('mc-last-activity-seen', Date.now().toString());
+      }
+      const lastSeen = parseInt(localStorage.getItem('mc-last-activity-seen') || '0');
       const newEvents = (data.events || []).filter(e => (e.time || 0) > lastSeen);
 
       if (newEvents.length > 0) {
-        const monitor = Alpine.store('monitor');
         const appStore = Alpine.store('app');
 
-        for (const event of newEvents.slice(-50)) {
-          monitor?.addLog(event.level || 'info', event.message || JSON.stringify(event));
-        }
-
-        // Build away report for dashboard
+        // Build away report for dashboard (only on first check after returning)
         if (!appStore.awayReport && newEvents.length > 3) {
           const duration = this._formatDuration(Date.now() - lastSeen);
           appStore.awayReport = {
@@ -192,10 +239,8 @@ class WorkflowBridge {
           };
         }
 
-        sessionStorage.setItem('mc-last-activity-seen', Date.now().toString());
-        if (newEvents.length > 0) {
-          monitor?.addLog('info', `Synced ${newEvents.length} events from while you were away`);
-        }
+        localStorage.setItem('mc-last-activity-seen', Date.now().toString());
+        Alpine.store('monitor')?.addLog('info', `Synced ${newEvents.length} agent events`);
       }
     } catch {}
   }
