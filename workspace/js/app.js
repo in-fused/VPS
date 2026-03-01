@@ -664,10 +664,10 @@ document.addEventListener('alpine:init', () => {
           const secure = location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
           sessionStorage.setItem('mc-auth', '1');
-          // Keep password in memory only for OpenClaw WebSocket auth.
-          // NOT stored in sessionStorage — prevents exfiltration via XSS.
-          // Tradeoff: page reload loses WebSocket (falls back to LiteLLM SSE).
+          // Store password for OpenClaw WebSocket auth. Also persisted in
+          // sessionStorage by the client itself so iOS page reloads survive.
           if (window.openclawClient) window.openclawClient._password = password;
+          try { sessionStorage.setItem('mc-oc-pw', password); } catch {}
           this.ok = true;
           Alpine.store('app').boot();
           return true;
@@ -678,6 +678,7 @@ document.addEventListener('alpine:init', () => {
 
     logout() {
       sessionStorage.removeItem('mc-auth');
+      sessionStorage.removeItem('mc-oc-pw');
       document.cookie = 'mc_oc=; path=/; max-age=0';
       this.ok = false;
 
@@ -806,19 +807,25 @@ document.addEventListener('alpine:init', () => {
       if (health.openclaw && window.openclawClient) {
         monitor.addLog('info', 'Connecting to OpenClaw...');
         try {
-          // Use the in-memory password for OpenClaw auth (set during login)
-          const pw = window.openclawClient._password || '';
-          await window.openclawClient.connect(pw);
-          ocMode = 'connected';
-          monitor.addLog('info', 'OpenClaw WebSocket connected — agents are live');
+          // Use in-memory password, falling back to sessionStorage (survives iOS reloads)
+          const pw = window.openclawClient._password
+            || (() => { try { return sessionStorage.getItem('mc-oc-pw') || ''; } catch { return ''; } })();
+          if (pw) {
+            await window.openclawClient.connect(pw);
+            ocMode = 'connected';
+            this.ocConnected = true;
+            monitor.addLog('info', 'OpenClaw WebSocket connected — agents are live');
 
-          // Load real agents from OpenClaw
-          await this._syncAgentsFromOpenClaw();
-          await this._syncSessionsFromOpenClaw();
+            // Load real agents from OpenClaw
+            await this._syncAgentsFromOpenClaw();
+            await this._syncSessionsFromOpenClaw();
 
-          // Listen for real-time events
-          this._setupOpenClawEvents();
-
+            // Listen for real-time events
+            this._setupOpenClawEvents();
+          } else {
+            monitor.addLog('warn', 'No password available for OpenClaw — using local mode');
+            ocMode = 'fallback';
+          }
         } catch (err) {
           console.warn('[Boot] OpenClaw WebSocket failed, using fallback:', err.message);
           monitor.addLog('warn', `OpenClaw WebSocket: ${err.message} — using local mode`);
@@ -1019,14 +1026,17 @@ document.addEventListener('alpine:init', () => {
       });
 
       // Reconnection
-      oc.on('disconnect', () => {
-        Alpine.store('monitor').addLog('warn', 'OpenClaw WebSocket disconnected');
+      oc.on('disconnect', (payload) => {
+        const msg = payload.code ? `OpenClaw WS disconnected (code: ${payload.code})` : 'OpenClaw WS disconnected';
+        Alpine.store('monitor').addLog('warn', msg);
         this.ocConnected = false;
+        ocMode = 'fallback';
       });
 
       oc.on('reconnect', () => {
-        Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected');
+        Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
         this.ocConnected = true;
+        ocMode = 'connected';
         this._syncAgentsFromOpenClaw();
         this._syncSessionsFromOpenClaw();
       });
@@ -1034,12 +1044,20 @@ document.addEventListener('alpine:init', () => {
 
     _applyHealth(health) {
       this.connected = health.litellm;
-      this.ocConnected = health.openclaw;
+      // ocConnected reflects actual WebSocket auth state, not just HTTP health
+      this.ocConnected = window.openclawClient?.authenticated || false;
       this.demoMode = !health.litellm;
 
       const monitor = Alpine.store('monitor');
       monitor.systemHealth.litellm = health.litellm ? 'healthy' : 'offline';
       monitor.systemHealth.openclaw = health.openclaw ? 'healthy' : 'offline';
+
+      // If OpenClaw HTTP is healthy but WebSocket is not connected, try reconnecting
+      if (health.openclaw && !window.openclawClient?.authenticated && window.openclawClient?._password) {
+        if (ocMode !== 'connected' && window.openclawClient._connectionState === 'disconnected') {
+          this.reconnect();
+        }
+      }
     },
 
     async reconnect() {
@@ -1063,13 +1081,19 @@ document.addEventListener('alpine:init', () => {
         // Attempt WebSocket reconnect if not already connected
         if (ocMode !== 'connected' && window.openclawClient && !window.openclawClient.authenticated) {
           try {
-            const pw = window.openclawClient._password || '';
-            await window.openclawClient.connect(pw, { maxRetries: 1 });
-            ocMode = 'connected';
-            Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
-            await this._syncAgentsFromOpenClaw();
-            await this._syncSessionsFromOpenClaw();
-            this._setupOpenClawEvents();
+            const pw = window.openclawClient._password
+              || (() => { try { return sessionStorage.getItem('mc-oc-pw') || ''; } catch { return ''; } })();
+            if (pw) {
+              await window.openclawClient.connect(pw, { maxRetries: 1 });
+              ocMode = 'connected';
+              this.ocConnected = true;
+              Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
+              await this._syncAgentsFromOpenClaw();
+              await this._syncSessionsFromOpenClaw();
+              this._setupOpenClawEvents();
+            } else {
+              Alpine.store('monitor').addLog('warn', 'No password for OpenClaw reconnect — re-login required');
+            }
           } catch (err) {
             Alpine.store('monitor').addLog('warn', `OpenClaw WebSocket reconnect failed: ${err.message}`);
           }

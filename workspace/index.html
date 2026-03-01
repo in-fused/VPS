@@ -340,11 +340,21 @@
 
       <!-- Sidebar Footer -->
       <div class="border-t border-mc-border p-3 flex-shrink-0">
-        <!-- Connection Status -->
-        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2">
+        <!-- Connection Status — tappable to reconnect on mobile -->
+        <button x-show="$store.app.sidebarOpen || $store.app.mobile"
+                @click="$store.app.reconnect()"
+                class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2 hover:bg-mc-elevated transition-all text-left">
+          <!-- LiteLLM status dot -->
           <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"></span>
-          <span class="text-mc-text-muted" x-text="$store.app.connected ? 'LiteLLM Connected' : 'Demo Mode'"></span>
-        </div>
+          <span class="text-mc-text-muted flex-1"
+                x-text="$store.app.connected ? 'LiteLLM OK' : 'LiteLLM Offline'"></span>
+          <!-- OpenClaw WS status dot -->
+          <span class="mc-dot"
+                :class="window.openclawClient?.authenticated ? 'mc-dot-connected' : (window.openclawClient?._connectionState === 'reconnecting' ? 'mc-dot-idle' : 'mc-dot-disconnected')"
+                style="width:6px;height:6px"></span>
+          <span class="text-mc-text-muted text-[10px]"
+                x-text="window.openclawClient?.authenticated ? 'WS Live' : (window.openclawClient?._connectionState === 'reconnecting' ? 'WS Retry...' : 'WS Off')"></span>
+        </button>
         <!-- Collapse Toggle (desktop only) -->
         <button x-show="!$store.app.mobile"
                 @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"
@@ -400,12 +410,20 @@
           New Agent
         </button>
 
-        <!-- OpenClaw Connection Status (hidden on mobile) -->
-        <div class="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono"
-             :class="$store.app.ocConnected ? 'bg-mc-success-dim text-emerald-400' : 'bg-mc-elevated text-mc-text-muted'">
-          <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-idle'" style="width:6px;height:6px"></span>
-          <span x-text="$store.app.ocConnected ? 'OpenClaw Live' : 'OpenClaw Offline'"></span>
-        </div>
+        <!-- OpenClaw Connection Status — visible on ALL screen sizes, tappable to reconnect -->
+        <button @click="$store.app.reconnect()"
+                class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono transition-all"
+                :class="window.openclawClient?.authenticated
+                  ? 'bg-mc-success-dim text-emerald-400'
+                  : window.openclawClient?._connectionState === 'reconnecting'
+                    ? 'bg-mc-warning-dim text-amber-400 animate-pulse'
+                    : 'bg-mc-elevated text-mc-text-muted hover:bg-mc-border'"
+                :title="window.openclawClient?._lastError || 'Tap to reconnect'">
+          <span class="mc-dot"
+                :class="window.openclawClient?.authenticated ? 'mc-dot-connected' : (window.openclawClient?._connectionState === 'reconnecting' ? 'mc-dot-idle' : 'mc-dot-disconnected')"
+                style="width:6px;height:6px"></span>
+          <span x-text="window.openclawClient?.authenticated ? 'Live' : (window.openclawClient?._connectionState === 'reconnecting' ? 'Retry...' : 'Offline')"></span>
+        </button>
 
         <!-- OpenClaw Native UI (fallback link) -->
         <a href="/openclaw/" target="_blank"

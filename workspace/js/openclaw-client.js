@@ -17,6 +17,18 @@ class OpenClawClient {
     this._maxReconnectDelay = 30000;
     this._password = null;
     this._backgrounded = false;
+    this._keepAliveTimer = null;
+    this._lastError = null; // last connection error message for UI display
+    this._connectionState = 'disconnected'; // 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
+
+    // Restore password from sessionStorage if page was reloaded (iOS memory pressure).
+    // The password is also stored as a cookie hash, but we need the raw password for
+    // OpenClaw WebSocket auth. sessionStorage is tab-scoped and cleared on tab close,
+    // so this is acceptable from a security perspective.
+    try {
+      const saved = sessionStorage.getItem('mc-oc-pw');
+      if (saved) this._password = saved;
+    } catch {}
 
     // iOS/mobile: pause reconnection when app is backgrounded to save battery.
     // Force a clean reconnect when the user returns.
@@ -28,16 +40,49 @@ class OpenClawClient {
           clearTimeout(this._reconnectTimer);
           this._reconnectTimer = null;
         }
+        // Stop keep-alive pings while backgrounded
+        this._stopKeepAlive();
       } else {
         this._backgrounded = false;
         // If we were authenticated but the socket died while backgrounded, reconnect
         if (this._password && !this.authenticated) {
           this._reconnectDelay = 2000; // reset backoff — user is actively returning
+          this._connectionState = 'reconnecting';
           this._scheduleReconnect();
+        } else if (this.authenticated) {
+          // Socket survived backgrounding — restart keep-alive
+          this._startKeepAlive();
         }
       }
     };
     document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+    // iOS: pageshow fires more reliably than visibilitychange when returning
+    // from the app switcher or lock screen. 'persisted' means it was restored
+    // from the back-forward cache (bfcache).
+    this._onPageShow = (event) => {
+      if (event.persisted || !this.authenticated) {
+        // Page was restored from cache or socket is dead — force reconnect
+        if (this._password && !this.authenticated) {
+          this._backgrounded = false;
+          this._reconnectDelay = 2000;
+          this._connectionState = 'reconnecting';
+          this._scheduleReconnect();
+        }
+      }
+    };
+    window.addEventListener('pageshow', this._onPageShow);
+
+    // Additional reconnection trigger via focus event (catches cases where
+    // visibilitychange and pageshow both fail on iOS)
+    this._onFocus = () => {
+      if (this._password && !this.authenticated && !this._backgrounded) {
+        this._reconnectDelay = 2000;
+        this._connectionState = 'reconnecting';
+        this._scheduleReconnect();
+      }
+    };
+    window.addEventListener('focus', this._onFocus);
   }
 
   // ---------------------------------------------------------------------------
@@ -47,9 +92,18 @@ class OpenClawClient {
 
   connect(password, { maxRetries = 2 } = {}) {
     this._password = password;
-    // Re-attach visibility handler if it was removed by disconnect()
+    this._lastError = null;
+    this._connectionState = 'connecting';
+    // Persist password in sessionStorage so iOS page reloads don't lose it.
+    // sessionStorage is tab-scoped (cleared on tab close) — acceptable tradeoff.
+    try { sessionStorage.setItem('mc-oc-pw', password); } catch {}
+    // Re-attach event handlers if they were removed by disconnect()
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     document.addEventListener('visibilitychange', this._onVisibilityChange);
+    window.removeEventListener('pageshow', this._onPageShow);
+    window.addEventListener('pageshow', this._onPageShow);
+    window.removeEventListener('focus', this._onFocus);
+    window.addEventListener('focus', this._onFocus);
     return this._attemptConnect(password, maxRetries);
   }
 
@@ -77,6 +131,8 @@ class OpenClawClient {
       return this._attemptConnect(password, retriesLeft - 1);
     }
 
+    this._lastError = 'All connection attempts failed';
+    this._connectionState = 'disconnected';
     throw new Error('Connection timeout');
   }
 
@@ -112,6 +168,7 @@ class OpenClawClient {
           const wasAuth = this.authenticated;
           this.connected = false;
           this.authenticated = false;
+          this._stopKeepAlive();
           console.log(`[OpenClaw] WebSocket closed (code: ${event.code})`);
 
           // Reject all pending requests
@@ -126,12 +183,16 @@ class OpenClawClient {
 
           // Auto-reconnect if was previously authenticated
           if (wasAuth && this._password) {
+            this._lastError = `Disconnected (code: ${event.code})`;
+            this._connectionState = 'reconnecting';
             this._scheduleReconnect();
           }
 
           // If we never authenticated, reject the connect promise
           if (!wasAuth && !settled) {
             settled = true;
+            this._lastError = `Connection closed (code: ${event.code})`;
+            this._connectionState = 'disconnected';
             reject(new Error(`Connection closed (code: ${event.code})`));
           }
         };
@@ -139,15 +200,17 @@ class OpenClawClient {
         // Store ws reference so _handleMessage and _sendHandshake work
         this.ws = ws;
 
-        // Timeout the initial connection
+        // Timeout the initial connection — 15s for mobile networks
         setTimeout(() => {
           if (!this.authenticated && !settled) {
             ws.onclose = null; // prevent auto-reconnect for this attempt
             ws.close();
             settled = true;
+            this._lastError = 'Handshake timeout (15s)';
+            this._connectionState = 'disconnected';
             reject(new Error('Handshake timeout'));
           }
-        }, 8000);
+        }, 15000);
 
       } catch (err) {
         reject(err);
@@ -158,6 +221,9 @@ class OpenClawClient {
   disconnect() {
     this._password = null;
     this._backgrounded = false;
+    this._lastError = null;
+    this._connectionState = 'disconnected';
+    this._stopKeepAlive();
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
@@ -170,8 +236,13 @@ class OpenClawClient {
     this.connected = false;
     this.authenticated = false;
 
-    // Remove visibility change handler to prevent leaked listeners
+    // Clear persisted password on explicit disconnect (logout)
+    try { sessionStorage.removeItem('mc-oc-pw'); } catch {}
+
+    // Remove all event listeners to prevent leaked listeners
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    window.removeEventListener('pageshow', this._onPageShow);
+    window.removeEventListener('focus', this._onFocus);
 
     // Clear all event handlers so re-connecting after logout doesn't
     // accumulate duplicate listeners from previous sessions.
@@ -182,6 +253,7 @@ class OpenClawClient {
     if (this._reconnectTimer) return;
     // Don't attempt reconnection while iOS/mobile has us backgrounded
     if (this._backgrounded) return;
+    this._connectionState = 'reconnecting';
     console.log(`[OpenClaw] Reconnecting in ${this._reconnectDelay / 1000}s...`);
     this._reconnectTimer = setTimeout(async () => {
       this._reconnectTimer = null;
@@ -195,6 +267,31 @@ class OpenClawClient {
         this._scheduleReconnect();
       }
     }, this._reconnectDelay);
+  }
+
+  // Keep-alive: send a lightweight RPC ping every 45s to detect dead sockets
+  // before the OS silently closes them (iOS aggressively kills idle sockets).
+  _startKeepAlive() {
+    this._stopKeepAlive();
+    this._keepAliveTimer = setInterval(() => {
+      if (this.authenticated && this.ws?.readyState === WebSocket.OPEN) {
+        // Use a no-op RPC request; if it times out, the socket is dead
+        this.request('ping', {}).catch(() => {
+          console.warn('[OpenClaw] Keep-alive ping failed — socket likely dead');
+          // Force close to trigger reconnect
+          if (this.ws) {
+            this.ws.close();
+          }
+        });
+      }
+    }, 45000);
+  }
+
+  _stopKeepAlive() {
+    if (this._keepAliveTimer) {
+      clearInterval(this._keepAliveTimer);
+      this._keepAliveTimer = null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -222,6 +319,9 @@ class OpenClawClient {
       console.log('[OpenClaw] Authenticated successfully');
       this.connected = true;
       this.authenticated = true;
+      this._lastError = null;
+      this._connectionState = 'connected';
+      this._startKeepAlive();
       if (connectResolve) connectResolve(true);
       this._emit('connected', msg.payload || {});
       return;
@@ -229,8 +329,11 @@ class OpenClawClient {
 
     // Handshake: server rejection
     if (msg.type === 'hello-error' || msg.type === 'error') {
-      console.error('[OpenClaw] Auth rejected:', msg.error || msg.message);
-      if (connectReject) connectReject(new Error(msg.error || msg.message || 'Auth failed'));
+      const errMsg = msg.error || msg.message || 'Auth failed';
+      console.error('[OpenClaw] Auth rejected:', errMsg);
+      this._lastError = errMsg;
+      this._connectionState = 'disconnected';
+      if (connectReject) connectReject(new Error(errMsg));
       return;
     }
 
