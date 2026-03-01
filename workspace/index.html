@@ -1761,6 +1761,137 @@
               </div>
             </div>
 
+            <!-- Audio Notifications -->
+            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
+              <div class="p-4 md:p-5 border-b border-mc-border">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h2 class="text-sm font-semibold text-mc-text">Audio Notifications</h2>
+                    <p class="text-xs text-mc-text-muted mt-1">Subtle sounds when agents complete tasks, new staging items arrive, and more</p>
+                  </div>
+                  <button @click="$store.settings.toggleAudio('enabled'); if($store.settings.audio.enabled) mcAudio.unlock()"
+                          class="mc-toggle" :class="$store.settings.audio.enabled ? 'on' : ''">
+                    <div class="mc-toggle-knob"></div>
+                  </button>
+                </div>
+              </div>
+
+              <div x-show="$store.settings.audio.enabled"
+                   x-transition:enter="transition-all duration-200 ease-out"
+                   x-transition:enter-start="opacity-0 max-h-0"
+                   x-transition:enter-end="opacity-100"
+                   x-transition:leave="transition-all duration-150 ease-in"
+                   x-transition:leave-start="opacity-100"
+                   x-transition:leave-end="opacity-0"
+              >
+                <!-- Volume slider -->
+                <div class="p-4 md:px-5 border-b border-mc-border/50">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-mc-text-sec">Volume</span>
+                    <span class="text-xs font-mono text-mc-text-muted" x-text="$store.settings.audio.volume + '%'"></span>
+                  </div>
+                  <input type="range" min="0" max="100" step="5"
+                         :value="$store.settings.audio.volume"
+                         @input="$store.settings.setVolume($event.target.value)"
+                         @change="mcAudio.unlock(); mcAudio.chatComplete()"
+                         class="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-amber-500"
+                         style="background: linear-gradient(to right, var(--mc-accent, #d4a017) 0%, var(--mc-border, #333) 100%)">
+                </div>
+
+                <div class="divide-y divide-mc-border/50">
+                  <!-- Chat responses -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">💬</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Chat Responses</div>
+                        <div class="text-[11px] text-mc-text-muted">When an agent finishes a reply</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('chat')"
+                            class="mc-toggle" :class="$store.settings.audio.chat ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+
+                  <!-- Task completion -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">✓</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Task Events</div>
+                        <div class="text-[11px] text-mc-text-muted">Governance task success or failure</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('tasks')"
+                            class="mc-toggle" :class="$store.settings.audio.tasks ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+
+                  <!-- Staging -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">📋</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Staging</div>
+                        <div class="text-[11px] text-mc-text-muted">New items for review, approvals</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('staging')"
+                            class="mc-toggle" :class="$store.settings.audio.staging ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+
+                  <!-- Workflows -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">⚡</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Workflows</div>
+                        <div class="text-[11px] text-mc-text-muted">When a workflow finishes executing</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('workflows')"
+                            class="mc-toggle" :class="$store.settings.audio.workflows ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+
+                  <!-- Activity -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">🔔</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Background Activity</div>
+                        <div class="text-[11px] text-mc-text-muted">New server-side agent events</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('activity')"
+                            class="mc-toggle" :class="$store.settings.audio.activity ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+
+                  <!-- Errors -->
+                  <div class="flex items-center justify-between p-4 md:px-5">
+                    <div class="flex items-center gap-3">
+                      <span class="text-base w-5 text-center">⚠️</span>
+                      <div>
+                        <div class="text-sm text-mc-text">Error Alerts</div>
+                        <div class="text-[11px] text-mc-text-muted">System errors logged to monitor</div>
+                      </div>
+                    </div>
+                    <button @click="$store.settings.toggleAudio('errors')"
+                            class="mc-toggle" :class="$store.settings.audio.errors ? 'on' : ''">
+                      <div class="mc-toggle-knob"></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Connection Info -->
             <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
               <h2 class="text-sm font-semibold text-mc-text mb-4">Connection Status</h2>

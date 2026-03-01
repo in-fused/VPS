@@ -784,6 +784,7 @@ class WorkflowExecutor {
       if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
     }
     monitor?.addLog('info', 'Workflow execution complete');
+    if (window.mcAudio) window.mcAudio.workflowComplete();
 
     // Reset node colors after 3 seconds
     setTimeout(() => {

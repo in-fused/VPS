@@ -325,6 +325,34 @@ html, body {
   transform: translateX(18px);
 }
 
+/* ---- Range Slider (Audio Volume) ---- */
+input[type="range"].accent-amber-500 {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--mc-border, #333);
+  outline: none;
+}
+input[type="range"].accent-amber-500::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mc-primary, #d4a017);
+  cursor: pointer;
+  border: 2px solid var(--mc-bg, #0a0a0f);
+}
+input[type="range"].accent-amber-500::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mc-primary, #d4a017);
+  cursor: pointer;
+  border: 2px solid var(--mc-bg, #0a0a0f);
+}
+
 /* ---- LiteGraph.js Dark Theme Override ---- */
 .lgraphcanvas {
   background-color: var(--mc-bg) !important;

@@ -51,6 +51,168 @@ const MODEL_META = {
   'o1': { tier: 'premium', cost: '$15/1M', provider: 'OpenAI' },
 };
 
+// ----------------------------------------------------------------------------
+// AUDIO NOTIFICATIONS — Web Audio API synthesized tones
+// ----------------------------------------------------------------------------
+
+const mcAudio = (() => {
+  let ctx = null;
+  let _unlocked = false;
+  let _cooldowns = {};  // type → last play timestamp
+
+  function getCtx() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    // iOS requires resume after user gesture
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  // Must be called from a user gesture (click/tap) at least once on iOS
+  function unlock() {
+    if (_unlocked) return;
+    try {
+      const c = getCtx();
+      const osc = c.createOscillator();
+      osc.connect(c.destination);
+      osc.start();
+      osc.stop(c.currentTime + 0.001);
+      _unlocked = true;
+    } catch {}
+  }
+
+  function _enabled(type) {
+    try {
+      const s = Alpine.store('settings');
+      if (!s || !s.audio || !s.audio.enabled) return false;
+      if (type && s.audio[type] === false) return false;
+      return true;
+    } catch { return false; }
+  }
+
+  function _volume() {
+    try {
+      return (Alpine.store('settings')?.audio?.volume ?? 60) / 100;
+    } catch { return 0.6; }
+  }
+
+  // Prevent rapid-fire of the same sound (300ms cooldown)
+  function _throttled(type) {
+    const now = Date.now();
+    if (_cooldowns[type] && now - _cooldowns[type] < 300) return true;
+    _cooldowns[type] = now;
+    return false;
+  }
+
+  // Core: play a sequence of tones [{freq, duration, delay, type}]
+  function _playTones(tones, vol) {
+    try {
+      const c = getCtx();
+      const gain = c.createGain();
+      gain.connect(c.destination);
+      gain.gain.setValueAtTime(0, c.currentTime);
+      let t = c.currentTime;
+      for (const tone of tones) {
+        const start = t + (tone.delay || 0);
+        const dur = tone.duration || 0.12;
+        const osc = c.createOscillator();
+        osc.type = tone.type || 'sine';
+        osc.frequency.setValueAtTime(tone.freq, start);
+        osc.connect(gain);
+        osc.start(start);
+        osc.stop(start + dur + 0.05);
+        // Envelope: quick attack, sustain, quick release
+        gain.gain.setValueAtTime(vol * 0.01, start);
+        gain.gain.linearRampToValueAtTime(vol, start + 0.01);
+        gain.gain.setValueAtTime(vol, start + dur - 0.02);
+        gain.gain.linearRampToValueAtTime(0, start + dur);
+        t = start + dur;
+      }
+    } catch {}
+  }
+
+  return {
+    unlock,
+
+    // Soft rising two-tone chime — agent chat response complete
+    chatComplete() {
+      if (!_enabled('chat') || _throttled('chat')) return;
+      const v = _volume() * 0.3;
+      _playTones([
+        { freq: 660, duration: 0.08, delay: 0 },
+        { freq: 880, duration: 0.12, delay: 0.09 },
+      ], v);
+    },
+
+    // Quick single ping — task recorded in governance (success)
+    taskSuccess() {
+      if (!_enabled('tasks') || _throttled('taskOk')) return;
+      _playTones([{ freq: 784, duration: 0.1, delay: 0 }], _volume() * 0.25);
+    },
+
+    // Low double-tap — task failure
+    taskFail() {
+      if (!_enabled('tasks') || _throttled('taskFail')) return;
+      const v = _volume() * 0.2;
+      _playTones([
+        { freq: 330, duration: 0.08, delay: 0 },
+        { freq: 294, duration: 0.1, delay: 0.1 },
+      ], v);
+    },
+
+    // Bright ascending triple — new staging item detected
+    stagingNew() {
+      if (!_enabled('staging') || _throttled('stagingNew')) return;
+      const v = _volume() * 0.25;
+      _playTones([
+        { freq: 523, duration: 0.07, delay: 0 },
+        { freq: 659, duration: 0.07, delay: 0.08 },
+        { freq: 784, duration: 0.1, delay: 0.16 },
+      ], v);
+    },
+
+    // Satisfying confirmation — staging approved
+    stagingApproved() {
+      if (!_enabled('staging') || _throttled('stagingApproved')) return;
+      _playTones([
+        { freq: 523, duration: 0.06, delay: 0 },
+        { freq: 784, duration: 0.15, delay: 0.07 },
+      ], _volume() * 0.3);
+    },
+
+    // Descending two-note — workflow complete
+    workflowComplete() {
+      if (!_enabled('workflows') || _throttled('wfComplete')) return;
+      const v = _volume() * 0.3;
+      _playTones([
+        { freq: 880, duration: 0.1, delay: 0 },
+        { freq: 660, duration: 0.08, delay: 0.11 },
+        { freq: 1047, duration: 0.15, delay: 0.2 },
+      ], v);
+    },
+
+    // Subtle tick for new background activity events
+    activityEvent() {
+      if (!_enabled('activity') || _throttled('activity')) return;
+      _playTones([{ freq: 587, duration: 0.06, delay: 0, type: 'triangle' }], _volume() * 0.15);
+    },
+
+    // Error alert — monitor error log
+    error() {
+      if (!_enabled('errors') || _throttled('error')) return;
+      const v = _volume() * 0.2;
+      _playTones([
+        { freq: 440, duration: 0.1, delay: 0, type: 'square' },
+        { freq: 349, duration: 0.15, delay: 0.12, type: 'square' },
+      ], v);
+    },
+  };
+})();
+
+// Expose globally for workflow.js
+window.mcAudio = mcAudio;
+
 // Demo data — mirrors the agent hierarchy seeded in openclaw-entrypoint.sh
 const DEMO_AGENTS = [
   {
@@ -669,6 +831,7 @@ document.addEventListener('alpine:init', () => {
           if (window.openclawClient) window.openclawClient._password = password;
           try { sessionStorage.setItem('mc-oc-pw', password); } catch {}
           this.ok = true;
+          mcAudio.unlock();
           Alpine.store('app').boot();
           return true;
         }
@@ -971,6 +1134,8 @@ document.addEventListener('alpine:init', () => {
             success: true, tokens, taskType: 'chat-openclaw',
           });
         }
+
+        mcAudio.chatComplete();
 
         // Check for governance self-tuning proposals from agents
         const lastMsgContent = sessions.messages[sessions.messages.length - 1]?.content || '';
@@ -1451,6 +1616,7 @@ document.addEventListener('alpine:init', () => {
           Alpine.store('governance').recordTask(agent.id, {
             success: !isError, tokens, taskType: 'chat-litellm',
           });
+          if (isError) mcAudio.taskFail(); else mcAudio.chatComplete();
         }
 
         this._persist();
@@ -1773,6 +1939,7 @@ document.addEventListener('alpine:init', () => {
       const time = new Date().toTimeString().slice(0, 8);
       this.logs.unshift({ time, level, msg });
       if (this.logs.length > 200) this.logs.pop();
+      if (level === 'error') mcAudio.error();
     },
 
     maxUsage() {
@@ -2362,6 +2529,7 @@ document.addEventListener('alpine:init', () => {
 
     async _poll() {
       try {
+        const prevPending = this.pendingCount;
         const resp = await fetch('/workspace/staging/index.json', {
           cache: 'no-store',
           signal: AbortSignal.timeout(5000),
@@ -2391,6 +2559,8 @@ document.addEventListener('alpine:init', () => {
             previewUrl: '/workspace/staging/' + item.path,
           };
         });
+        // Notify if new pending items appeared
+        if (this.pendingCount > prevPending) mcAudio.stagingNew();
       } catch {}
     },
 
@@ -2414,6 +2584,7 @@ document.addEventListener('alpine:init', () => {
         taskType: 'staging-approved',
       });
       Alpine.store('governance')?.recordStagingResult(item.createdBy, true);
+      mcAudio.stagingApproved();
     },
 
     reject(id, reason) {
@@ -2436,6 +2607,7 @@ document.addEventListener('alpine:init', () => {
         taskType: 'staging-rejected',
       });
       Alpine.store('governance')?.recordStagingResult(item.createdBy, false);
+      mcAudio.taskFail();
     },
   });
 
@@ -2481,6 +2653,7 @@ document.addEventListener('alpine:init', () => {
 
         // Only update if we got new events
         if (serverEvents.length > 0 && serverEvents[0]?.time !== this._lastFetchTime) {
+          const prevCount = this.newCount;
           this._lastFetchTime = serverEvents[0].time;
           // Keep last 200 events, newest first
           this.events = serverEvents.slice(0, 200).map(e => ({
@@ -2494,6 +2667,7 @@ document.addEventListener('alpine:init', () => {
           // Count events since last visit for badge
           const lastSeen = parseInt(localStorage.getItem('mc-last-activity-seen') || '0');
           this.newCount = this.events.filter(e => e.time > lastSeen).length;
+          if (this.newCount > prevCount) mcAudio.activityEvent();
         }
       } catch {}
     },
@@ -2542,12 +2716,26 @@ document.addEventListener('alpine:init', () => {
       staging: true,
       activity: true,
     },
+    // Audio notification preferences
+    audio: {
+      enabled: true,
+      volume: 60,        // 0-100
+      chat: true,        // Chat response complete
+      tasks: true,       // Governance task success/fail
+      staging: true,     // New staging items, approval/rejection
+      workflows: true,   // Workflow execution complete
+      activity: true,    // Background agent events
+      errors: true,      // Monitor error alerts
+    },
     settingsOpen: false,
 
     init() {
       const saved = storage.load('settings', null);
       if (saved && saved.sidebar) {
         this.sidebar = { ...this.sidebar, ...saved.sidebar };
+      }
+      if (saved && saved.audio) {
+        this.audio = { ...this.audio, ...saved.audio };
       }
     },
 
@@ -2562,12 +2750,29 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    toggleAudio(key) {
+      if (key === 'enabled') {
+        this.audio.enabled = !this.audio.enabled;
+      } else if (this.audio.hasOwnProperty(key)) {
+        this.audio[key] = !this.audio[key];
+      }
+      this._persist();
+    },
+
+    setVolume(val) {
+      this.audio.volume = Math.max(0, Math.min(100, parseInt(val) || 0));
+      this._persist();
+    },
+
     isVisible(key) {
       return this.sidebar[key] !== false;
     },
 
     _persist() {
-      storage.save('settings', { sidebar: { ...this.sidebar } });
+      storage.save('settings', {
+        sidebar: { ...this.sidebar },
+        audio: { ...this.audio },
+      });
     },
   });
 
