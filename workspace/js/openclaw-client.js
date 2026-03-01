@@ -87,7 +87,13 @@ class OpenClawClient {
         let settled = false;
 
         ws.onopen = () => {
-          console.log(`[OpenClaw] WebSocket connected to ${url}, awaiting handshake...`);
+          console.log(`[OpenClaw] WebSocket connected to ${url}, sending auth...`);
+          // Client-speaks-first: send connect message immediately.
+          // Older OpenClaw versions send a hello/challenge first (handled
+          // in _handleMessage), but current versions expect the client to
+          // initiate. Sending proactively works with both — if the server
+          // sends a challenge with a nonce, we'll re-send with it.
+          this._sendHandshake({});
         };
 
         ws.onmessage = (event) => {
@@ -254,8 +260,9 @@ class OpenClawClient {
   }
 
   _sendHandshake(challenge) {
-    // Build the connect/auth message
-    // Protocol: send auth credentials with the challenge nonce
+    // Build the connect/auth message.
+    // Called immediately on ws.onopen (client-speaks-first) and again
+    // if the server sends a hello/challenge with a nonce (server-speaks-first).
     const authMsg = {
       type: 'connect',
       params: {
@@ -277,8 +284,8 @@ class OpenClawClient {
       },
     };
 
-    // Include nonce if the server sent one
-    if (challenge.nonce) {
+    // Include nonce if the server sent one (server-speaks-first protocol)
+    if (challenge && challenge.nonce) {
       authMsg.params.nonce = challenge.nonce;
     }
 
