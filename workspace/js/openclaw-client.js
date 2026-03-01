@@ -373,11 +373,34 @@ class OpenClawClient {
       return;
     }
 
-    // RPC response
+    // Connect response — server acknowledges our v3 connect request.
+    // Matched by the ID we stored in _sendHandshake(). This is the
+    // primary auth success path for OpenClaw v3 protocol.
+    if (msg.type === 'res' && String(msg.id) === this._connectReqId) {
+      if (msg.ok !== false && !msg.error) {
+        this._log('info', 'Authenticated successfully (v3 protocol)');
+        this.connected = true;
+        this.authenticated = true;
+        this._lastError = null;
+        this._connectionState = 'connected';
+        this._startKeepAlive();
+        if (connectResolve) connectResolve(true);
+        this._emit('connected', msg.payload || {});
+      } else {
+        const errMsg = msg.error?.message || msg.error || 'Auth failed';
+        this._log('error', `Auth rejected: ${errMsg}`);
+        this._lastError = errMsg;
+        this._connectionState = 'disconnected';
+        if (connectReject) connectReject(new Error(errMsg));
+      }
+      return;
+    }
+
+    // RPC response — match by string ID (server may echo back number or string)
     if (msg.type === 'res') {
-      const pending = this._pending.get(msg.id);
+      const pending = this._pending.get(String(msg.id));
       if (pending) {
-        this._pending.delete(msg.id);
+        this._pending.delete(String(msg.id));
         clearTimeout(pending.timeout);
         if (msg.ok !== false && !msg.error) {
           pending.resolve(msg.payload || msg.result || msg.data || {});
@@ -398,37 +421,52 @@ class OpenClawClient {
   }
 
   _sendHandshake(challenge) {
-    // Build the connect/auth message.
-    // Called immediately on ws.onopen (client-speaks-first) and again
-    // if the server sends a hello/challenge with a nonce (server-speaks-first).
+    // Build the connect/auth message using OpenClaw v3 protocol.
+    // The gateway expects type='req' with method='connect' (same frame format
+    // as all other RPC calls), NOT a bare type='connect'.
     const hasPw = !!(this._password && this._password.length > 0);
-    this._log('info', `Sending handshake (hasPassword=${hasPw}, hasNonce=${!!(challenge?.nonce)})`);
+    const nonce = challenge?.nonce || '';
+    this._log('info', `Sending handshake (hasPassword=${hasPw}, hasNonce=${!!nonce})`);
+
+    // Generate a unique ID so we can match the server's response
+    this._connectReqId = String(++this._reqId);
+
+    // Stable device ID — persisted in localStorage so the same browser
+    // always presents the same device identity to OpenClaw.
+    let deviceId;
+    try { deviceId = localStorage.getItem('mc-device-id'); } catch {}
+    if (!deviceId) {
+      deviceId = Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem('mc-device-id', deviceId); } catch {}
+    }
+
     const authMsg = {
-      type: 'connect',
+      type: 'req',
+      id: this._connectReqId,
+      method: 'connect',
       params: {
+        minProtocol: 3,
+        maxProtocol: 3,
         auth: {
           mode: 'password',
           token: this._password,
-          password: this._password, // some versions use 'password' key
-        },
-        protocol: {
-          min: 1,
-          max: 1,
         },
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
         client: {
-          name: 'MissionControl',
+          id: 'mission-control',
           version: '1.0.0',
+          platform: 'web',
+          mode: 'operator',
+        },
+        device: {
+          id: 'mc-' + deviceId,
+          nonce: nonce,
         },
       },
     };
 
-    // Include nonce if the server sent one (server-speaks-first protocol)
-    if (challenge && challenge.nonce) {
-      authMsg.params.nonce = challenge.nonce;
-    }
-
+    this._log('info', `Handshake frame: type=req method=connect proto=3 deviceId=${authMsg.params.device.id}`);
     this._send(authMsg);
   }
 
@@ -449,7 +487,7 @@ class OpenClawClient {
         return;
       }
 
-      const id = ++this._reqId;
+      const id = String(++this._reqId);
       const timeout = setTimeout(() => {
         this._pending.delete(id);
         reject(new Error(`RPC timeout: ${method}`));
