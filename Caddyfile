@@ -253,7 +253,9 @@
 	# =========================================================================
 	# Agent Workspace (Mission Control) — /workspace/*
 	# =========================================================================
-	# Auth is handled via fetch() to /auth/verify. No hash in HTML source.
+	# Cookie-gated like all other protected paths. Unauthenticated requests
+	# get the login page. This prevents direct access to app.js (agent
+	# configs/prompts), agent-workflows/, staging/, and activity logs.
 	# Bare /workspace redirects to /workspace/ for direct URL access.
 	@workspacebare path /workspace
 	redir @workspacebare /workspace/ 301
@@ -261,9 +263,28 @@
 		# No `templates` directive — workspace serves arbitrary agent-generated
 		# files that may contain {{ }} syntax (Vue, Handlebars, Alpine, etc.)
 		# which Caddy would misinterpret as Go template expressions.
-		header Cache-Control "no-store, no-cache, must-revalidate"
-		root * /srv/workspace
-		file_server
+
+		# When auth is disabled, serve unconditionally
+		@ws_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @ws_noauth {
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
+		}
+
+		@ws_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @ws_authed {
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
+		}
+
+		handle {
+			rewrite * /auth.html
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
+		}
 	}
 
 	# =========================================================================
