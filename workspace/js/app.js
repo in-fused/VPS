@@ -751,6 +751,8 @@ document.addEventListener('alpine:init', () => {
     demoMode: true,       // false when LiteLLM is reachable
     awayReport: null,     // populated on boot if agents worked while you were away
     stagingPanelOpen: false, // mobile: toggleable staging panel
+    _reconnecting: false,  // guard: prevents concurrent reconnect attempts
+    _reconnecting: false, // guard against concurrent reconnect attempts
 
     init() {
       // Listen for screen resize to update mobile state
@@ -1052,52 +1054,64 @@ document.addEventListener('alpine:init', () => {
       monitor.systemHealth.litellm = health.litellm ? 'healthy' : 'offline';
       monitor.systemHealth.openclaw = health.openclaw ? 'healthy' : 'offline';
 
-      // If OpenClaw HTTP is healthy but WebSocket is not connected, try reconnecting
-      if (health.openclaw && !window.openclawClient?.authenticated && window.openclawClient?._password) {
-        if (ocMode !== 'connected' && window.openclawClient._connectionState === 'disconnected') {
-          this.reconnect();
-        }
-      }
+      // NOTE: Do NOT trigger reconnect() from here — it causes a recursive storm
+      // because reconnect() calls _applyHealth() again. Let the client's own
+      // _scheduleReconnect handle retries, and the manual Reconnect button handle user-initiated retries.
     },
 
     async reconnect() {
-      Alpine.store('monitor').addLog('info', 'Running health checks...');
-      const health = await healthChecker.check();
-      this._applyHealth(health);
+      // Guard against concurrent reconnect calls (health poller + user tap + auto-retry)
+      if (this._reconnecting) return;
+      this._reconnecting = true;
 
-      if (health.litellm) {
-        Alpine.store('monitor').addLog('info', 'LiteLLM connected — chat is live');
-        const models = await litellmApi.fetchModels();
-        if (models.length > 0) {
-          Alpine.store('models').list = models;
-          Alpine.store('monitor').systemHealth.modelsAvailable = models.length;
+      try {
+        Alpine.store('monitor').addLog('info', 'Running health checks...');
+        const health = await healthChecker.check();
+        // Update health state directly (NOT via _applyHealth to avoid re-entrancy)
+        this.connected = health.litellm;
+        this.demoMode = !health.litellm;
+        const monitor = Alpine.store('monitor');
+        monitor.systemHealth.litellm = health.litellm ? 'healthy' : 'offline';
+        monitor.systemHealth.openclaw = health.openclaw ? 'healthy' : 'offline';
+
+        if (health.litellm) {
+          monitor.addLog('info', 'LiteLLM connected — chat is live');
+          const models = await litellmApi.fetchModels();
+          if (models.length > 0) {
+            Alpine.store('models').list = models;
+            monitor.systemHealth.modelsAvailable = models.length;
+          }
+        } else {
+          monitor.addLog('warn', 'LiteLLM unreachable — staying in demo mode');
         }
-      } else {
-        Alpine.store('monitor').addLog('warn', 'LiteLLM unreachable — staying in demo mode');
-      }
 
-      if (health.openclaw) {
-        Alpine.store('monitor').addLog('info', 'OpenClaw is online');
-        // Attempt WebSocket reconnect if not already connected
-        if (ocMode !== 'connected' && window.openclawClient && !window.openclawClient.authenticated) {
-          try {
-            const pw = window.openclawClient._password
-              || (() => { try { return sessionStorage.getItem('mc-oc-pw') || ''; } catch { return ''; } })();
-            if (pw) {
-              await window.openclawClient.connect(pw, { maxRetries: 1 });
-              ocMode = 'connected';
-              this.ocConnected = true;
-              Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
-              await this._syncAgentsFromOpenClaw();
-              await this._syncSessionsFromOpenClaw();
-              this._setupOpenClawEvents();
-            } else {
-              Alpine.store('monitor').addLog('warn', 'No password for OpenClaw reconnect — re-login required');
+        if (health.openclaw) {
+          monitor.addLog('info', 'OpenClaw is online');
+          // Attempt WebSocket reconnect if not already connected
+          if (ocMode !== 'connected' && window.openclawClient && !window.openclawClient.authenticated) {
+            try {
+              const pw = window.openclawClient._password
+                || (() => { try { return sessionStorage.getItem('mc-oc-pw') || ''; } catch { return ''; } })();
+              if (pw) {
+                await window.openclawClient.connect(pw, { maxRetries: 1 });
+                ocMode = 'connected';
+                this.ocConnected = true;
+                monitor.addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
+                await this._syncAgentsFromOpenClaw();
+                await this._syncSessionsFromOpenClaw();
+                this._setupOpenClawEvents();
+              } else {
+                monitor.addLog('warn', 'No password for OpenClaw reconnect — re-login required');
+              }
+            } catch (err) {
+              monitor.addLog('warn', `OpenClaw WS: ${err.message}`);
             }
-          } catch (err) {
-            Alpine.store('monitor').addLog('warn', `OpenClaw WebSocket reconnect failed: ${err.message}`);
           }
         }
+        // Update ocConnected based on actual auth state after attempt
+        this.ocConnected = window.openclawClient?.authenticated || false;
+      } finally {
+        this._reconnecting = false;
       }
     },
   });

@@ -143,7 +143,7 @@ class OpenClawClient {
         let settled = false;
 
         ws.onopen = () => {
-          console.log(`[OpenClaw] WebSocket connected to ${url}, sending auth...`);
+          console.log(`[OpenClaw] WebSocket TCP connected to ${url}, sending auth...`);
           // Client-speaks-first: send connect message immediately.
           // Older OpenClaw versions send a hello/challenge first (handled
           // in _handleMessage), but current versions expect the client to
@@ -153,6 +153,11 @@ class OpenClawClient {
         };
 
         ws.onmessage = (event) => {
+          // Debug: log raw message type for handshake diagnosis
+          try {
+            const peek = JSON.parse(event.data);
+            console.log(`[OpenClaw] WS recv: type=${peek.type}`, peek.type === 'hello-error' || peek.type === 'error' ? peek : '');
+          } catch { console.log('[OpenClaw] WS recv (non-JSON):', event.data?.slice?.(0, 100)); }
           this._handleMessage(event.data, (result) => {
             if (!settled) { settled = true; resolve(result); }
           }, (err) => {
@@ -161,7 +166,7 @@ class OpenClawClient {
         };
 
         ws.onerror = (err) => {
-          console.warn('[OpenClaw] WebSocket error:', err);
+          console.warn('[OpenClaw] WebSocket error event (no detail on browser):', err.type || err);
         };
 
         ws.onclose = (event) => {
@@ -203,6 +208,7 @@ class OpenClawClient {
         // Timeout the initial connection — 15s for mobile networks
         setTimeout(() => {
           if (!this.authenticated && !settled) {
+            console.warn(`[OpenClaw] Handshake timeout on ${url} — no auth response in 15s (readyState=${ws.readyState})`);
             ws.onclose = null; // prevent auto-reconnect for this attempt
             ws.close();
             settled = true;
@@ -366,6 +372,8 @@ class OpenClawClient {
     // Build the connect/auth message.
     // Called immediately on ws.onopen (client-speaks-first) and again
     // if the server sends a hello/challenge with a nonce (server-speaks-first).
+    const hasPw = !!(this._password && this._password.length > 0);
+    console.log(`[OpenClaw] Sending handshake (hasPassword=${hasPw}, hasNonce=${!!(challenge?.nonce)})`);
     const authMsg = {
       type: 'connect',
       params: {

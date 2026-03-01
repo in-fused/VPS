@@ -344,16 +344,15 @@
         <button x-show="$store.app.sidebarOpen || $store.app.mobile"
                 @click="$store.app.reconnect()"
                 class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2 hover:bg-mc-elevated transition-all text-left">
-          <!-- LiteLLM status dot -->
+          <!-- LiteLLM dot -->
           <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"></span>
-          <span class="text-mc-text-muted flex-1"
-                x-text="$store.app.connected ? 'LiteLLM OK' : 'LiteLLM Offline'"></span>
-          <!-- OpenClaw WS status dot -->
-          <span class="mc-dot"
-                :class="window.openclawClient?.authenticated ? 'mc-dot-connected' : (window.openclawClient?._connectionState === 'reconnecting' ? 'mc-dot-idle' : 'mc-dot-disconnected')"
-                style="width:6px;height:6px"></span>
-          <span class="text-mc-text-muted text-[10px]"
-                x-text="window.openclawClient?.authenticated ? 'WS Live' : (window.openclawClient?._connectionState === 'reconnecting' ? 'WS Retry...' : 'WS Off')"></span>
+          <span class="text-mc-text-muted" x-text="$store.app.connected ? 'API' : 'API Off'"></span>
+          <span class="text-mc-text-muted mx-1">|</span>
+          <!-- OpenClaw WS dot -->
+          <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
+          <span class="text-mc-text-muted" x-text="$store.app.ocConnected ? 'WS' : 'WS Off'"></span>
+          <!-- Tap hint -->
+          <span class="ml-auto text-mc-text-muted text-[9px] opacity-50">tap to retry</span>
         </button>
         <!-- Collapse Toggle (desktop only) -->
         <button x-show="!$store.app.mobile"
