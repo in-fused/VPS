@@ -340,20 +340,19 @@
 
       <!-- Sidebar Footer -->
       <div class="border-t border-mc-border p-3 flex-shrink-0">
-        <!-- Connection Status — tappable to reconnect on mobile -->
-        <button x-show="$store.app.sidebarOpen || $store.app.mobile"
-                @click="$store.app.reconnect()"
-                class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs mb-2 hover:bg-mc-elevated transition-all text-left">
-          <!-- LiteLLM dot -->
+        <!-- Connection Status — two separate indicators -->
+        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="flex items-center gap-1.5 px-2 py-1.5 text-xs mb-2">
+          <!-- LiteLLM status (not tappable — health polling handles it) -->
           <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"></span>
           <span class="text-mc-text-muted" x-text="$store.app.connected ? 'API' : 'API Off'"></span>
-          <span class="text-mc-text-muted mx-1">|</span>
-          <!-- OpenClaw WS dot -->
-          <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
-          <span class="text-mc-text-muted" x-text="$store.app.ocConnected ? 'WS' : 'WS Off'"></span>
-          <!-- Tap hint -->
-          <span class="ml-auto text-mc-text-muted text-[9px] opacity-50">tap to retry</span>
-        </button>
+          <span class="text-mc-text-muted opacity-30 mx-0.5">|</span>
+          <!-- OpenClaw WS status (tappable — retries WS only) -->
+          <button @click.stop="$store.app.reconnect()"
+                  class="flex items-center gap-1.5 px-1.5 py-0.5 -my-0.5 rounded hover:bg-mc-elevated transition-all">
+            <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
+            <span class="text-mc-text-muted" x-text="$store.app.ocConnected ? 'WS' : 'WS Off'"></span>
+          </button>
+        </div>
         <!-- Collapse Toggle (desktop only) -->
         <button x-show="!$store.app.mobile"
                 @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"

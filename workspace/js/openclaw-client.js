@@ -86,6 +86,23 @@ class OpenClawClient {
   }
 
   // ---------------------------------------------------------------------------
+  // DIAGNOSTIC LOGGING — visible in Monitor view on mobile (not just console)
+  // ---------------------------------------------------------------------------
+
+  _log(level, msg) {
+    const prefix = '[OpenClaw] ';
+    if (level === 'error') console.error(prefix + msg);
+    else if (level === 'warn') console.warn(prefix + msg);
+    else console.log(prefix + msg);
+    // Write to Monitor store if Alpine is initialized
+    try {
+      if (window.Alpine?.store?.('monitor')) {
+        window.Alpine.store('monitor').addLog(level, 'WS: ' + msg);
+      }
+    } catch {}
+  }
+
+  // ---------------------------------------------------------------------------
   // CONNECTION — uses /ws/openclaw (dedicated route, avoids root-path conflicts)
   // Falls back to / (legacy root WebSocket) if the dedicated route fails.
   // ---------------------------------------------------------------------------
@@ -143,7 +160,7 @@ class OpenClawClient {
         let settled = false;
 
         ws.onopen = () => {
-          console.log(`[OpenClaw] WebSocket TCP connected to ${url}, sending auth...`);
+          this._log('info', `TCP connected to ${url}, sending auth...`);
           // Client-speaks-first: send connect message immediately.
           // Older OpenClaw versions send a hello/challenge first (handled
           // in _handleMessage), but current versions expect the client to
@@ -156,8 +173,8 @@ class OpenClawClient {
           // Debug: log raw message type for handshake diagnosis
           try {
             const peek = JSON.parse(event.data);
-            console.log(`[OpenClaw] WS recv: type=${peek.type}`, peek.type === 'hello-error' || peek.type === 'error' ? peek : '');
-          } catch { console.log('[OpenClaw] WS recv (non-JSON):', event.data?.slice?.(0, 100)); }
+            this._log('info', `recv type=${peek.type}`);
+          } catch { this._log('warn', `recv non-JSON: ${event.data?.slice?.(0, 80)}`); }
           this._handleMessage(event.data, (result) => {
             if (!settled) { settled = true; resolve(result); }
           }, (err) => {
@@ -165,8 +182,8 @@ class OpenClawClient {
           });
         };
 
-        ws.onerror = (err) => {
-          console.warn('[OpenClaw] WebSocket error event (no detail on browser):', err.type || err);
+        ws.onerror = () => {
+          this._log('warn', `error on ${url} (browser hides details)`);
         };
 
         ws.onclose = (event) => {
@@ -174,7 +191,7 @@ class OpenClawClient {
           this.connected = false;
           this.authenticated = false;
           this._stopKeepAlive();
-          console.log(`[OpenClaw] WebSocket closed (code: ${event.code})`);
+          this._log('info', `closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
 
           // Reject all pending requests
           for (const [id, p] of this._pending) {
@@ -208,7 +225,7 @@ class OpenClawClient {
         // Timeout the initial connection — 15s for mobile networks
         setTimeout(() => {
           if (!this.authenticated && !settled) {
-            console.warn(`[OpenClaw] Handshake timeout on ${url} — no auth response in 15s (readyState=${ws.readyState})`);
+            this._log('warn', `Handshake timeout on ${url} — 15s, readyState=${ws.readyState}`);
             ws.onclose = null; // prevent auto-reconnect for this attempt
             ws.close();
             settled = true;
@@ -322,7 +339,7 @@ class OpenClawClient {
 
     // Handshake: server ack
     if (msg.type === 'hello-ok' || msg.type === 'welcome') {
-      console.log('[OpenClaw] Authenticated successfully');
+      this._log('info', 'Authenticated successfully');
       this.connected = true;
       this.authenticated = true;
       this._lastError = null;
@@ -336,7 +353,7 @@ class OpenClawClient {
     // Handshake: server rejection
     if (msg.type === 'hello-error' || msg.type === 'error') {
       const errMsg = msg.error || msg.message || 'Auth failed';
-      console.error('[OpenClaw] Auth rejected:', errMsg);
+      this._log('error', `Auth rejected: ${errMsg}`);
       this._lastError = errMsg;
       this._connectionState = 'disconnected';
       if (connectReject) connectReject(new Error(errMsg));
@@ -373,7 +390,7 @@ class OpenClawClient {
     // Called immediately on ws.onopen (client-speaks-first) and again
     // if the server sends a hello/challenge with a nonce (server-speaks-first).
     const hasPw = !!(this._password && this._password.length > 0);
-    console.log(`[OpenClaw] Sending handshake (hasPassword=${hasPw}, hasNonce=${!!(challenge?.nonce)})`);
+    this._log('info', `Sending handshake (hasPassword=${hasPw}, hasNonce=${!!(challenge?.nonce)})`);
     const authMsg = {
       type: 'connect',
       params: {

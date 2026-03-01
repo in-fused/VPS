@@ -186,25 +186,15 @@
 	# handle_path strips /ws/openclaw so OpenClaw receives connections at /
 	# (which is what its gateway expects). This avoids conflicts with
 	# Open WebUI's root path and the @openclawws legacy matcher below.
+	#
+	# NOTE: No cookie check here. iOS Safari does not reliably send
+	# SameSite=Lax cookies with WebSocket upgrade requests, causing the
+	# connection to be rejected at the Caddy level. OpenClaw has its own
+	# password authentication via the WebSocket handshake, so the cookie
+	# check is redundant — removing it fixes iOS while maintaining security.
 	handle_path /ws/openclaw {
-		@wsmc_noauth {
-			header Upgrade websocket
-			expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		}
-		handle @wsmc_noauth {
-			reverse_proxy openclaw:18789 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				flush_interval -1
-			}
-		}
-
-		@wsmc_authed {
-			header Upgrade websocket
-			header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		}
-		handle @wsmc_authed {
+		@wsmc_upgrade header Upgrade websocket
+		handle @wsmc_upgrade {
 			reverse_proxy openclaw:18789 {
 				header_up X-Real-IP {remote_host}
 				header_up X-Forwarded-For {remote_host}
@@ -224,24 +214,12 @@
 	# The native OpenClaw Control UI connects its WebSocket to wss://host/
 	# (root path, ignoring basePath). Kept for backward compatibility when
 	# accessing /openclaw/ directly. Mission Control uses /ws/openclaw above.
-	@openclawws_noauth {
-		path /
-		header Upgrade websocket
-		expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-	}
-	handle @openclawws_noauth {
-		reverse_proxy openclaw:18789 {
-			header_up X-Real-IP {remote_host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			flush_interval -1
-		}
-	}
-
+	#
+	# No cookie check — same iOS Safari fix as /ws/openclaw above.
+	# OpenClaw handles its own password auth via WebSocket handshake.
 	@openclawws {
 		path /
 		header Upgrade websocket
-		header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 	}
 	handle @openclawws {
 		reverse_proxy openclaw:18789 {
@@ -250,16 +228,6 @@
 			header_up X-Forwarded-Proto {scheme}
 			flush_interval -1
 		}
-	}
-	# Reject unauthenticated root WebSocket upgrades explicitly
-	# (without this, they fall through to the Open WebUI handler and get
-	# a confusing HTML login page in response to a WebSocket request)
-	@openclawws_unauth {
-		path /
-		header Upgrade websocket
-	}
-	handle @openclawws_unauth {
-		respond "Unauthorized" 403
 	}
 
 	# =========================================================================
