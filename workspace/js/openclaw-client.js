@@ -158,22 +158,21 @@ class OpenClawClient {
       try {
         const ws = new WebSocket(url);
         let settled = false;
+        this._handshakeSent = false;
 
         ws.onopen = () => {
-          this._log('info', `TCP connected to ${url}, sending auth...`);
-          // Client-speaks-first: send connect message immediately.
-          // Older OpenClaw versions send a hello/challenge first (handled
-          // in _handleMessage), but current versions expect the client to
-          // initiate. Sending proactively works with both — if the server
-          // sends a challenge with a nonce, we'll re-send with it.
-          this._sendHandshake({});
+          this._log('info', `TCP connected to ${url}, awaiting server hello...`);
+          // Do NOT send handshake here. OpenClaw's gateway sends its hello
+          // first — sending our connect before that triggers "invalid request
+          // frame" (1008). Wait for the server's initial message in onmessage.
         };
 
         ws.onmessage = (event) => {
           // Debug: log raw message type for handshake diagnosis
           try {
             const peek = JSON.parse(event.data);
-            this._log('info', `recv type=${peek.type}`);
+            const extra = peek.event ? ` event=${peek.event}` : '';
+            this._log('info', `recv type=${peek.type}${extra}`);
           } catch { this._log('warn', `recv non-JSON: ${event.data?.slice?.(0, 80)}`); }
           this._handleMessage(event.data, (result) => {
             if (!settled) { settled = true; resolve(result); }
@@ -330,9 +329,10 @@ class OpenClawClient {
       return;
     }
 
-    // Handshake: server hello/challenge
+    // Handshake: server hello/challenge (classic format)
     if (msg.type === 'hello' || msg.type === 'challenge') {
-      console.log('[OpenClaw] Server challenge received');
+      this._log('info', 'Server hello received, sending auth...');
+      this._handshakeSent = true;
       this._sendHandshake(msg);
       return;
     }
@@ -360,6 +360,19 @@ class OpenClawClient {
       return;
     }
 
+    // Server-push event — may also be the server's hello in newer format
+    if (msg.type === 'event') {
+      // If we haven't sent our handshake yet, this is the server's initial
+      // greeting (newer OpenClaw wraps hello as type=event). Send auth now.
+      if (!this._handshakeSent) {
+        this._log('info', `Server initial event (${msg.event || 'unknown'}), sending auth...`);
+        this._handshakeSent = true;
+        this._sendHandshake(msg.payload || {});
+      }
+      this._emit(msg.event, msg.payload || {});
+      return;
+    }
+
     // RPC response
     if (msg.type === 'res') {
       const pending = this._pending.get(msg.id);
@@ -375,14 +388,13 @@ class OpenClawClient {
       return;
     }
 
-    // Server-push event
-    if (msg.type === 'event') {
-      this._emit(msg.event, msg.payload || {});
-      return;
+    // Catch-all for unrecognized messages — send handshake if not sent yet
+    this._log('info', `Unhandled msg type: ${msg.type}`);
+    if (!this._handshakeSent) {
+      this._log('info', 'Treating unrecognized first message as server hello, sending auth...');
+      this._handshakeSent = true;
+      this._sendHandshake(msg);
     }
-
-    // Catch-all for unrecognized messages — might be handshake variants
-    console.log('[OpenClaw] Unhandled message type:', msg.type, msg);
   }
 
   _sendHandshake(challenge) {
