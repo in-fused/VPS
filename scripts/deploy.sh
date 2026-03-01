@@ -312,8 +312,7 @@ echo "  Agent Workspace: $BASE/workspace/"
 echo "  LiteLLM API:     $BASE/api/litellm/"
 if [ -n "${OPENCLAW_PASSWORD:-}" ]; then
     echo ""
-    echo "  OpenClaw password: ${OPENCLAW_PASSWORD}"
-    echo "  (saved in .env — use this to log into the /openclaw/ web UI)"
+    echo "  OpenClaw password: (saved in .env — run 'grep OPENCLAW_PASSWORD .env' to view)"
 fi
 
 echo ""

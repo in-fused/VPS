@@ -664,8 +664,10 @@ document.addEventListener('alpine:init', () => {
           const secure = location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
           sessionStorage.setItem('mc-auth', '1');
-          // Store password for OpenClaw WebSocket auth (session-scoped, not persistent)
-          sessionStorage.setItem('mc-oc-pw', password);
+          // Keep password in memory only for OpenClaw WebSocket auth.
+          // NOT stored in sessionStorage — prevents exfiltration via XSS.
+          // Tradeoff: page reload loses WebSocket (falls back to LiteLLM SSE).
+          if (window.openclawClient) window.openclawClient._password = password;
           this.ok = true;
           Alpine.store('app').boot();
           return true;
@@ -725,7 +727,6 @@ document.addEventListener('alpine:init', () => {
 
       // Clear session
       sessionStorage.removeItem('mc-auth');
-      sessionStorage.removeItem('mc-oc-pw');
       document.cookie = 'mc_oc=; path=/; max-age=0';
 
       // Force full page reload to reinitialize everything from defaults
@@ -805,8 +806,8 @@ document.addEventListener('alpine:init', () => {
       if (health.openclaw && window.openclawClient) {
         monitor.addLog('info', 'Connecting to OpenClaw...');
         try {
-          // Use the login password for OpenClaw auth
-          const pw = sessionStorage.getItem('mc-oc-pw') || '';
+          // Use the in-memory password for OpenClaw auth (set during login)
+          const pw = window.openclawClient._password || '';
           await window.openclawClient.connect(pw);
           ocMode = 'connected';
           monitor.addLog('info', 'OpenClaw WebSocket connected — agents are live');
@@ -1062,7 +1063,7 @@ document.addEventListener('alpine:init', () => {
         // Attempt WebSocket reconnect if not already connected
         if (ocMode !== 'connected' && window.openclawClient && !window.openclawClient.authenticated) {
           try {
-            const pw = sessionStorage.getItem('mc-oc-pw') || '';
+            const pw = window.openclawClient._password || '';
             await window.openclawClient.connect(pw, { maxRetries: 1 });
             ocMode = 'connected';
             Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');

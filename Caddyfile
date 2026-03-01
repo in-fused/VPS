@@ -49,16 +49,18 @@
 	# Security Headers
 	# =========================================================================
 	header {
+		# HSTS — force HTTPS for 2 years, prevent SSL stripping attacks
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		# Prevent clickjacking
 		X-Frame-Options "SAMEORIGIN"
-		# XSS protection
-		X-XSS-Protection "1; mode=block"
 		# Prevent MIME type sniffing
 		X-Content-Type-Options "nosniff"
 		# Referrer policy
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# Content Security Policy — allow self, CDN assets, Google Fonts, inline for Alpine/Tailwind
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss://{host} ws://{host}; frame-ancestors 'self'"
+		# Restrict browser features — deny access to hardware APIs not needed by Mission Control
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()"
 		# Remove server identification
 		-Server
 	}
@@ -248,6 +250,16 @@
 			header_up X-Forwarded-Proto {scheme}
 			flush_interval -1
 		}
+	}
+	# Reject unauthenticated root WebSocket upgrades explicitly
+	# (without this, they fall through to the Open WebUI handler and get
+	# a confusing HTML login page in response to a WebSocket request)
+	@openclawws_unauth {
+		path /
+		header Upgrade websocket
+	}
+	handle @openclawws_unauth {
+		respond "Unauthorized" 403
 	}
 
 	# =========================================================================
