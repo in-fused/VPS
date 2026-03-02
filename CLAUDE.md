@@ -553,12 +553,12 @@ The exact working format (validated 2026-03-02):
 }
 ```
 
-**Why each field matters:**
-- `auth.mode` — do NOT include; schema rejects as "unexpected property" (1008)
-- `auth.token` — needed for token-mode compat; some versions check this first
-- `auth.password` — **required** for password mode; without it → "gateway password missing" (1008)
-- `client.id: 'webchat'` — must be this exact string; schema rejects unknown values → "must be equal to constant" (1008)
-- `device` block **omitted** — dummy crypto → "device identity mismatch" (1008); server has `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`
+**Authoritative schema** (from `src/gateway/protocol/schema/frames.ts` in the OpenClaw repo):
+- `auth` — only `token`, `password`, `deviceToken` accepted (all optional strings). `additionalProperties: false` — any extra field (like `mode`) → "unexpected property" (1008)
+- `client.id` — must be one of: `webchat`, `cli`, `webchat-ui`, `openclaw-control-ui`, `gateway-client`, `openclaw-macos`, `openclaw-ios`, `openclaw-android`, `node-host`, `test`, `fingerprint`, `openclaw-probe`
+- `client.mode` — must be one of: `webchat`, `cli`, `ui`, `backend`, `node`, `probe`, `test`
+- `device` — entirely optional. When omitted + `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`, auth works without device identity. Sending dummy crypto → "device identity mismatch" (1008)
+- `role`, `scopes` — both optional strings/arrays
 - The entrypoint sets both `controlUi.dangerouslyDisableDeviceAuth=true` AND `controlUi.allowInsecureAuth=true`. Both are required — `allowInsecureAuth` is needed for Docker/reverse-proxy setups where connections come from trustedProxies (Issue #1679).
 
 ### LiteLLM `drop_params: true`
