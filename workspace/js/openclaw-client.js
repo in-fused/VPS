@@ -431,22 +431,10 @@ class OpenClawClient {
     // Generate a unique ID so we can match the server's response
     this._connectReqId = String(++this._reqId);
 
-    // Stable device ID — persisted in localStorage so the same browser
-    // always presents the same device identity to OpenClaw.
-    let deviceId;
-    try { deviceId = localStorage.getItem('mc-device-id'); } catch {}
-    if (!deviceId) {
-      deviceId = Math.random().toString(36).slice(2, 10);
-      try { localStorage.setItem('mc-device-id', deviceId); } catch {}
-    }
-
-    // Generate a dummy Ed25519-length public key and signature from the device ID.
-    // With dangerouslyDisableDeviceAuth=true on the server, the crypto is not
-    // verified — but the v3 schema still requires these fields to be present
-    // and correctly shaped (base64url strings of plausible length).
-    const dummyPublicKey = btoa('mc-device-pubkey-' + deviceId).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const dummySignature = btoa('mc-device-sig-' + deviceId + '-' + nonce + '-' + Date.now()).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
+    // When dangerouslyDisableDeviceAuth=true + allowInsecureAuth=true on the
+    // server, the Control UI docs say to OMIT the device block entirely.
+    // Sending dummy crypto causes "device identity mismatch" because the
+    // gateway validates signatures before checking the bypass flag.
     const authMsg = {
       type: 'req',
       id: this._connectReqId,
@@ -460,22 +448,15 @@ class OpenClawClient {
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
         client: {
-          id: 'webchat',
+          id: 'mission-control',
           version: '1.0.0',
           platform: 'web',
           mode: 'webchat',
         },
-        device: {
-          id: 'mc-' + deviceId,
-          publicKey: dummyPublicKey,
-          signature: dummySignature,
-          signedAt: Date.now(),
-          nonce: nonce,
-        },
       },
     };
 
-    this._log('info', `Handshake frame: type=req method=connect proto=3 deviceId=${authMsg.params.device.id}`);
+    this._log('info', `Handshake frame: type=req method=connect proto=3 (no device block — auth bypass)`);
     this._send(authMsg);
   }
 

@@ -30,6 +30,10 @@ config.gateway.controlUi.basePath = '/openclaw/';
 // Without this, each new browser requires manual CLI approval even after
 // entering the correct password (device pairing is a separate auth layer).
 config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+// allowInsecureAuth is required for Docker/reverse-proxy setups (issue #1679).
+// Without it, connections from trustedProxies are still treated as external
+// and device identity is enforced despite dangerouslyDisableDeviceAuth=true.
+config.gateway.controlUi.allowInsecureAuth = true;
 // v2026.2.24+: non-loopback bind requires explicit allowedOrigins or the
 // Host-header fallback flag. Set both — explicit origin for production,
 // fallback for dev/IP access.
