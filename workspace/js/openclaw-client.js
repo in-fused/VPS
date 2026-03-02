@@ -448,7 +448,7 @@ class OpenClawClient {
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
         client: {
-          id: 'mission-control',
+          id: 'webchat',
           version: '1.0.0',
           platform: 'web',
           mode: 'webchat',
