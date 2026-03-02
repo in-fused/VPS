@@ -559,36 +559,58 @@ class OpenClawClient {
   // ---------------------------------------------------------------------------
 
   async listSessions(agentId) {
-    const params = agentId ? { agentId } : {};
+    const params = {};
+    if (agentId) params.agentId = agentId;
+    params.includeDerivedTitles = true;
+    params.includeLastMessage = true;
     const result = await this.request('sessions.list', params);
     return result.sessions || result || [];
   }
 
-  async getHistory(sessionId) {
-    const result = await this.request('chat.history', { sessionId });
+  async getHistory(sessionKey) {
+    const result = await this.request('chat.history', { sessionKey });
     return result.messages || result || [];
   }
 
-  async deleteSession(sessionId) {
-    return this.request('sessions.delete', { sessionId });
+  async deleteSession(sessionKey) {
+    return this.request('sessions.delete', { key: sessionKey });
   }
 
   // ---------------------------------------------------------------------------
   // HIGH-LEVEL API: CHAT
   // ---------------------------------------------------------------------------
 
-  // Send a chat message and return the runId for tracking streaming events
-  async sendChat(text, options = {}) {
+  // ===========================================================================
+  // VERIFIED SCHEMA — ChatSendParamsSchema (additionalProperties: false)
+  // ===========================================================================
+  // Required: sessionKey (NonEmptyString), message (String), idempotencyKey (NonEmptyString)
+  // Optional: thinking (String), deliver (Boolean), attachments (Array), timeoutMs (Integer)
+  // NO other fields allowed — agentId, sessionId, etc. cause validation errors.
+  // Session key format: "<agentId>:main:webchat:mc-<id>" for Mission Control sessions.
+  // ===========================================================================
+  async sendChat(text, { sessionKey, timeoutMs } = {}) {
+    if (!sessionKey) throw new Error('sessionKey is required for chat.send');
     const params = {
+      sessionKey,
       message: text,
-      ...options,
+      idempotencyKey: this._generateId(),
     };
+    if (timeoutMs !== undefined) params.timeoutMs = timeoutMs;
     const result = await this.request('chat.send', params);
-    return result; // { runId, status: "started" }
+    return result;
   }
 
-  async abortChat(runId) {
-    return this.request('chat.abort', { runId });
+  // Generate a unique ID for idempotency keys
+  _generateId() {
+    const ts = Date.now().toString(36);
+    const rand = Math.random().toString(36).slice(2, 10);
+    return `mc-${ts}-${rand}`;
+  }
+
+  async abortChat(sessionKey, runId) {
+    const params = { sessionKey };
+    if (runId) params.runId = runId;
+    return this.request('chat.abort', params);
   }
 
   // ---------------------------------------------------------------------------

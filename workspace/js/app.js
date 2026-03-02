@@ -1065,17 +1065,33 @@ document.addEventListener('alpine:init', () => {
         const sessions = await window.openclawClient.listSessions();
         if (sessions && sessions.length > 0) {
           const sessionStore = Alpine.store('sessions');
-          sessionStore.list = sessions.map(s => ({
-            id: s.id || s.sessionId,
-            agentId: s.agentId || '',
-            agentName: s.agentName || s.agentId || 'Agent',
-            agentEmoji: s.agentEmoji || '🤖',
-            title: s.title || s.summary || 'Conversation',
-            lastMessage: s.lastMessage || '',
-            updatedAt: s.updatedAt || Date.now(),
-            unread: s.unread || 0,
-            _source: 'openclaw',
-          }));
+          // sessions.list returns objects with 'key' (sessionKey), 'sessionId' (internal UUID),
+          // 'displayName', 'derivedTitle', 'lastMessagePreview', 'updatedAt', etc.
+          // Extract agentId from session key format: "agent:<agentId>:..." or "<agentId>:main"
+          sessionStore.list = sessions.map(s => {
+            const sk = s.key || s.sessionKey || '';
+            // Parse agentId from key: "agent:<id>:..." or "<id>:main"
+            let agentId = '';
+            if (sk.startsWith('agent:')) {
+              agentId = sk.split(':')[1] || '';
+            } else if (sk.includes(':')) {
+              agentId = sk.split(':')[0] || '';
+            }
+            const agentStore = Alpine.store('agents');
+            const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
+            return {
+              id: s.sessionId || sk || generateId(),
+              sessionKey: sk,
+              agentId: agentId,
+              agentName: agent?.name || s.displayName || agentId || 'Agent',
+              agentEmoji: agent?.emoji || '🤖',
+              title: s.derivedTitle || s.label || s.displayName || 'Conversation',
+              lastMessage: s.lastMessagePreview || '',
+              updatedAt: s.updatedAt || Date.now(),
+              unread: 0,
+              _source: 'openclaw',
+            };
+          });
           Alpine.store('monitor').addLog('info', `Synced ${sessions.length} sessions from OpenClaw`);
         }
       } catch (err) {
@@ -1443,7 +1459,9 @@ document.addEventListener('alpine:init', () => {
       // Try loading from OpenClaw server
       if (ocMode === 'connected' && window.openclawClient?.authenticated) {
         try {
-          const history = await window.openclawClient.getHistory(id);
+          const session = this.list.find(s => s.id === id);
+          const historyKey = session?.sessionKey || id;
+          const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
             this.messages = history.map(m => ({
               id: m.id || generateId(),
@@ -1469,8 +1487,22 @@ document.addEventListener('alpine:init', () => {
       const agent = Alpine.store('agents').list.find(a => a.id === agentId);
       if (!agent) return;
 
+      // OpenClaw session key format: "<agentId>:main" for webchat DMs.
+      // One persistent conversation per agent (OpenClaw model).
+      const sessionKey = agentId + ':main';
+
+      // If a session with this sessionKey already exists, just select it
+      const existing = this.list.find(s => s.sessionKey === sessionKey);
+      if (existing) {
+        this.activeId = existing.id;
+        this.select(existing.id);
+        Alpine.store('app').setView('chat');
+        return;
+      }
+
       const session = {
         id: generateId(),
+        sessionKey,
         agentId: agent.id,
         agentName: agent.name,
         agentEmoji: agent.emoji,
@@ -1534,10 +1566,12 @@ document.addEventListener('alpine:init', () => {
             messageText = `[SYSTEM INSTRUCTIONS — follow these for the entire conversation]\n${agent.systemPrompt}${tierInfo}\n[END SYSTEM INSTRUCTIONS]\n\n${text}`;
           }
 
-          await window.openclawClient.sendChat(messageText, {
-            agentId: agent?.id,
-            sessionId: session?.id,
-          });
+          // Session key: use server-synced key, or derive from agent ID
+          const sessionKey = session?.sessionKey || (agent?.id ? agent.id + ':main' : 'lead:main');
+          // Store sessionKey back on session if it was missing
+          if (session && !session.sessionKey) session.sessionKey = sessionKey;
+
+          await window.openclawClient.sendChat(messageText, { sessionKey });
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
 
@@ -1886,7 +1920,7 @@ document.addEventListener('alpine:init', () => {
       try {
         await window.openclawClient.sendChat(
           `EXECUTE_WORKFLOW:${this.activeId}\nWorkflow: ${wf.name}\n${graphData}`,
-          { agentId: 'lead' }
+          { sessionKey: 'lead:main' }
         );
         wf.status = 'running-bg';
         wf.lastRun = 'Background';
@@ -2573,9 +2607,10 @@ document.addEventListener('alpine:init', () => {
       Alpine.store('monitor').addLog('info', `Staging item "${item.name}" approved`);
 
       if (window.openclawClient?.authenticated) {
+        const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
         window.openclawClient.sendChat(
           `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner. Please update /workspace/staging/index.json to set status to "approved".`,
-          { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
+          { sessionKey: agentId + ':main' }
         ).catch(() => {});
       }
 
@@ -2596,9 +2631,10 @@ document.addEventListener('alpine:init', () => {
       Alpine.store('monitor').addLog('info', `Staging item "${item.name}" rejected: ${reason || 'no reason'}`);
 
       if (window.openclawClient?.authenticated) {
+        const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
         window.openclawClient.sendChat(
           `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise and update /workspace/staging/index.json.`,
-          { agentId: item.createdBy !== 'user' ? item.createdBy : 'lead' }
+          { sessionKey: agentId + ':main' }
         ).catch(() => {});
       }
 

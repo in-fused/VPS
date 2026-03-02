@@ -343,8 +343,8 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 
 **Handshake protocol:**
 1. Server sends `hello`/`challenge` (may include nonce)
-2. Client sends `connect` with `{ auth: { mode: 'password', token, password }, role: 'operator', scopes: [...] }`
-3. Server sends `hello-ok`/`welcome` → authenticated
+2. Client sends `connect` with `{ auth: { token, password }, role: 'operator', scopes: [...] }` (NO `auth.mode` — schema rejects it)
+3. Server sends `res` to the connect request → authenticated
 
 **RPC:** `{ type: 'req', id, method, params }` → `{ type: 'res', id, payload }`
 
@@ -352,12 +352,26 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 - `listAgents()` → `agents.list`
 - `addAgent(config)` → `agents.add`
 - `deleteAgent(agentId)` → `agents.delete`
-- `listSessions()` → `sessions.list`
-- `getHistory(sessionId)` → `chat.history`
-- `sendChat(text, { agentId, sessionId })` → `chat.send`
+- `listSessions(agentId?)` → `sessions.list` (returns objects with `key` field = sessionKey)
+- `getHistory(sessionKey)` → `chat.history`
+- `sendChat(text, { sessionKey })` → `chat.send` (also sends `idempotencyKey` auto-generated)
+- `deleteSession(sessionKey)` → `sessions.delete` (uses `key` param)
+- `abortChat(sessionKey, runId?)` → `chat.abort`
 - `getConfig()` → `config.get`
 - `getToolsCatalog()` → `tools.catalog`
 - `getCronJobs()` → `cron.status`
+
+**chat.send schema** (`ChatSendParamsSchema`, `additionalProperties: false`):
+- `sessionKey` — required, NonEmptyString — format: `<agentId>:main` for webchat DMs
+- `message` — required, String — the chat message text
+- `idempotencyKey` — required, NonEmptyString — unique per-request (auto-generated)
+- `thinking` — optional String
+- `deliver` — optional Boolean
+- `attachments` — optional Array
+- `timeoutMs` — optional Integer (min: 0)
+- **NO other fields allowed** — `agentId`, `sessionId`, `model` etc. cause validation errors
+
+**Session key format:** `<agentId>:main` for webchat DMs. Sessions auto-create on first `chat.send`. Use `sessions.reset` (params: `{ key, reason }`) to start a fresh conversation on the same key.
 
 **Resilience:** Auto-reconnect with exponential backoff (2s→30s). Pauses reconnection when iOS app is backgrounded, resumes on visibility change. `disconnect()` clears all event handlers to prevent duplication on re-login.
 
@@ -594,8 +608,8 @@ These are solved — do not re-investigate or re-fix:
 
 ### Available OpenClaw RPC Methods (via WebSocket)
 
-**Chat:** `chat.send`, `chat.history`, `chat.abort`
-**Sessions:** `sessions.list`, `sessions.preview`, `sessions.resolve`, `sessions.patch`, `sessions.reset`, `sessions.delete`, `sessions.compact`
+**Chat:** `chat.send` (params: sessionKey, message, idempotencyKey), `chat.history` (params: sessionKey), `chat.abort` (params: sessionKey, runId?), `chat.inject` (params: sessionKey, message, label?)
+**Sessions:** `sessions.list` (params: agentId?, includeDerivedTitles?, includeLastMessage?), `sessions.preview`, `sessions.resolve`, `sessions.patch` (params: key + patch fields), `sessions.reset` (params: key, reason?), `sessions.delete` (params: key), `sessions.compact`
 **Agents:** `agents.list`, `agents.create`, `agents.update`, `agents.delete`, `agents.files.list`, `agents.files.get`, `agents.files.set`
 **Config:** `config.get`, `config.set`, `config.apply`, `config.patch`, `config.schema`
 **Cron:** `cron.list`, `cron.status`, `cron.add`, `cron.update`, `cron.remove`, `cron.run`, `cron.runs`, `cron.runs.read`
