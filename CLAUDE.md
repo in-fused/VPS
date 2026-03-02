@@ -17,6 +17,14 @@
 
 ---
 
+## Development Rules
+
+**Do not modify working code as a side effect.** When fixing a bug or adding a feature, change only what is necessary for that task. Do not rename variables, restructure objects, "clean up" adjacent code, or remove fields that look unnecessary. If existing code is working in production, assume every part of it is load-bearing until proven otherwise. The owner deploys from a phone — every broken push costs hours of mobile debugging.
+
+**Scope discipline:** If a function works, don't touch it while working on something else. If you need to change a working function, that's a separate commit with a separate justification — not a drive-by edit bundled into an unrelated fix.
+
+---
+
 ## Deployment & Mobile-First Requirements
 
 ### The owner manages this entire project from an iPhone via AWS Session Manager (SSM).
