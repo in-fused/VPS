@@ -223,11 +223,17 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - DeepSeek ($0.14/1M): CodeCraft, Builder, Sentinel (code + reasoning, dirt cheap)
 - gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
 
-**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks.
+**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier (Oracle Cloud ARM partition). The owner can manually promote a sustained Elite performer to Manager (above both teams).
 
-Each agent has a comprehensive system prompt with awareness of the team structure, file system protocols, and project context. Prompts are defined in two places:
-- `workspace/js/app.js` `DEMO_AGENTS` array — used by the LiteLLM SSE fallback path and as the UI default
-- `scripts/openclaw-entrypoint.sh` `instructions` field — injected into OpenClaw on first run (condensed version)
+Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
+- `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
+- `AGENT_GOVERNANCE` — tier system, weekly evaluation, Manager promotion — injected into every prompt
+- `WORKFLOW_REFERENCE` — LiteGraph node types and workflow creation — Lead and Ops Lead only
+- `LEAD_PROTOCOLS` — staging, activity log, WRITE_FILES, GOVERNANCE_ADJUST — Lead and Ops Lead only
+- `SPECIALIST_PROTOCOLS` — condensed file access and logging — all specialists
+All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint (`scripts/openclaw-entrypoint.sh`) has condensed agent configs for OpenClaw seeding — the `instructions` key is scrubbed on every restart.
+
+**Manager Promotion:** A consistently Elite-performing agent can be manually promoted by the owner to "Manager" — a role above both teams, reporting directly to the owner. A replacement agent fills the vacated spot. All agents are aware of this possibility.
 
 ### Agent Communication Protocols
 
@@ -250,8 +256,9 @@ Each agent has a comprehensive system prompt with awareness of the team structur
 - Appears in Staging view for owner approval (never auto-applied)
 
 **Background Execution** — Owner sends workflows via "Background Run" button:
-- Serialized graph sent to Lead agent as `EXECUTE_WORKFLOW:{id}\n{json}`
-- Lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
+- Auto-routes to the appropriate team lead: if first agent node uses a Platform Team agent (ops-lead, builder, sentinel, chronicler), routes to Ops Lead; otherwise routes to Lead
+- Serialized graph sent as `EXECUTE_WORKFLOW:{id}\n{json}`
+- Team lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
 
 ### Bridge Directories (auto-created by workspace-init)
 ```
@@ -299,7 +306,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 | File | Lines | Purpose |
 |------|-------|---------|
 | `workspace/index.html` | 1429 | Main SPA shell (Alpine.js templates, all views) |
-| `workspace/js/app.js` | 1352 | All Alpine stores, health checks, chat, governance |
+| `workspace/js/app.js` | 2811 | Shared prompt constants, Alpine stores, health checks, chat, governance |
 | `workspace/js/workflow.js` | ~860 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
 | `workspace/js/workflow-bridge.js` | ~190 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
 | `workspace/js/openclaw-client.js` | 423 | OpenClaw WebSocket RPC client |
