@@ -527,9 +527,30 @@ These are non-obvious behaviors across the system. A future session that doesn't
 ### workspace-init Overwrites On Every Deploy
 - The `workspace-init` container runs `cp -r /seed/. /workspace/` on every deploy, copying repo `workspace/` files into the Docker volume. This means any manual edits to `index.html`, `app.js`, etc. made directly on the volume (not in the repo) will be **overwritten** on next deploy. Always edit files in the repo, not on the running container.
 
-### OpenClaw Auth Handshake
-- The WebSocket connect message sends the password in **both** `token` and `password` fields: `{ auth: { mode: 'password', token: password, password: password } }`. The gateway is in password mode — `auth.password` is required for password mode, `auth.token` is also sent for compatibility. Removing either field can break auth depending on OpenClaw version.
-- The `device` block must be **omitted entirely** — do NOT send dummy/fake device crypto (publicKey, signature). With `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`, the server accepts connections without device identity. Sending invalid dummy signatures triggers "device identity mismatch" (1008) because the gateway validates crypto BEFORE checking the bypass flag.
+### OpenClaw Auth Handshake — VERIFIED WORKING, DO NOT CHANGE
+**⚠️ This handshake was broken 3 times in a row by well-intentioned "cleanups". Every field is load-bearing. Do NOT modify `_sendHandshake()` in `openclaw-client.js` without testing on the live server first.**
+
+The exact working format (validated 2026-03-02):
+```javascript
+{
+  type: 'req', method: 'connect',
+  params: {
+    minProtocol: 3, maxProtocol: 3,
+    auth: { mode: 'password', token: pw, password: pw },
+    role: 'operator',
+    scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
+    client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'webchat' },
+    // NO device block
+  }
+}
+```
+
+**Why each field matters:**
+- `auth.mode: 'password'` — matches `gateway.auth.mode` config
+- `auth.token` — needed for token-mode compat; some versions check this first
+- `auth.password` — **required** for password mode; without it → "gateway password missing" (1008)
+- `client.id: 'webchat'` — must be this exact string; schema rejects unknown values → "must be equal to constant" (1008)
+- `device` block **omitted** — dummy crypto → "device identity mismatch" (1008); server has `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`
 - The entrypoint sets both `controlUi.dangerouslyDisableDeviceAuth=true` AND `controlUi.allowInsecureAuth=true`. Both are required — `allowInsecureAuth` is needed for Docker/reverse-proxy setups where connections come from trustedProxies (Issue #1679).
 
 ### LiteLLM `drop_params: true`

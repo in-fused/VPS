@@ -420,21 +420,31 @@ class OpenClawClient {
     }
   }
 
+  // ===========================================================================
+  // VERIFIED WORKING HANDSHAKE — DO NOT MODIFY without testing on live server.
+  // ===========================================================================
+  // This exact message format was validated against OpenClaw v3 protocol on
+  // 2026-03-02 after 3 rounds of breakage. Every field is load-bearing:
+  //
+  //   auth.mode      — must be 'password' (matches gateway.auth.mode config)
+  //   auth.token     — required for token-mode compat; some versions check this
+  //   auth.password  — required for password-mode; omitting → "gateway password missing"
+  //   client.id      — must be 'webchat' (schema rejects unknown constants)
+  //   client.mode    — must be 'webchat'
+  //   device block   — must be OMITTED entirely (dummy crypto → "device identity mismatch")
+  //   role/scopes    — 'operator' with full scope list
+  //
+  // If you change ANY of these fields, you MUST test the WebSocket connection
+  // end-to-end on the live server before pushing. The owner deploys from an
+  // iPhone — broken pushes cost hours of debugging on a mobile screen.
+  // ===========================================================================
   _sendHandshake(challenge) {
-    // Build the connect/auth message using OpenClaw v3 protocol.
-    // The gateway expects type='req' with method='connect' (same frame format
-    // as all other RPC calls), NOT a bare type='connect'.
     const hasPw = !!(this._password && this._password.length > 0);
     const nonce = challenge?.nonce || '';
     this._log('info', `Sending handshake (hasPassword=${hasPw}, hasNonce=${!!nonce})`);
 
-    // Generate a unique ID so we can match the server's response
     this._connectReqId = String(++this._reqId);
 
-    // When dangerouslyDisableDeviceAuth=true + allowInsecureAuth=true on the
-    // server, the Control UI docs say to OMIT the device block entirely.
-    // Sending dummy crypto causes "device identity mismatch" because the
-    // gateway validates signatures before checking the bypass flag.
     const authMsg = {
       type: 'req',
       id: this._connectReqId,
@@ -455,6 +465,9 @@ class OpenClawClient {
           platform: 'web',
           mode: 'webchat',
         },
+        // NO device block — dangerouslyDisableDeviceAuth + allowInsecureAuth
+        // on the server means device identity is not required. Sending dummy
+        // crypto values causes "device identity mismatch" (1008).
       },
     };
 
