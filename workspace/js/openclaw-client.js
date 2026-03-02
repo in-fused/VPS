@@ -586,7 +586,8 @@ class OpenClawClient {
   // Required: sessionKey (NonEmptyString), message (String), idempotencyKey (NonEmptyString)
   // Optional: thinking (String), deliver (Boolean), attachments (Array), timeoutMs (Integer)
   // NO other fields allowed — agentId, sessionId, etc. cause validation errors.
-  // Session key format: "<agentId>:main:webchat:mc-<id>" for Mission Control sessions.
+  // Session key format: "agent:<agentId>:main" for webchat DMs.
+  // deliver: false prevents forwarding to external channels (Telegram, Discord).
   // ===========================================================================
   async sendChat(text, { sessionKey, timeoutMs } = {}) {
     if (!sessionKey) throw new Error('sessionKey is required for chat.send');
@@ -594,6 +595,7 @@ class OpenClawClient {
       sessionKey,
       message: text,
       idempotencyKey: this._generateId(),
+      deliver: false,
     };
     if (timeoutMs !== undefined) params.timeoutMs = timeoutMs;
     const result = await this.request('chat.send', params);

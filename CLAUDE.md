@@ -325,9 +325,9 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 
 **Route 1: OpenClaw WebSocket** (preferred)
 - `openclaw-client.js` connects to `/ws/openclaw`, authenticates with login password
-- JSON-RPC: `chat.send` → server pushes `chat.delta` / `chat.complete` / `chat.error` events
+- JSON-RPC: `chat.send` → server pushes `chat` events with `state: "delta" | "final" | "error" | "aborted"`
 - Real agent execution with tools, memory, sub-agents
-- 60s safety timeout if no `chat.complete` arrives
+- 60s safety timeout if no `state: "final"` arrives
 
 **Route 2: LiteLLM SSE** (fallback when OpenClaw WS unavailable)
 - Direct `POST /api/mc/v1/chat/completions` with `stream: true`
@@ -362,16 +362,26 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 - `getCronJobs()` → `cron.status`
 
 **chat.send schema** (`ChatSendParamsSchema`, `additionalProperties: false`):
-- `sessionKey` — required, NonEmptyString — format: `<agentId>:main` for webchat DMs
+- `sessionKey` — required, NonEmptyString — format: `agent:<agentId>:main` for webchat DMs
 - `message` — required, String — the chat message text
 - `idempotencyKey` — required, NonEmptyString — unique per-request (auto-generated)
+- `deliver` — optional Boolean — set to `false` for webchat (prevents forwarding to Telegram/Discord)
 - `thinking` — optional String
-- `deliver` — optional Boolean
 - `attachments` — optional Array
 - `timeoutMs` — optional Integer (min: 0)
 - **NO other fields allowed** — `agentId`, `sessionId`, `model` etc. cause validation errors
 
-**Session key format:** `<agentId>:main` for webchat DMs. Sessions auto-create on first `chat.send`. Use `sessions.reset` (params: `{ key, reason }`) to start a fresh conversation on the same key.
+**Session key format:** `agent:<agentId>:main` for webchat DMs (e.g., `agent:lead:main`). Sessions auto-create on first `chat.send`. Use `sessions.reset` (params: `{ key, reason }`) to start a fresh conversation on the same key.
+
+**Chat event schema** (`ChatEventSchema`, event name: `chat`):
+- `runId` — string, matches the `idempotencyKey` sent in `chat.send`
+- `sessionKey` — string, the session this event belongs to
+- `seq` — integer, sequence number within the run
+- `state` — `"delta"` (streaming), `"final"` (complete), `"aborted"`, `"error"`
+- `message` — the content (object or string, varies by state)
+- `errorMessage` — error text (when `state: "error"`)
+- `usage` — token usage info (on `"final"`)
+- `stopReason` — why generation stopped (on `"final"`)
 
 **Resilience:** Auto-reconnect with exponential backoff (2s→30s). Pauses reconnection when iOS app is backgrounded, resumes on visibility change. `disconnect()` clears all event handlers to prevent duplication on re-login.
 

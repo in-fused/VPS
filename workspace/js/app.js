@@ -1110,102 +1110,122 @@ document.addEventListener('alpine:init', () => {
       if (oc._mcEventsRegistered) return;
       oc._mcEventsRegistered = true;
 
-      // Chat streaming events
-      oc.on('chat.delta', (payload) => {
+      // Chat streaming events — OpenClaw sends event name 'chat' with a 'state' field:
+      // state: "delta" (streaming content), "final" (complete), "aborted", "error"
+      // payload.message contains the content object, payload.errorMessage for errors
+      oc.on('chat', (payload) => {
         const sessions = Alpine.store('sessions');
-        if (sessions._streamingMsg) {
-          sessions._streamingMsg.content += (payload.content || payload.delta || '');
-          sessions._scrollToBottom();
-        }
-      });
+        const state = payload.state;
 
-      oc.on('chat.complete', (payload) => {
-        const sessions = Alpine.store('sessions');
-        if (sessions._streamingMsg) {
-          sessions._streamingMsg.streaming = false;
-          sessions._streamingMsg.time = timeNow();
-          sessions._streamingMsg = null;
-        }
-        sessions._sending = false;
-
-        // Update session metadata
-        const session = sessions.active;
-        if (session) {
-          const lastMsg = sessions.messages[sessions.messages.length - 1];
-          session.lastMessage = (lastMsg?.content || '').slice(0, 60);
-          session.updatedAt = Date.now();
+        if (state === 'delta') {
+          // Streaming content delta
+          if (sessions._streamingMsg) {
+            // Extract text from message — may be string or object with content field
+            const msg = payload.message;
+            const delta = typeof msg === 'string' ? msg : (msg?.content || msg?.text || payload.content || payload.delta || '');
+            sessions._streamingMsg.content += delta;
+            sessions._scrollToBottom();
+          }
+          return;
         }
 
-        // Update agent stats + governance metrics
-        const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-        if (agent) {
-          agent.tasksCompleted++;
-          agent.lastActive = 'Just now';
-          Alpine.store('agents')._persist();
-
-          // Record successful task in governance
-          const lastMsg = sessions.messages[sessions.messages.length - 1];
-          const tokens = Math.round(((lastMsg?.content || '').length) / 4);
-          Alpine.store('governance').recordTask(agent.id, {
-            success: true, tokens, taskType: 'chat-openclaw',
-          });
-        }
-
-        mcAudio.chatComplete();
-
-        // Check for governance self-tuning proposals from agents
-        const lastMsgContent = sessions.messages[sessions.messages.length - 1]?.content || '';
-        if (lastMsgContent.includes('GOVERNANCE_ADJUST:')) {
-          try {
-            const match = lastMsgContent.match(/GOVERNANCE_ADJUST:\s*(\{[\s\S]*?\})/);
-            if (match) {
-              const adjustment = JSON.parse(match[1]);
-              const staging = Alpine.store('staging');
-              if (staging) {
-                staging.items.push({
-                  id: 'gov-' + Date.now(),
-                  name: 'Governance Adjustment',
-                  path: '',
-                  type: 'config',
-                  createdBy: payload.agentId || session?.agentId || 'lead',
-                  createdAt: Date.now(),
-                  description: `Agent suggests: ${JSON.stringify(adjustment)}`,
-                  status: 'pending',
-                  previewUrl: '',
-                  _data: adjustment,
-                });
-                Alpine.store('monitor').addLog('info',
-                  'Agent proposed governance adjustment (pending approval in Staging)'
-                );
+        if (state === 'final') {
+          // Chat complete
+          if (sessions._streamingMsg) {
+            // If final message has content, append it
+            if (payload.message) {
+              const msg = payload.message;
+              const finalContent = typeof msg === 'string' ? msg : (msg?.content || msg?.text || '');
+              if (finalContent && !sessions._streamingMsg.content.endsWith(finalContent)) {
+                sessions._streamingMsg.content += finalContent;
               }
             }
-          } catch {}
+            sessions._streamingMsg.streaming = false;
+            sessions._streamingMsg.time = timeNow();
+            sessions._streamingMsg = null;
+          }
+          sessions._sending = false;
+
+          // Update session metadata
+          const session = sessions.active;
+          if (session) {
+            const lastMsg = sessions.messages[sessions.messages.length - 1];
+            session.lastMessage = (lastMsg?.content || '').slice(0, 60);
+            session.updatedAt = Date.now();
+          }
+
+          // Update agent stats + governance metrics
+          const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+          if (agent) {
+            agent.tasksCompleted++;
+            agent.lastActive = 'Just now';
+            Alpine.store('agents')._persist();
+
+            const lastMsg = sessions.messages[sessions.messages.length - 1];
+            const tokens = Math.round(((lastMsg?.content || '').length) / 4);
+            Alpine.store('governance').recordTask(agent.id, {
+              success: true, tokens, taskType: 'chat-openclaw',
+            });
+          }
+
+          mcAudio.chatComplete();
+
+          // Check for governance self-tuning proposals from agents
+          const lastMsgContent = sessions.messages[sessions.messages.length - 1]?.content || '';
+          if (lastMsgContent.includes('GOVERNANCE_ADJUST:')) {
+            try {
+              const match = lastMsgContent.match(/GOVERNANCE_ADJUST:\s*(\{[\s\S]*?\})/);
+              if (match) {
+                const adjustment = JSON.parse(match[1]);
+                const staging = Alpine.store('staging');
+                if (staging) {
+                  staging.items.push({
+                    id: 'gov-' + Date.now(),
+                    name: 'Governance Adjustment',
+                    path: '',
+                    type: 'config',
+                    createdBy: session?.agentId || 'lead',
+                    createdAt: Date.now(),
+                    description: `Agent suggests: ${JSON.stringify(adjustment)}`,
+                    status: 'pending',
+                    previewUrl: '',
+                    _data: adjustment,
+                  });
+                  Alpine.store('monitor').addLog('info',
+                    'Agent proposed governance adjustment (pending approval in Staging)'
+                  );
+                }
+              }
+            } catch {}
+          }
+
+          sessions._persistMessages();
+          sessions._persist();
+          return;
         }
 
-        sessions._persistMessages();
-        sessions._persist();
-      });
+        if (state === 'error' || state === 'aborted') {
+          // Chat error or aborted
+          if (sessions._streamingMsg) {
+            const errText = payload.errorMessage || payload.message || 'Unknown error';
+            sessions._streamingMsg.content += '\n\nError: ' + errText;
+            sessions._streamingMsg.streaming = false;
+            sessions._streamingMsg = null;
+          }
+          sessions._sending = false;
+          sessions._persistMessages();
 
-      oc.on('chat.error', (payload) => {
-        const sessions = Alpine.store('sessions');
-        if (sessions._streamingMsg) {
-          sessions._streamingMsg.content += '\n\nError: ' + (payload.message || 'Unknown error');
-          sessions._streamingMsg.streaming = false;
-          sessions._streamingMsg = null;
+          const session = sessions.active;
+          const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
+          if (agent) {
+            Alpine.store('governance').recordTask(agent.id, {
+              success: false, taskType: 'chat-openclaw',
+            });
+          }
+
+          Alpine.store('monitor').addLog('error', `Chat ${state}: ${payload.errorMessage || 'Unknown error'}`);
+          return;
         }
-        sessions._sending = false;
-        sessions._persistMessages();
-
-        // Record failed task in governance
-        const session = sessions.active;
-        const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-        if (agent) {
-          Alpine.store('governance').recordTask(agent.id, {
-            success: false, taskType: 'chat-openclaw',
-          });
-        }
-
-        Alpine.store('monitor').addLog('error', `Chat error: ${payload.message}`);
       });
 
       // Reconnection
@@ -1487,9 +1507,9 @@ document.addEventListener('alpine:init', () => {
       const agent = Alpine.store('agents').list.find(a => a.id === agentId);
       if (!agent) return;
 
-      // OpenClaw session key format: "<agentId>:main" for webchat DMs.
+      // OpenClaw session key format: "agent:<agentId>:main" for webchat DMs.
       // One persistent conversation per agent (OpenClaw model).
-      const sessionKey = agentId + ':main';
+      const sessionKey = 'agent:' + agentId + ':main';
 
       // If a session with this sessionKey already exists, just select it
       const existing = this.list.find(s => s.sessionKey === sessionKey);
@@ -1567,7 +1587,7 @@ document.addEventListener('alpine:init', () => {
           }
 
           // Session key: use server-synced key, or derive from agent ID
-          const sessionKey = session?.sessionKey || (agent?.id ? agent.id + ':main' : 'lead:main');
+          const sessionKey = session?.sessionKey || (agent?.id ? 'agent:' + agent.id + ':main' : 'agent:lead:main');
           // Store sessionKey back on session if it was missing
           if (session && !session.sessionKey) session.sessionKey = sessionKey;
 
@@ -1920,7 +1940,7 @@ document.addEventListener('alpine:init', () => {
       try {
         await window.openclawClient.sendChat(
           `EXECUTE_WORKFLOW:${this.activeId}\nWorkflow: ${wf.name}\n${graphData}`,
-          { sessionKey: 'lead:main' }
+          { sessionKey: 'agent:lead:main' }
         );
         wf.status = 'running-bg';
         wf.lastRun = 'Background';
@@ -2610,7 +2630,7 @@ document.addEventListener('alpine:init', () => {
         const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
         window.openclawClient.sendChat(
           `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner. Please update /workspace/staging/index.json to set status to "approved".`,
-          { sessionKey: agentId + ':main' }
+          { sessionKey: 'agent:' + agentId + ':main' }
         ).catch(() => {});
       }
 
@@ -2634,7 +2654,7 @@ document.addEventListener('alpine:init', () => {
         const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
         window.openclawClient.sendChat(
           `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise and update /workspace/staging/index.json.`,
-          { sessionKey: agentId + ':main' }
+          { sessionKey: 'agent:' + agentId + ':main' }
         ).catch(() => {});
       }
 
