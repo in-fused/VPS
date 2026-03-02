@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Prompt Library — in-fused.org</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#06060e">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #06060e;
+      --surface: rgba(14,13,26,0.85);
+      --surface-hover: rgba(14,13,26,0.95);
+      --border: rgba(212,175,55,0.15);
+      --border-bright: rgba(212,175,55,0.35);
+      --gold: #d4af37;
+      --gold-light: #f0d060;
+      --gold-dim: rgba(212,175,55,0.10);
+      --green: #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --text: #eeedf5;
+      --text-sec: #b0adc0;
+      --text-muted: #5a5670;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Rajdhani', sans-serif; font-size: 16px; line-height: 1.5;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      min-height: 100vh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    /* Header */
+    .back-link {
+      display: inline-block; color: var(--gold); text-decoration: none;
+      margin-bottom: 16px; font-size: 0.95rem; min-height: 44px; line-height: 44px;
+    }
+    h1 { font-size: 1.5rem; color: var(--gold); margin-bottom: 4px; font-weight: 600; }
+    .subtitle { color: var(--text-sec); font-size: 0.95rem; margin-bottom: 20px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 0; margin-bottom: 20px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .tab {
+      flex: 1; padding: 12px 8px; text-align: center; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; min-height: 44px;
+      background: transparent; border: none; color: var(--text-sec);
+      font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
+    }
+    .tab.active { background: var(--gold-dim); color: var(--gold-light); }
+    .tab:not(:last-child) { border-right: 1px solid var(--border); }
+
+    /* Section */
+    .section { display: none; }
+    .section.active { display: block; }
+    .section-desc { color: var(--text-sec); font-size: 0.9rem; margin-bottom: 16px; }
+
+    /* Info box */
+    .info-box {
+      background: var(--gold-dim); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; margin-bottom: 20px;
+    }
+    .info-box h2 { font-size: 1.05rem; color: var(--gold-light); margin-bottom: 6px; }
+    .info-box ol { padding-left: 20px; }
+    .info-box li { margin-bottom: 4px; color: var(--text-sec); font-size: 0.9rem; }
+    .info-box li strong { color: var(--text); }
+
+    /* Prompt card */
+    .prompt-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; margin-bottom: 20px; overflow: hidden;
+    }
+    .prompt-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .prompt-meta { flex: 1; min-width: 0; }
+    .prompt-title { font-size: 1.05rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .prompt-title .emoji { margin-right: 6px; }
+    .prompt-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .prompt-subtitle .tag {
+      display: inline-block; background: var(--gold-dim); color: var(--gold);
+      padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;
+    }
+    .copy-btn {
+      background: var(--gold); color: #000; border: none; border-radius: 8px;
+      padding: 10px 18px; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; min-height: 44px; min-width: 70px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .copy-btn:active { opacity: 0.7; }
+    .copy-btn.copied { background: var(--green); color: #fff; }
+    .prompt-body {
+      padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem; line-height: 1.55; color: var(--text-sec);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 300px; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .prompt-body.collapsed { max-height: 120px; overflow: hidden; position: relative; }
+    .prompt-body.collapsed::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50px;
+      background: linear-gradient(transparent, var(--surface));
+    }
+    .expand-btn {
+      display: block; width: 100%; padding: 10px; text-align: center;
+      color: var(--gold); background: transparent; border: none; border-top: 1px solid var(--border);
+      font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; cursor: pointer;
+      min-height: 44px; font-weight: 500;
+    }
+
+    /* Rating */
+    .prompt-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-top: 1px solid var(--border); gap: 8px;
+    }
+    .rating { display: flex; gap: 4px; }
+    .star {
+      font-size: 1.3rem; cursor: pointer; min-width: 32px; min-height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); transition: color 0.15s;
+    }
+    .star.filled { color: var(--gold); }
+    .star:hover { color: var(--gold-light); }
+    .result-note { font-size: 0.8rem; color: var(--text-muted); font-style: italic; text-align: right; flex: 1; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: var(--text-muted);
+    }
+    .empty-state p { margin-bottom: 8px; }
+
+    /* Note */
+    .note {
+      color: var(--text-sec); font-size: 0.85rem; padding: 12px 14px;
+      background: var(--gold-dim); border-radius: 8px; border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    .note strong { color: var(--gold-light); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/workspace/" class="back-link">&larr; Mission Control</a>
+    <h1>Prompt Library</h1>
+    <p class="subtitle">Curated prompts for agent tasking. Copy, paste, iterate.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('starter')">Starter</button>
+      <button class="tab" onclick="switchTab('archive')">Archive <span id="archive-count"></span></button>
+      <button class="tab" onclick="switchTab('about')">How It Works</button>
+    </div>
+
+    <!-- STARTER TAB -->
+    <div id="tab-starter" class="section active">
+      <p class="section-desc">Send these to kick off agent operations. Prompt 1 to Lead, Prompt 2 to Ops Lead.</p>
+
+      <div class="info-box">
+        <h2>Quick Start</h2>
+        <ol>
+          <li><strong>Chat</strong> &rarr; <strong>New Conversation</strong> &rarr; pick <strong>Lead</strong></li>
+          <li>Tap <strong>Copy</strong> on Prompt 1 &rarr; paste &rarr; Send</li>
+          <li><strong>New Conversation</strong> &rarr; pick <strong>Ops Lead</strong></li>
+          <li>Tap <strong>Copy</strong> on Prompt 2 &rarr; paste &rarr; Send</li>
+          <li>Close the browser. Agents work 24/7.</li>
+        </ol>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team Kickoff</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> delegation + self-discovery + cron</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('starter1', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="starter1">The system is live. All 8 agents deployed across two teams, LiteLLM routing 14 models, OpenClaw running 24/7. This is your first real session — everything starts now.
+
+IMMEDIATE TASKS — delegate these to your team:
+
+1. SELF-DISCOVERY (you): Run exec to explore your environment. Check what tools you have, read /workspace/ to see the shared volume structure, and verify you can reach CodeCraft, Scout, and Scribe via sessions_send. Report what you find.
+
+2. CODECRAFT: Have them audit the Mission Control codebase at /workspace/js/ — specifically app.js, workflow.js, and openclaw-client.js. Look for bugs, dead code, security issues, or quick performance wins. Write findings to /workspace/staging/ for my review.
+
+3. SCOUT: Research OpenClaw's cron tool capabilities and server-side agent workspace files (SOUL.md, AGENTS.md, IDENTITY.md, MEMORY.md). We currently inject system prompts client-side — I want to know if migrating to server-side workspace files would be better. Also research the OpenClaw provider docs at docs.openclaw.ai/providers/openai for any transport or compaction settings we should configure. Full report to /workspace/staging/.
+
+4. SCRIBE: Create a "System Status" document covering: what's deployed, what's working, what needs work (reference the WORKFLOW SYSTEM section from your instructions). Put it in /workspace/staging/.
+
+5. CRON SETUP: Create a daily cron job — check system health, summarize what happened in the last 24h, log to the activity log. This proves background autonomy works.
+
+RULES OF ENGAGEMENT:
+- I will close this browser and come back later. Keep working autonomously.
+- Log ALL significant events to the activity log.
+- Put ALL deliverables in /workspace/staging/ for my review.
+- Start building a team rhythm: daily health checks, proactive improvements, honest competition with Platform Team.
+- You're competing against Ops Lead's team. Governance scores are live. Prove Core Team delivers.
+
+Confirm you can reach your team and tools, then get to work.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team Kickoff</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> security audit + monitoring + cron</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('starter2', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="starter2">The system is live. All 8 agents deployed, both teams competing on governance scores. You lead Platform Team. This is your first real session — establish your team's value from minute one.
+
+IMMEDIATE TASKS — delegate these to your team:
+
+1. SELF-DISCOVERY (you): Run exec to explore your environment. Verify tool access, read /workspace/, confirm you can reach Builder, Sentinel, and Chronicler via sessions_send. Report findings.
+
+2. SENTINEL: Full security and health audit. Check for exposed secrets in Docker logs, verify Caddy TLS config, review container memory usage vs limits (OpenClaw has OOM history at 1536M), scan for CVEs in our images, check API key exposure. Write a security report to /workspace/staging/.
+
+3. BUILDER: Audit docker-compose.yml, deploy.sh, and openclaw-entrypoint.sh. Check memory limits, restart policies, health check coverage, volume management. We just enabled OpenClaw auto-update (stable channel) — verify the config looks correct. Propose any infrastructure improvements to /workspace/staging/.
+
+4. CHRONICLER: Create a deployment runbook — exact commands for full deploy, single-service restart, volume reset, log checking. All commands must be single-line (owner uses iPhone + SSM). Put it in /workspace/staging/.
+
+5. CRON SETUP: Create a cron job that runs every 6 hours — health-check all services (LiteLLM /health/liveliness, OpenClaw gateway status, container memory), log results to the activity log. Flag anything above 80% memory usage as a warning.
+
+RULES OF ENGAGEMENT:
+- I will close the browser. You keep working.
+- Proactive monitoring is your team's reason to exist. Don't wait for me to notice problems — find and fix them.
+- ALL proposals go to /workspace/staging/ for my review. No direct changes without approval.
+- Log everything to the activity log. When I return, I want to see exactly what you did.
+- Core Team (Lead, CodeCraft, Scout, Scribe) is your competition. Governance scores are live. Outperform them.
+
+Confirm team connectivity and begin.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+    </div>
+
+    <!-- ARCHIVE TAB -->
+    <div id="tab-archive" class="section">
+      <p class="section-desc">Prompts that produced results worth saving. Rate them to build a quality signal over time.</p>
+      <div id="archive-list"></div>
+      <div class="note">
+        <strong>How prompts get archived:</strong> Tell an agent "archive that prompt" with a title, or agents can write directly to <code>/workspace/prompts/archive.json</code>. Rate archived prompts here — ratings persist and help identify one-shot patterns.
+      </div>
+    </div>
+
+    <!-- ABOUT TAB -->
+    <div id="tab-about" class="section">
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>Prompt Library</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem;">
+          This page serves as the single source for agent prompts. It loads archived prompts from
+          <code>/workspace/prompts/archive.json</code> on every visit.
+        </p>
+      </div>
+
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>Archive Format</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; line-height: 1.4;">{
+  "prompts": [{
+    "id": "unique-id",
+    "title": "Short descriptive title",
+    "target": "lead|ops-lead|codecraft|...",
+    "category": "kickoff|research|audit|...",
+    "text": "The full prompt text...",
+    "rating": null or 1-5,
+    "result": "Brief note on what happened",
+    "archivedAt": unix_ms,
+    "archivedBy": "owner|lead|ops-lead|...",
+    "tags": ["tag1", "tag2"]
+  }]
+}</p>
+      </div>
+
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>How to Archive a Prompt</h2>
+        <ol>
+          <li>Send a prompt to an agent and get great results</li>
+          <li>Tell the agent: <em>"Archive that prompt to /workspace/prompts/archive.json with title 'X'"</em></li>
+          <li>Or: agents proactively archive prompts that achieved one-shot success</li>
+          <li>Rate archived prompts on this page — ratings are saved back to the JSON</li>
+          <li>Over time, high-rated prompts become templates for future tasks</li>
+        </ol>
+      </div>
+
+      <div class="info-box">
+        <h2>The Vision</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem;">
+          As agents improve, the best prompts converge toward one-shot execution — give a single prompt,
+          get a complete result. The archive captures what works so the system gets sharper over time.
+          High-rated prompts are the DNA of effective agent tasking.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const AGENT_EMOJI = {
+      'lead': '🧠', 'codecraft': '⚡', 'scout': '🔍', 'scribe': '📝',
+      'ops-lead': '🎯', 'builder': '🔨', 'sentinel': '🛡️', 'chronicler': '📋'
+    };
+
+    let archiveData = { prompts: [] };
+
+    // Tab switching
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    // Copy prompt text
+    function copyPrompt(id, btn) {
+      const el = document.getElementById(id);
+      const text = el ? el.textContent : '';
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        btn.textContent = 'Selected!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    // Copy archived prompt by index
+    function copyArchived(idx, btn) {
+      const p = archiveData.prompts[idx];
+      if (!p) return;
+      navigator.clipboard.writeText(p.text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {
+        btn.textContent = 'Failed';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    // Expand/collapse prompt body
+    function toggleExpand(btn) {
+      const body = btn.previousElementSibling;
+      if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        btn.textContent = 'Collapse';
+      } else {
+        body.classList.add('collapsed');
+        btn.textContent = 'Show full prompt';
+      }
+    }
+
+    // Rate an archived prompt
+    function ratePrompt(idx, stars) {
+      archiveData.prompts[idx].rating = stars;
+      renderArchive();
+      saveArchive();
+    }
+
+    // Save archive back to JSON
+    async function saveArchive() {
+      try {
+        // Write via fetch to a simple endpoint, or use localStorage as cache
+        // For now, persist ratings to localStorage — agents read the JSON, owner rates on page
+        localStorage.setItem('mc-prompt-ratings', JSON.stringify(
+          archiveData.prompts.reduce((acc, p) => { if (p.rating) acc[p.id] = p.rating; return acc; }, {})
+        ));
+      } catch (e) {
+        console.warn('Failed to save ratings:', e);
+      }
+    }
+
+    // Load ratings from localStorage and merge with archive
+    function mergeLocalRatings() {
+      try {
+        const ratings = JSON.parse(localStorage.getItem('mc-prompt-ratings') || '{}');
+        archiveData.prompts.forEach(p => {
+          if (ratings[p.id] && !p.rating) p.rating = ratings[p.id];
+        });
+      } catch (e) {}
+    }
+
+    // Render the archive tab
+    function renderArchive() {
+      const list = document.getElementById('archive-list');
+      const count = document.getElementById('archive-count');
+      const prompts = archiveData.prompts;
+
+      count.textContent = prompts.length > 0 ? `(${prompts.length})` : '';
+
+      if (prompts.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>No archived prompts yet.</p><p style="font-size:0.85rem;">Tell an agent to archive a prompt, or they\'ll save one-shot winners automatically.</p></div>';
+        return;
+      }
+
+      // Sort: highest rated first, then newest
+      const sorted = [...prompts].map((p, i) => ({ ...p, _idx: i }))
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.archivedAt || 0) - (a.archivedAt || 0));
+
+      list.innerHTML = sorted.map(p => {
+        const emoji = AGENT_EMOJI[p.target] || '🤖';
+        const date = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString() : '';
+        const tags = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+        const stars = [1,2,3,4,5].map(n =>
+          `<span class="star ${(p.rating || 0) >= n ? 'filled' : ''}" onclick="ratePrompt(${p._idx}, ${n})">★</span>`
+        ).join('');
+        const resultNote = p.result ? `<span class="result-note">${p.result}</span>` : '';
+        // Truncate display text
+        const displayText = p.text.length > 500 ? p.text.slice(0, 500) + '…' : p.text;
+
+        return `<div class="prompt-card">
+          <div class="prompt-header">
+            <div class="prompt-meta">
+              <div class="prompt-title">${emoji} ${p.title || 'Untitled'}</div>
+              <div class="prompt-subtitle"><span class="tag">${p.target || '?'}</span>${tags} ${date}</div>
+            </div>
+            <button class="copy-btn" onclick="copyArchived(${p._idx}, this)">Copy</button>
+          </div>
+          <div class="prompt-body collapsed" style="font-size:0.76rem;">${p.text}</div>
+          <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+          <div class="prompt-footer">
+            <div class="rating">${stars}</div>
+            ${resultNote}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Load archive from server
+    async function loadArchive() {
+      try {
+        const resp = await fetch('/workspace/prompts/archive.json', { cache: 'no-store' });
+        if (resp.ok) {
+          archiveData = await resp.json();
+          mergeLocalRatings();
+          renderArchive();
+        }
+      } catch (e) {
+        console.warn('Failed to load archive:', e);
+        renderArchive();
+      }
+    }
+
+    // Init
+    loadArchive();
+  </script>
+</body>
+</html>

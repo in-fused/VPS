@@ -266,8 +266,16 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 /workspace/agent-workflows/results/  ← Background execution results
 /workspace/staging/             ← Agent content for owner review + index.json
 /workspace/agent-activity/      ← Event log for away-report + log.json
+/workspace/prompts/             ← Prompt archive (archive.json) for reusable prompts
 ```
 These directories persist in the Docker volume and are NOT overwritten by workspace-init (only seeded if missing).
+
+**Prompt Library** — `/workspace/prompts.html` (accessible at `https://in-fused.org/workspace/prompts.html`):
+- Starter prompts for Lead and Ops Lead kickoff
+- Dynamic archive loaded from `/workspace/prompts/archive.json`
+- Agents can archive effective prompts by writing to `archive.json`
+- Owner rates prompts on the page (1-5 stars, persisted to localStorage)
+- Archive format: `{ prompts: [{ id, title, target, category, text, rating, result, archivedAt, archivedBy, tags }] }`
 
 ### How to Start Using Agents
 

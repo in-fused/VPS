@@ -1,0 +1,28 @@
+{
+  "prompts": [
+    {
+      "id": "kickoff-lead-20260302",
+      "title": "First Session — Core Team Kickoff",
+      "target": "lead",
+      "category": "kickoff",
+      "text": "The system is live. All 8 agents deployed across two teams, LiteLLM routing 14 models, OpenClaw running 24/7. This is your first real session — everything starts now.\n\nIMMEDIATE TASKS — delegate these to your team:\n\n1. SELF-DISCOVERY (you): Run exec to explore your environment. Check what tools you have, read /workspace/ to see the shared volume structure, and verify you can reach CodeCraft, Scout, and Scribe via sessions_send. Report what you find.\n\n2. CODECRAFT: Have them audit the Mission Control codebase at /workspace/js/ — specifically app.js, workflow.js, and openclaw-client.js. Look for bugs, dead code, security issues, or quick performance wins. Write findings to /workspace/staging/ for my review.\n\n3. SCOUT: Research OpenClaw's cron tool capabilities and server-side agent workspace files (SOUL.md, AGENTS.md, IDENTITY.md, MEMORY.md). We currently inject system prompts client-side — I want to know if migrating to server-side workspace files would be better. Also research the OpenClaw provider docs at docs.openclaw.ai/providers/openai for any transport or compaction settings we should configure. Full report to /workspace/staging/.\n\n4. SCRIBE: Create a \"System Status\" document covering: what's deployed, what's working, what needs work (reference the WORKFLOW SYSTEM section from your instructions). Put it in /workspace/staging/.\n\n5. CRON SETUP: Create a daily cron job — check system health, summarize what happened in the last 24h, log to the activity log. This proves background autonomy works.\n\nRULES OF ENGAGEMENT:\n- I will close this browser and come back later. Keep working autonomously.\n- Log ALL significant events to the activity log.\n- Put ALL deliverables in /workspace/staging/ for my review.\n- Start building a team rhythm: daily health checks, proactive improvements, honest competition with Platform Team.\n- You're competing against Ops Lead's team. Governance scores are live. Prove Core Team delivers.\n\nConfirm you can reach your team and tools, then get to work.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1740873600000,
+      "archivedBy": "owner",
+      "tags": ["first-run", "delegation", "self-discovery", "cron"]
+    },
+    {
+      "id": "kickoff-opslead-20260302",
+      "title": "First Session — Platform Team Kickoff",
+      "target": "ops-lead",
+      "category": "kickoff",
+      "text": "The system is live. All 8 agents deployed, both teams competing on governance scores. You lead Platform Team. This is your first real session — establish your team's value from minute one.\n\nIMMEDIATE TASKS — delegate these to your team:\n\n1. SELF-DISCOVERY (you): Run exec to explore your environment. Verify tool access, read /workspace/, confirm you can reach Builder, Sentinel, and Chronicler via sessions_send. Report findings.\n\n2. SENTINEL: Full security and health audit. Check for exposed secrets in Docker logs, verify Caddy TLS config, review container memory usage vs limits (OpenClaw has OOM history at 1536M), scan for CVEs in our images, check API key exposure. Write a security report to /workspace/staging/.\n\n3. BUILDER: Audit docker-compose.yml, deploy.sh, and openclaw-entrypoint.sh. Check memory limits, restart policies, health check coverage, volume management. We just enabled OpenClaw auto-update (stable channel) — verify the config looks correct. Propose any infrastructure improvements to /workspace/staging/.\n\n4. CHRONICLER: Create a deployment runbook — exact commands for full deploy, single-service restart, volume reset, log checking. All commands must be single-line (owner uses iPhone + SSM). Put it in /workspace/staging/.\n\n5. CRON SETUP: Create a cron job that runs every 6 hours — health-check all services (LiteLLM /health/liveliness, OpenClaw gateway status, container memory), log results to the activity log. Flag anything above 80% memory usage as a warning.\n\nRULES OF ENGAGEMENT:\n- I will close the browser. You keep working.\n- Proactive monitoring is your team's reason to exist. Don't wait for me to notice problems — find and fix them.\n- ALL proposals go to /workspace/staging/ for my review. No direct changes without approval.\n- Log everything to the activity log. When I return, I want to see exactly what you did.\n- Core Team (Lead, CodeCraft, Scout, Scribe) is your competition. Governance scores are live. Outperform them.\n\nConfirm team connectivity and begin.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1740873600000,
+      "archivedBy": "owner",
+      "tags": ["first-run", "delegation", "self-discovery", "security-audit", "cron"]
+    }
+  ]
+}
