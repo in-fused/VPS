@@ -111,6 +111,14 @@ config.cron = config.cron || {};
 config.cron.enabled = true;
 config.cron.maxConcurrentRuns = 1;
 
+// Auto-updater: keep OpenClaw on stable channel with automatic updates.
+// In-app mechanism (separate from Docker image tags). Stable channel avoids
+// bleeding-edge regressions like #30092 (dangerouslyDisableDeviceAuth issue).
+config.update = config.update || {};
+config.update.channel = 'stable';
+config.update.auto = config.update.auto || {};
+config.update.auto.enabled = true;
+
 // Telegram bot integration (only if token provided via env).
 // Guarded: if the config key format is wrong, OpenClaw will reject it at
 // startup, but the entrypoint cleanup below will catch it on next restart.

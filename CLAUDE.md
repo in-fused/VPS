@@ -622,6 +622,7 @@ These are solved — do not re-investigate or re-fix:
 ### Entrypoint Config Additions (2026-03-02)
 - `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
 - `tools.sessions.visibility = 'all'` — agents can see each other's sessions for team coordination
+- `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
 
 ### Available OpenClaw RPC Methods (via WebSocket)
 
