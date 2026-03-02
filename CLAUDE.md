@@ -285,7 +285,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 - `compaction`, `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
 - `gateway.trustProxy` — use `gateway.trustedProxies` instead
 
-**Agent system prompts are CLIENT-SIDE ONLY** — defined in `workspace/js/app.js` DEMO_AGENTS array. OpenClaw does not support server-side instructions. The LiteLLM SSE fallback path injects them (app.js line 966-967). The entrypoint cleanup loop scrubs any `instructions` keys from persisted config.
+**Agent system prompts are CLIENT-SIDE in our setup** — defined in `workspace/js/app.js` DEMO_AGENTS array, injected into the first message of each OpenClaw conversation (app.js line ~1524) and as a `system` role message in the LiteLLM SSE fallback (app.js line ~1576). Note: OpenClaw v3 DOES support server-side prompts via workspace files (`SOUL.md`, `AGENTS.md`, `IDENTITY.md` etc. in each agent's workspace dir), but `instructions` is NOT a valid agent config key — the entrypoint scrubs it.
 
 ---
 
@@ -396,7 +396,7 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 
 4. **Loop node doesn't iterate** — splits input into an array and returns, but doesn't execute downstream nodes per-item. True iteration would require the executor to re-run the subgraph for each item.
 
-5. **Scheduled/Webhook triggers are UI-only** — no backend scheduler or webhook endpoint exists.
+5. **Scheduled/Webhook triggers are UI-only** — ~~no backend scheduler or webhook endpoint exists.~~ **UPDATE (2026-03-02):** `cron.enabled=true` is now set in the entrypoint. Agents can create server-side cron jobs via the `cron` tool. UI triggers still need wiring to the cron RPC.
 
 6. **No agent↔workflow bridge** — agents cannot programmatically create, read, modify, or execute workflows. This is the primary goal.
 
@@ -579,3 +579,54 @@ These are solved — do not re-investigate or re-fix:
 - **deploy.sh pull failures**: Explicitly lists pullable services (`caddy litellm litellm-db openclaw`), separate `docker compose build open-webui` step
 - **OpenClaw config crash loops**: Entrypoint cleans all invalid keys (see "Config Validation" section above)
 - **Duplicate WebSocket events on re-login**: `disconnect()` clears all handlers, `_mcEventsRegistered` guard
+- **WebSocket handshake (device identity mismatch / client.id / password missing / auth.mode)**: Fixed by removing dummy device block, using valid `client.id: 'webchat'`, sending password in both `auth.token` + `auth.password`, omitting `auth.mode`. See "Auth Handshake" section above.
+
+---
+
+## OpenClaw Deep Reference (researched 2026-03-02)
+
+### Version Warning
+**Do NOT update the OpenClaw Docker image to v2026.2.26 until [PR #30227](https://github.com/openclaw/openclaw/pull/30227) is merged.** Issue [#30092](https://github.com/openclaw/openclaw/issues/30092): `dangerouslyDisableDeviceAuth=true` fails with `device-required` behind HTTPS reverse proxy on v2026.2.26. We run behind Caddy (HTTPS). Current `ghcr.io/openclaw/openclaw:main` tag may auto-update — consider pinning to a known-good version if this becomes an issue.
+
+### Entrypoint Config Additions (2026-03-02)
+- `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
+- `tools.sessions.visibility = 'all'` — agents can see each other's sessions for team coordination
+
+### Available OpenClaw RPC Methods (via WebSocket)
+
+**Chat:** `chat.send`, `chat.history`, `chat.abort`
+**Sessions:** `sessions.list`, `sessions.preview`, `sessions.resolve`, `sessions.patch`, `sessions.reset`, `sessions.delete`, `sessions.compact`
+**Agents:** `agents.list`, `agents.create`, `agents.update`, `agents.delete`, `agents.files.list`, `agents.files.get`, `agents.files.set`
+**Config:** `config.get`, `config.set`, `config.apply`, `config.patch`, `config.schema`
+**Cron:** `cron.list`, `cron.status`, `cron.add`, `cron.update`, `cron.remove`, `cron.run`, `cron.runs`, `cron.runs.read`
+**System:** `health`, `status`, `usage.status`, `usage.cost`, `models.list`, `tools.catalog`, `skills.status`
+**Other:** `agent` (run turn), `send` (message), `wake`, `channels.status`, `push.test`, `browser.request`
+
+### Available Agent Tools (full profile, default)
+
+| Tool | Description |
+|------|-------------|
+| `read`, `write`, `edit` | Filesystem operations in agent workspace |
+| `exec` | Shell command execution (runs on OpenClaw container) |
+| `sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn` | Session management and agent-to-agent messaging |
+| `memory_search`, `memory_get` | Semantic memory across MEMORY.md |
+| `web_search`, `web_fetch` | Web access (search requires `tools.web.search.apiKey`) |
+| `cron` | Create/manage scheduled background jobs |
+| `gateway` | Gateway config management |
+| `browser` | Browser automation (Puppeteer/CDP) |
+| `agents_list` | List configured agents |
+
+### Cron Jobs for Background Autonomy
+
+Agents can create cron jobs that run server-side 24/7:
+- **Schedule types:** `at` (one-shot), `every` (interval), `cron` (expression)
+- **Payload kinds:** `systemEvent` (inject into main session) or `agentTurn` (isolated execution)
+- **Session targets:** `"main"` or `"isolated"`
+- **Created via:** `cron` tool (available to all agents) or `cron.add` RPC method
+
+### Server-Side Agent Workspace Files
+
+OpenClaw v3 builds agent system prompts from workspace files (not config). Valid files:
+`AGENTS.md`, `SOUL.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `MEMORY.md`, `BOOTSTRAP.md`
+
+These are read from `~/.openclaw/workspace-<agentWorkspace>/` on every turn. We currently use client-side prompt injection instead (app.js DEMO_AGENTS), but could migrate to workspace files for true server-side prompts.

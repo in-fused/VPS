@@ -99,6 +99,18 @@ config.tools.agentToAgent = {
 // unrecognized by OpenClaw and cause config validation crash loops).
 config.tools.subagents = config.tools.subagents || {};
 
+// Session visibility: allow agents to see each other's sessions for
+// team coordination via sessions_list and sessions_history tools.
+config.tools.sessions = config.tools.sessions || {};
+config.tools.sessions.visibility = 'all';
+
+// Cron service: enables server-side scheduled jobs so agents can create
+// background tasks that run 24/7 even when the browser is closed.
+// maxConcurrentRuns=1 to stay within t3.small memory budget.
+config.cron = config.cron || {};
+config.cron.enabled = true;
+config.cron.maxConcurrentRuns = 1;
+
 // Telegram bot integration (only if token provided via env).
 // Guarded: if the config key format is wrong, OpenClaw will reject it at
 // startup, but the entrypoint cleanup below will catch it on next restart.

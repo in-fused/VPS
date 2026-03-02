@@ -297,8 +297,8 @@ class OpenClawClient {
     this._stopKeepAlive();
     this._keepAliveTimer = setInterval(() => {
       if (this.authenticated && this.ws?.readyState === WebSocket.OPEN) {
-        // Use a no-op RPC request; if it times out, the socket is dead
-        this.request('ping', {}).catch(() => {
+        // Use a lightweight documented RPC method; if it times out, the socket is dead
+        this.request('health', {}).catch(() => {
           console.warn('[OpenClaw] Keep-alive ping failed — socket likely dead');
           // Force close to trigger reconnect
           if (this.ws) {
@@ -457,7 +457,7 @@ class OpenClawClient {
           password: this._password,
         },
         role: 'operator',
-        scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
+        scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
         client: {
           id: 'webchat',
           version: '1.0.0',
