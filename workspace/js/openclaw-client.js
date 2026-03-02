@@ -440,6 +440,13 @@ class OpenClawClient {
       try { localStorage.setItem('mc-device-id', deviceId); } catch {}
     }
 
+    // Generate a dummy Ed25519-length public key and signature from the device ID.
+    // With dangerouslyDisableDeviceAuth=true on the server, the crypto is not
+    // verified — but the v3 schema still requires these fields to be present
+    // and correctly shaped (base64url strings of plausible length).
+    const dummyPublicKey = btoa('mc-device-pubkey-' + deviceId).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const dummySignature = btoa('mc-device-sig-' + deviceId + '-' + nonce + '-' + Date.now()).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
     const authMsg = {
       type: 'req',
       id: this._connectReqId,
@@ -448,19 +455,21 @@ class OpenClawClient {
         minProtocol: 3,
         maxProtocol: 3,
         auth: {
-          mode: 'password',
           token: this._password,
         },
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
         client: {
-          id: 'mission-control',
+          id: 'webchat',
           version: '1.0.0',
           platform: 'web',
-          mode: 'operator',
+          mode: 'webchat',
         },
         device: {
           id: 'mc-' + deviceId,
+          publicKey: dummyPublicKey,
+          signature: dummySignature,
+          signedAt: Date.now(),
           nonce: nonce,
         },
       },
