@@ -544,7 +544,7 @@ The exact working format (validated 2026-03-02):
   type: 'req', method: 'connect',
   params: {
     minProtocol: 3, maxProtocol: 3,
-    auth: { mode: 'password', token: pw, password: pw },
+    auth: { token: pw, password: pw },  // NO mode field — schema rejects it
     role: 'operator',
     scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
     client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'webchat' },
@@ -554,7 +554,7 @@ The exact working format (validated 2026-03-02):
 ```
 
 **Why each field matters:**
-- `auth.mode: 'password'` — matches `gateway.auth.mode` config
+- `auth.mode` — do NOT include; schema rejects as "unexpected property" (1008)
 - `auth.token` — needed for token-mode compat; some versions check this first
 - `auth.password` — **required** for password mode; without it → "gateway password missing" (1008)
 - `client.id: 'webchat'` — must be this exact string; schema rejects unknown values → "must be equal to constant" (1008)

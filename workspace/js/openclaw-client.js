@@ -426,9 +426,9 @@ class OpenClawClient {
   // This exact message format was validated against OpenClaw v3 protocol on
   // 2026-03-02 after 3 rounds of breakage. Every field is load-bearing:
   //
-  //   auth.mode      — must be 'password' (matches gateway.auth.mode config)
   //   auth.token     — required for token-mode compat; some versions check this
   //   auth.password  — required for password-mode; omitting → "gateway password missing"
+  //   auth.mode      — do NOT include; schema rejects it as unexpected property
   //   client.id      — must be 'webchat' (schema rejects unknown constants)
   //   client.mode    — must be 'webchat'
   //   device block   — must be OMITTED entirely (dummy crypto → "device identity mismatch")
@@ -453,7 +453,6 @@ class OpenClawClient {
         minProtocol: 3,
         maxProtocol: 3,
         auth: {
-          mode: 'password',
           token: this._password,
           password: this._password,
         },
