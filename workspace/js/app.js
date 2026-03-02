@@ -1145,6 +1145,7 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg = null;
           }
           sessions._sending = false;
+          sessions._sendingSessionId = null;
 
           // Update session metadata
           const session = sessions.active;
@@ -1213,6 +1214,7 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg = null;
           }
           sessions._sending = false;
+          sessions._sendingSessionId = null;
           sessions._persistMessages();
 
           const session = sessions.active;
@@ -1228,7 +1230,13 @@ document.addEventListener('alpine:init', () => {
         }
       });
 
-      // Reconnection
+      // Connection state tracking — 'connected' fires on EVERY successful auth
+      // (initial connect + reconnects), ensuring the status indicator stays in sync.
+      oc.on('connected', () => {
+        this.ocConnected = true;
+        ocMode = 'connected';
+      });
+
       oc.on('disconnect', (payload) => {
         const msg = payload.code ? `OpenClaw WS disconnected (code: ${payload.code})` : 'OpenClaw WS disconnected';
         Alpine.store('monitor').addLog('warn', msg);
@@ -1460,6 +1468,7 @@ document.addEventListener('alpine:init', () => {
     messages: [],
     input: '',
     _sending: false, // prevents double-send
+    _sendingSessionId: null, // which session is waiting for a response
     _streamingMsg: null, // current streaming message (for OpenClaw events)
     _messageStore: {}, // sessionId -> messages[]
 
@@ -1541,7 +1550,9 @@ document.addEventListener('alpine:init', () => {
 
     async sendMessage() {
       const text = this.input.trim();
-      if (!text || !this.activeId || this._sending) return;
+      if (!text || !this.activeId) return;
+      // Only block if we're waiting for a response in THIS session
+      if (this._sending && this._sendingSessionId === this.activeId) return;
 
       // Add user message
       const userMsg = { id: generateId(), role: 'user', content: text, time: timeNow() };
@@ -1566,6 +1577,7 @@ document.addEventListener('alpine:init', () => {
       const botMsg = { id: generateId(), role: 'agent', content: '', time: timeNow(), streaming: true };
       this.messages.push(botMsg);
       this._sending = true;
+      this._sendingSessionId = this.activeId;
 
       // Route 1: OpenClaw WebSocket (real agent execution with tools, memory, etc.)
       if (ocMode === 'connected' && window.openclawClient?.authenticated) {
@@ -1595,21 +1607,25 @@ document.addEventListener('alpine:init', () => {
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
 
-          // Safety timeout: if no chat.complete arrives within 60s, unblock sending
+          // Safety timeout: if no response arrives within 30s, unblock sending.
+          // Agent may still be processing — this just unblocks the UI.
           setTimeout(() => {
             if (this._sending && this._streamingMsg === botMsg) {
+              botMsg.content = botMsg.content || '(No response received — agent may not be processing. Check Monitor for details.)';
               botMsg.streaming = false;
               this._streamingMsg = null;
               this._sending = false;
+              this._sendingSessionId = null;
               this._persistMessages();
-              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 60s');
+              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 30s — agent may not be active');
             }
-          }, 60000);
+          }, 30000);
         } catch (e) {
           botMsg.content = 'Error: ' + e.message;
           botMsg.streaming = false;
           this._streamingMsg = null;
           this._sending = false;
+          this._sendingSessionId = null;
           Alpine.store('monitor').addLog('error', `OpenClaw chat error: ${e.message}`);
         }
         return;
