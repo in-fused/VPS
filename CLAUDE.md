@@ -528,7 +528,8 @@ These are non-obvious behaviors across the system. A future session that doesn't
 - The `workspace-init` container runs `cp -r /seed/. /workspace/` on every deploy, copying repo `workspace/` files into the Docker volume. This means any manual edits to `index.html`, `app.js`, etc. made directly on the volume (not in the repo) will be **overwritten** on next deploy. Always edit files in the repo, not on the running container.
 
 ### OpenClaw Auth Handshake
-- The WebSocket connect message sends the password in `auth.token`. The `device` block must be **omitted entirely** — do NOT send dummy/fake device crypto (publicKey, signature). With `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`, the server accepts connections without device identity. Sending invalid dummy signatures triggers "device identity mismatch" (1008) because the gateway validates crypto BEFORE checking the bypass flag.
+- The WebSocket connect message sends the password in **both** `token` and `password` fields: `{ auth: { mode: 'password', token: password, password: password } }`. The gateway is in password mode — `auth.password` is required for password mode, `auth.token` is also sent for compatibility. Removing either field can break auth depending on OpenClaw version.
+- The `device` block must be **omitted entirely** — do NOT send dummy/fake device crypto (publicKey, signature). With `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true`, the server accepts connections without device identity. Sending invalid dummy signatures triggers "device identity mismatch" (1008) because the gateway validates crypto BEFORE checking the bypass flag.
 - The entrypoint sets both `controlUi.dangerouslyDisableDeviceAuth=true` AND `controlUi.allowInsecureAuth=true`. Both are required — `allowInsecureAuth` is needed for Docker/reverse-proxy setups where connections come from trustedProxies (Issue #1679).
 
 ### LiteLLM `drop_params: true`

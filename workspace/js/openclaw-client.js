@@ -443,7 +443,9 @@ class OpenClawClient {
         minProtocol: 3,
         maxProtocol: 3,
         auth: {
+          mode: 'password',
           token: this._password,
+          password: this._password,
         },
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
