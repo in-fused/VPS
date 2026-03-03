@@ -50,7 +50,7 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 | Agent | Role | Model |
 |-------|------|-------|
 | Lead | Orchestrator — delegates, reviews, manages team | groq-llama-3.3-70b |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | groq-qwen-coder-32b |
+| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-qwen3-32b |
 | Scout | Research — web search, analysis, fact-checking | groq-llama-3.3-70b |
 | Scribe | Documentation — READMEs, guides, changelogs | gpt-4o-mini |
 
@@ -79,12 +79,16 @@ const SHARED_MEMORY = `# Project Memory
 - Domain: in-fused.org (auto-HTTPS via Caddy)
 - Budget: ~$25/month
 
-## Models via LiteLLM (20 models, 5 tiers)
-- FREE: groq-llama-3.3-70b, groq-qwen3-32b, groq-qwq-32b, groq-qwen-coder-32b, Ollama models
-- CHEAP: deepseek-chat/coder ($0.14/M), gpt-4o-mini ($0.15/M)
+## Models via LiteLLM (25+ models, 8 tiers across 6 free providers)
+- FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 2 accounts)
+- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-qwen3-32b, cerebras-llama-4-scout (1M TPD)
+- FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro
+- FREE Mistral: mistral-large, codestral (2 RPM, 1B tokens/month)
+- FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b
+- CHEAP: deepseek-chat/coder ($0.28/M), gpt-4o-mini ($0.15/M)
 - MID: claude-haiku ($1/M), minimax-m2.5 ($0.30/M)
 - PREMIUM: claude-sonnet ($3/M), gpt-4o ($2.50/M), claude-opus ($15/M)
-- Rate limit fallbacks: Groq → DeepSeek on 429 errors
+- Fallback chain: Groq → Cerebras → DeepSeek on 429 errors
 
 ## File System Paths
 - /workspace/agent-workflows/ — LiteGraph workflow JSON + index.json (Mission Control polls every 15s)
@@ -127,9 +131,11 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 - Max 1 concurrent run (t3.small memory constraint)
 
 ## Cost Awareness
-- Rotate between free Groq models to avoid rate limits (6K TPM per account)
-- Groq auto-falls back to DeepSeek ($0.14/M) on 429 errors
-- gpt-4o-mini is on OpenAI free tier (3 RPM) — use sparingly
+- 6 FREE providers: Groq (100K-500K TPD), Cerebras (1M TPD), Gemini (250-1000 RPD), Mistral (2 RPM, 1B/mo), Ollama
+- Rotate across providers to avoid rate limits — all auto-fallback to DeepSeek ($0.28/M) on 429 errors
+- Cerebras is fastest (2.4x Groq), use for code-heavy tasks. Groq for general. Gemini for high-volume simple tasks.
+- Mistral Codestral for coding overflow (2 RPM but massive monthly allowance)
+- gpt-4o-mini on OpenAI free tier (3 RPM) — use sparingly
 - Premium models (claude-sonnet, gpt-4o) only for complex tasks
 `;
 

@@ -25,8 +25,14 @@ const AGENT_TOOLS = [
 
 // Fallback models if LiteLLM is unreachable
 const FALLBACK_MODELS = [
-  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K req/day)' },
-  { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.14/1M', desc: 'Excellent reasoning, very affordable' },
+  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K RPD)' },
+  { id: 'groq-qwen3-32b', name: 'Qwen 3 32B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Dual-mode reasoning, free tier (1K RPD)' },
+  { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fastest inference, 1M TPD free' },
+  { id: 'cerebras-qwen3-32b', name: 'Qwen 3 32B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fast reasoning, 1M TPD free' },
+  { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'Fast + capable, 250 RPD free' },
+  { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 1000 RPD free' },
+  { id: 'codestral', name: 'Codestral', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Best free code model, 2 RPM' },
+  { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.28/1M', desc: 'Excellent reasoning, very affordable' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'cheap', cost: '$0.15/1M', desc: 'Fast and cheap general purpose' },
   { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic', tier: 'mid', cost: '$1/1M', desc: 'Fast, capable, great for agents' },
   { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic', tier: 'premium', cost: '$3/1M', desc: 'Best balance of speed and quality' },
@@ -36,15 +42,32 @@ const FALLBACK_MODELS = [
 
 // Model tier/cost mapping for models fetched from LiteLLM
 const MODEL_META = {
+  // Free — Groq
   'groq-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
+  'groq-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
+  // Free — Cerebras
+  'cerebras-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-llama-4-scout': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  // Free — Gemini
+  'gemini-flash': { tier: 'free', cost: '$0/1M', provider: 'Google' },
+  'gemini-flash-lite': { tier: 'free', cost: '$0/1M', provider: 'Google' },
+  'gemini-pro': { tier: 'free', cost: '$0/1M', provider: 'Google' },
+  // Free — Mistral
+  'mistral-large': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
+  'codestral': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
+  // Free — Ollama
   'qwen2.5-coder:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
   'deepseek-coder-v2:16b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
   'llama3.2:8b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
-  'deepseek-chat': { tier: 'cheap', cost: '$0.14/1M', provider: 'DeepSeek' },
-  'deepseek-coder': { tier: 'cheap', cost: '$0.14/1M', provider: 'DeepSeek' },
+  // Cheap
+  'deepseek-chat': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },
+  'deepseek-coder': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },
   'gpt-4o-mini': { tier: 'cheap', cost: '$0.15/1M', provider: 'OpenAI' },
+  // Mid
   'claude-haiku': { tier: 'mid', cost: '$1/1M', provider: 'Anthropic' },
   'minimax-m2.5': { tier: 'mid', cost: '$0.30/1M', provider: 'MiniMax' },
+  // Premium
   'claude-sonnet': { tier: 'premium', cost: '$3/1M', provider: 'Anthropic' },
   'claude-opus': { tier: 'premium', cost: '$15/1M', provider: 'Anthropic' },
   'gpt-4o': { tier: 'premium', cost: '$2.50/1M', provider: 'OpenAI' },
@@ -220,7 +243,7 @@ Platform Team: Ops Lead (orchestrator) · Builder (infra) · Sentinel (security)
 Teams compete on governance scores. Cross-team messaging allowed, prefer own team first.`;
 
 const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=Oracle ARM 24GB,full autonomy,weekly champion only.
-MODELS: All free models available at every tier — groq-llama-3.3-70b, groq-qwen3-32b, groq-qwq-32b, groq-qwen-coder-32b, deepseek-chat/coder. Rotate to avoid rate limits.
+MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-qwen3-32b), Gemini (gemini-flash, gemini-pro), Mistral (codestral, mistral-large). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
 WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite. Counters reset weekly.
 ELITE ORACLE: Winner gets Oracle ARM server (24GB). Can bring team, recruit from marketplace, or request new agents. Chooses own team composition.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
@@ -264,7 +287,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/groq-qwen-coder-32b', status: 'idle',
+    model: 'litellm/cerebras-qwen3-32b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],

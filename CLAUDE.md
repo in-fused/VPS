@@ -173,13 +173,16 @@ Single password protects the entire site. Flow:
 
 ---
 
-## LiteLLM Models (20 models, 5 tiers)
+## LiteLLM Models (25+ models, 8 tiers, 6 free providers)
 
 | Tier | Models | Cost |
 |------|--------|------|
 | FREE | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
-| FREE | groq-llama-3.3-70b, groq-qwen3-32b, groq-qwq-32b, groq-qwen-coder-32b (Groq, 2 accounts) | $0 |
-| CHEAP | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.14–0.15/1M |
+| FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 2 accounts, 100K-500K TPD) | $0 |
+| FREE | cerebras-llama-3.3-70b, cerebras-qwen3-32b, cerebras-llama-4-scout (Cerebras, 1M TPD) | $0 |
+| FREE | gemini-flash, gemini-flash-lite, gemini-pro (Google Gemini, 250-1000 RPD) | $0 |
+| FREE | mistral-large, codestral (Mistral, 2 RPM, 1B tokens/month) | $0 |
+| CHEAP | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.15–0.28/1M |
 | MID | claude-haiku, minimax-m2.5 | $0.30–1.00/1M |
 | PREMIUM | claude-sonnet, claude-opus, gpt-4o, o1 | $2.50–15/1M |
 
@@ -196,7 +199,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Provider: custom "litellm" at http://litellm:4000/v1, openai-completions wire format
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
 - Default model: `groq-llama-3.3-70b` (object format `{ primary: '...' }`)
-- 13 models exposed, agent-to-agent messaging enabled, subagents enabled
+- 19 models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
 
 ### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
 
@@ -205,7 +208,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
 | Lead | groq-llama-3.3-70b | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | groq-qwen-coder-32b | Full-stack developer | Scout, Scribe |
+| CodeCraft | cerebras-qwen3-32b | Full-stack developer | Scout, Scribe |
 | Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
 
@@ -220,11 +223,14 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 **Model budget strategy:**
 - All free models are available to agents at every tier (no model restrictions by tier level)
-- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b), CodeCraft (groq-qwen-coder-32b)
-- Groq reasoning models (free): groq-qwen3-32b (dual-mode reasoning, 131K ctx), groq-qwq-32b (advanced reasoning, 128K ctx)
-- DeepSeek ($0.14/1M): Builder, Sentinel (code + reasoning, dirt cheap)
+- Groq (free, load-balanced 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b, 100K TPD), groq-qwen3-32b (500K TPD)
+- Cerebras (free, 1M TPD, fastest inference): CodeCraft (cerebras-qwen3-32b), also cerebras-llama-3.3-70b, cerebras-llama-4-scout
+- Gemini (free): gemini-flash (250 RPD), gemini-flash-lite (1000 RPD), gemini-pro (100 RPD)
+- Mistral (free, 2 RPM, 1B tokens/month): codestral (coding overflow), mistral-large
+- DeepSeek ($0.28/1M): Builder, Sentinel (code + reasoning, dirt cheap, universal fallback)
 - gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
-- Agents may rotate between free models to avoid rate limits — this is encouraged
+- Agents may rotate between free providers to avoid rate limits — this is encouraged
+- Fallback chain: Groq → Cerebras → DeepSeek on 429 errors (automatic via LiteLLM)
 
 **Tier storage (EC2 t3.small, ~2GB total workspace):**
 - PROBATION (0): 50 MB — supervised, must prove competence
@@ -570,6 +576,9 @@ VPS/
 | `DEEPSEEK_API_KEY` | DeepSeek models |
 | `GROQ_API_KEY` | Groq free tier (account 1) |
 | `GROQ_API_KEY_2` | Groq free tier (account 2) — LiteLLM load-balances both |
+| `CEREBRAS_API_KEY` | Cerebras free tier (1M TPD, fastest inference) |
+| `GEMINI_API_KEY` | Google Gemini free tier (Flash-Lite 1000 RPD) |
+| `MISTRAL_API_KEY` | Mistral free tier (all models, 2 RPM, 1B tokens/month) |
 | `MINIMAX_API_KEY` | MiniMax M2.5 |
 | `OLLAMA_BASE_URL` | Remote Ollama (Oracle Cloud ARM) |
 | `LITELLM_MASTER_KEY` | LiteLLM auth (must start with `sk-`) |
@@ -591,7 +600,7 @@ These are non-obvious behaviors across the system. A future session that doesn't
 - There are TWO separate WebSocket matchers: `/ws/openclaw` (dedicated, for Mission Control) and `/` root path (legacy, for OpenClaw's native Control UI). Both are required.
 
 ### Model ID Aliasing
-- `litellm_config.yaml` defines upstream models like `groq/llama-3.3-70b-versatile`, but LiteLLM exposes them to clients as `groq-llama-3.3-70b` (the `model_name` field). OpenClaw entrypoint, Mission Control app.js, and all agent configs reference the **alias**, not the upstream ID. If you change one, update all of them.
+- `litellm_config.yaml` defines upstream models like `groq/llama-3.3-70b-versatile`, but LiteLLM exposes them to clients as `groq-llama-3.3-70b` (the `model_name` field). Similarly, `cerebras/llama-3.3-70b` → `cerebras-llama-3.3-70b`, `gemini/gemini-2.5-flash` → `gemini-flash`, `mistral/codestral-latest` → `codestral`. OpenClaw entrypoint, Mission Control app.js, and all agent configs reference the **alias**, not the upstream ID. If you change one, update all of them.
 
 ### localStorage vs OpenClaw State
 - Mission Control stores agents and sessions in both localStorage (client) and OpenClaw (server). If localStorage is cleared (browser reset, new device), agents disappear from the UI but still exist in OpenClaw. A WebSocket reconnect re-syncs them. Don't assume agents are deleted just because the UI is empty.
@@ -637,10 +646,10 @@ The exact working format (validated 2026-03-02):
 - LiteLLM is configured to silently drop unsupported parameters instead of rejecting requests. This means if you send a parameter that doesn't exist for a model (e.g., `store` for DeepSeek), it won't error — it just ignores it. Good for compatibility, but can hide bugs.
 
 ### LiteLLM Rate Limit Fallbacks
-- `router_settings.fallbacks` configured so Groq models (6,000 TPM free tier) automatically fall back to DeepSeek ($0.14/M) on 429 errors
-- Groq → DeepSeek chat for orchestrators (llama, qwen3, qwq); Groq → DeepSeek coder for code specialists
-- This means agents never get stuck on rate limits — the first request uses Groq (free), retries on DeepSeek (cheap)
-- `routing_strategy: latency-based-routing` picks the fastest available deployment when load-balancing across Groq accounts
+- `router_settings.fallbacks` configured with multi-provider chains: Groq → Cerebras → DeepSeek, Cerebras → Groq → DeepSeek, Gemini/Mistral → DeepSeek
+- 6 free providers (Groq, Cerebras, Gemini, Mistral, Ollama + Groq account 2) are exhausted before any paid API ($0.28/M DeepSeek) is hit
+- This means agents never get stuck on rate limits — requests cascade through free providers before falling back to cheap paid
+- `routing_strategy: latency-based-routing` picks the fastest available deployment when load-balancing
 
 ---
 

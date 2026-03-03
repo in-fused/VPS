@@ -1,14 +1,16 @@
 ###############################################################################
 # LiteLLM Proxy Configuration — Cost-Tiered Model Routing
 ###############################################################################
-# Models are organized by cost tier. Open WebUI shows all available models.
-# Use the cheapest model that fits your task to maximize your API budget.
+# Models organized by cost tier. Updated 2026-03-03.
 #
 # Tier 1 (FREE):  Local Ollama models — daily coding & chat
-# Tier 2 (FREE):  Groq API — fast cloud inference, 1K req/day
-# Tier 3 (CHEAP): DeepSeek V2, GPT-4o-mini — $0.14-0.60/1M tokens
-# Tier 4 (MID):   Claude Haiku, MiniMax M2.5 — $0.80-1.20/1M tokens
-# Tier 5 (PREM):  Claude Sonnet, GPT-4o — use sparingly
+# Tier 2 (FREE):  Groq — fast cloud inference, 500K-100K TPD (free tier)
+# Tier 3 (FREE):  Cerebras — 1M tokens/day, fastest inference
+# Tier 4 (FREE):  Gemini — Flash-Lite 1000 RPD, Flash 250 RPD
+# Tier 5 (FREE):  Mistral — all models, 2 RPM, 1B tokens/month
+# Tier 6 (CHEAP): DeepSeek, GPT-4o-mini — $0.14-0.60/1M tokens
+# Tier 7 (MID):   Claude Haiku, MiniMax M2.5 — $0.80-1.20/1M
+# Tier 8 (PREM):  Claude Sonnet, GPT-4o — use sparingly
 ###############################################################################
 
 model_list:
@@ -44,9 +46,10 @@ model_list:
       description: "FREE — Fast general-purpose chat. Good all-rounder."
 
   # ===========================================================================
-  # TIER 2: FREE — Groq API (1,000 requests/day free)
+  # TIER 2: FREE — Groq API (free tier, load-balanced across 2 accounts)
   # ===========================================================================
-  # Fast cloud inference at no cost. Great when local models are slow.
+  # Fast cloud inference at no cost. llama-3.3-70b: 1K RPD, 100K TPD.
+  # qwen3-32b: 1K RPD, 500K TPD. Load-balanced across 2 Groq accounts.
 
   - model_name: "groq-llama-3.3-70b"
     litellm_params:
@@ -54,19 +57,15 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
       stream: true
     model_info:
-      description: "FREE (1K/day) — 70B model on Groq. Very fast."
+      description: "FREE — 70B model on Groq. Very fast. 1K RPD, 100K TPD."
 
-  # Second Groq account — LiteLLM auto load-balances same model_name entries
-  # Doubles free tier to 2K requests/day. Leave GROQ_API_KEY_2 blank to disable.
   - model_name: "groq-llama-3.3-70b"
     litellm_params:
       model: "groq/llama-3.3-70b-versatile"
       api_key: "os.environ/GROQ_API_KEY_2"
       stream: true
     model_info:
-      description: "FREE (1K/day) — 70B model on Groq (account 2)."
-
-  # --- Qwen models on Groq (free tier, load-balanced across 2 accounts) ---
+      description: "FREE — 70B model on Groq (account 2)."
 
   - model_name: "groq-qwen3-32b"
     litellm_params:
@@ -84,42 +83,89 @@ model_list:
     model_info:
       description: "FREE — Qwen 3 32B on Groq (account 2)."
 
-  - model_name: "groq-qwq-32b"
-    litellm_params:
-      model: "groq/qwen-qwq-32b"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — QwQ 32B. Advanced reasoning (math, code, analysis). 128K."
+  # ===========================================================================
+  # TIER 3: FREE — Cerebras (1M tokens/day, fastest inference)
+  # ===========================================================================
+  # 2.4x faster than Groq. 1M TPD free. No credit card required.
 
-  - model_name: "groq-qwq-32b"
+  - model_name: "cerebras-llama-3.3-70b"
     litellm_params:
-      model: "groq/qwen-qwq-32b"
-      api_key: "os.environ/GROQ_API_KEY_2"
+      model: "cerebras/llama-3.3-70b"
+      api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — QwQ 32B on Groq (account 2)."
+      description: "FREE — Llama 3.3 70B on Cerebras. 1M TPD. Fastest inference."
 
-  - model_name: "groq-qwen-coder-32b"
+  - model_name: "cerebras-qwen3-32b"
     litellm_params:
-      model: "groq/qwen-2.5-coder-32b"
-      api_key: "os.environ/GROQ_API_KEY"
+      model: "cerebras/qwen-3-32b"
+      api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Qwen 2.5 Coder 32B. Code specialist. JSON mode. 128K."
+      description: "FREE — Qwen 3 32B on Cerebras. 1M TPD. Dual-mode reasoning."
 
-  - model_name: "groq-qwen-coder-32b"
+  - model_name: "cerebras-llama-4-scout"
     litellm_params:
-      model: "groq/qwen-2.5-coder-32b"
-      api_key: "os.environ/GROQ_API_KEY_2"
+      model: "cerebras/llama-4-scout-17b-16e-instruct"
+      api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Qwen 2.5 Coder 32B on Groq (account 2)."
+      description: "FREE — Llama 4 Scout 17B on Cerebras. 1M TPD."
 
   # ===========================================================================
-  # TIER 3: CHEAP — $0.14-0.60 per 1M tokens
+  # TIER 4: FREE — Google Gemini (generous daily quotas)
   # ===========================================================================
-  # Use when you need speed + quality beyond local models.
+  # Flash-Lite: 15 RPM, 1000 RPD. Flash: 10 RPM, 250 RPD. Pro: 5 RPM, 100 RPD.
+
+  - model_name: "gemini-flash"
+    litellm_params:
+      model: "gemini/gemini-2.5-flash"
+      api_key: "os.environ/GEMINI_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Gemini 2.5 Flash. 10 RPM, 250 RPD. Fast + capable."
+
+  - model_name: "gemini-flash-lite"
+    litellm_params:
+      model: "gemini/gemini-2.5-flash-lite"
+      api_key: "os.environ/GEMINI_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Gemini 2.5 Flash-Lite. 15 RPM, 1000 RPD. High volume."
+
+  - model_name: "gemini-pro"
+    litellm_params:
+      model: "gemini/gemini-2.5-pro"
+      api_key: "os.environ/GEMINI_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Gemini 2.5 Pro. 5 RPM, 100 RPD. Best free reasoning."
+
+  # ===========================================================================
+  # TIER 5: FREE — Mistral (all models, 2 RPM, 1B tokens/month)
+  # ===========================================================================
+  # Low RPM but massive monthly allowance. Great for overflow/coding.
+
+  - model_name: "mistral-large"
+    litellm_params:
+      model: "mistral/mistral-large-latest"
+      api_key: "os.environ/MISTRAL_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Mistral Large. 2 RPM. Strong reasoning. 1B tokens/mo."
+
+  - model_name: "codestral"
+    litellm_params:
+      model: "mistral/codestral-latest"
+      api_key: "os.environ/MISTRAL_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Codestral. 2 RPM. Best free code model. 1B tokens/mo."
+
+  # ===========================================================================
+  # TIER 6: CHEAP — $0.14-0.60 per 1M tokens
+  # ===========================================================================
+  # Use when you need speed + quality beyond free tiers.
 
   - model_name: "deepseek-chat"
     litellm_params:
@@ -128,7 +174,7 @@ model_list:
       api_base: "https://api.deepseek.com"
       stream: true
     model_info:
-      description: "CHEAP ($0.14/1M in) — DeepSeek V2. Excellent value."
+      description: "CHEAP ($0.28/1M in) — DeepSeek V3.2. Excellent value."
 
   - model_name: "deepseek-coder"
     litellm_params:
@@ -137,7 +183,7 @@ model_list:
       api_base: "https://api.deepseek.com"
       stream: true
     model_info:
-      description: "CHEAP ($0.14/1M in) — DeepSeek Coder. Great for code."
+      description: "CHEAP ($0.28/1M in) — DeepSeek Coder. Great for code."
 
   - model_name: "gpt-4o-mini"
     litellm_params:
@@ -148,7 +194,7 @@ model_list:
       description: "CHEAP ($0.15/1M in) — Fast, capable. Good general use."
 
   # ===========================================================================
-  # TIER 4: MID — $0.80-1.20 per 1M tokens
+  # TIER 7: MID — $0.80-1.20 per 1M tokens
   # ===========================================================================
 
   - model_name: "claude-haiku"
@@ -160,7 +206,7 @@ model_list:
       description: "MID ($1.00/1M in) — Claude Haiku. Fast + smart."
 
   # ===========================================================================
-  # TIER 5: PREMIUM — $3-15 per 1M tokens (use sparingly!)
+  # TIER 8: PREMIUM — $3-15 per 1M tokens (use sparingly!)
   # ===========================================================================
   # Reserve for complex reasoning, architecture decisions, hard debugging.
 
@@ -229,13 +275,20 @@ litellm_settings:
   num_retries: 2
 
 router_settings:
-  # When a Groq model hits rate limits (429), fall back to DeepSeek (cheap, high limits).
-  # Format: { "primary_model": ["fallback_model_1", "fallback_model_2"] }
+  # When a free-tier model hits rate limits (429), fall back through the chain:
+  # Groq → Cerebras → DeepSeek (cheap paid). Cerebras → DeepSeek.
+  # Gemini/Mistral → DeepSeek. This ensures agents never get stuck.
   fallbacks:
-    - groq-llama-3.3-70b: ["deepseek-chat"]
-    - groq-qwen3-32b: ["deepseek-chat"]
-    - groq-qwq-32b: ["deepseek-chat"]
-    - groq-qwen-coder-32b: ["deepseek-coder"]
+    - groq-llama-3.3-70b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
+    - groq-qwen3-32b: ["cerebras-qwen3-32b", "deepseek-chat"]
+    - cerebras-llama-3.3-70b: ["groq-llama-3.3-70b", "deepseek-chat"]
+    - cerebras-qwen3-32b: ["groq-qwen3-32b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["groq-llama-3.3-70b", "deepseek-chat"]
+    - gemini-flash: ["deepseek-chat"]
+    - gemini-flash-lite: ["deepseek-chat"]
+    - gemini-pro: ["deepseek-chat"]
+    - mistral-large: ["deepseek-chat"]
+    - codestral: ["deepseek-coder"]
   # Retry failed requests within the same model group before falling back
   num_retries: 1
   retry_after: 2

@@ -149,6 +149,9 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - GROQ_API_KEY_2=${GROQ_API_KEY_2:-}
       - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
     networks:
       - ai-net
