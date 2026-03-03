@@ -69,6 +69,9 @@ config.models.providers.litellm = {
     { id: 'claude-sonnet', name: 'Claude Sonnet (premium)', contextWindow: 200000, maxTokens: 8192 },
     { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
+    { id: 'groq-qwq-32b', name: 'QwQ 32B on Groq (free/reasoning)', contextWindow: 128000, maxTokens: 32768 },
+    { id: 'groq-qwen-coder-32b', name: 'Qwen 2.5 Coder 32B on Groq (free)', contextWindow: 128000, maxTokens: 16384 },
     { id: 'minimax-m2.5', name: 'MiniMax M2.5 (mid)', contextWindow: 1000000, maxTokens: 16384 },
     { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B (free/local)', contextWindow: 32768, maxTokens: 8192 },
     { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 }
@@ -158,7 +161,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/deepseek-coder' },
+      model: { primary: 'litellm/groq-qwen-coder-32b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',

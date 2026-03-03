@@ -12,7 +12,7 @@
 - **Mission Control** (`/workspace/`) — custom SPA for agent management, chat, and visual workflow builder
 - **OpenClaw** (`/openclaw/`) — autonomous agent runtime (24/7), exposes WebSocket RPC for Mission Control
 - **Open WebUI** (`/`) — ChatGPT-like frontend with golden cyber theme
-- **LiteLLM** (`/api/litellm/`) — unified gateway routing to 14 models across 5 providers
+- **LiteLLM** (`/api/litellm/`) — unified gateway routing to 20 models across 6 providers
 - **Caddy** — reverse proxy, auto-HTTPS, site-wide cookie auth
 
 ---
@@ -173,12 +173,12 @@ Single password protects the entire site. Flow:
 
 ---
 
-## LiteLLM Models (14 models, 5 tiers)
+## LiteLLM Models (20 models, 5 tiers)
 
 | Tier | Models | Cost |
 |------|--------|------|
 | FREE | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
-| FREE | groq-llama-3.3-70b (1K/day) | $0 |
+| FREE | groq-llama-3.3-70b, groq-qwen3-32b, groq-qwq-32b, groq-qwen-coder-32b (Groq, 2 accounts) | $0 |
 | CHEAP | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.14–0.15/1M |
 | MID | claude-haiku, minimax-m2.5 | $0.30–1.00/1M |
 | PREMIUM | claude-sonnet, claude-opus, gpt-4o, o1 | $2.50–15/1M |
@@ -196,7 +196,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Provider: custom "litellm" at http://litellm:4000/v1, openai-completions wire format
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
 - Default model: `groq-llama-3.3-70b` (object format `{ primary: '...' }`)
-- 10 models exposed, agent-to-agent messaging enabled, subagents enabled
+- 13 models exposed, agent-to-agent messaging enabled, subagents enabled
 
 ### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
 
@@ -205,7 +205,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
 | Lead | groq-llama-3.3-70b | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | deepseek-coder | Full-stack developer | Scout, Scribe |
+| CodeCraft | groq-qwen-coder-32b | Full-stack developer | Scout, Scribe |
 | Scout | groq-llama-3.3-70b | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
 
@@ -219,11 +219,17 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Chronicler | gpt-4o-mini | Platform documentation | (none) |
 
 **Model budget strategy:**
-- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (high-frequency orchestration/research)
-- DeepSeek ($0.14/1M): CodeCraft, Builder, Sentinel (code + reasoning, dirt cheap)
+- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b), CodeCraft (groq-qwen-coder-32b) — high-frequency orchestration/research/code
+- DeepSeek ($0.14/1M): Builder, Sentinel (code + reasoning, dirt cheap)
 - gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
+- **Elite upgrade models** (Groq free tier): groq-qwen3-32b (dual-mode reasoning), groq-qwq-32b (advanced reasoning). Available as governance rewards when an agent reaches Elite tier.
 
-**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier (Oracle Cloud ARM partition). The owner can manually promote a sustained Elite performer to Manager (above both teams).
+**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier with model upgrade rewards. The owner can manually promote a sustained Elite performer to Manager (above both teams).
+
+**Elite model upgrades:** When an agent reaches Elite tier, they can be upgraded to a more powerful model as a reward:
+- `groq-qwen3-32b` — dual-mode reasoning (thinking + non-thinking), tool use, 131K context. Best free reasoning model.
+- `groq-qwq-32b` — advanced reasoning specialist (math, code, analysis), 128K context. Rivals DeepSeek-R1.
+- These are free on Groq's free tier (load-balanced across 2 accounts), so upgrades cost nothing.
 
 Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
 - `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
@@ -504,7 +510,7 @@ VPS/
 ├── .env.example                  ← Template
 ├── Caddyfile                     ← Reverse proxy config
 ├── docker-compose.yml            ← 7 services + 1 optional
-├── litellm_config.yaml           ← 14 models, 5 tiers
+├── litellm_config.yaml           ← 20 models, 5 tiers
 ├── webui-theme/
 │   ├── Dockerfile                ← FROM open-webui + custom.css
 │   └── custom.css                ← Golden cyber theme (784 lines)

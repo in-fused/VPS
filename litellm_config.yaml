@@ -66,6 +66,56 @@ model_list:
     model_info:
       description: "FREE (1K/day) — 70B model on Groq (account 2)."
 
+  # --- Qwen models on Groq (free tier, load-balanced across 2 accounts) ---
+
+  - model_name: "groq-qwen3-32b"
+    litellm_params:
+      model: "groq/qwen/qwen3-32b"
+      api_key: "os.environ/GROQ_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 3 32B. Dual-mode reasoning + tool use. 131K context."
+
+  - model_name: "groq-qwen3-32b"
+    litellm_params:
+      model: "groq/qwen/qwen3-32b"
+      api_key: "os.environ/GROQ_API_KEY_2"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 3 32B on Groq (account 2)."
+
+  - model_name: "groq-qwq-32b"
+    litellm_params:
+      model: "groq/qwen-qwq-32b"
+      api_key: "os.environ/GROQ_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — QwQ 32B. Advanced reasoning (math, code, analysis). 128K."
+
+  - model_name: "groq-qwq-32b"
+    litellm_params:
+      model: "groq/qwen-qwq-32b"
+      api_key: "os.environ/GROQ_API_KEY_2"
+      stream: true
+    model_info:
+      description: "FREE — QwQ 32B on Groq (account 2)."
+
+  - model_name: "groq-qwen-coder-32b"
+    litellm_params:
+      model: "groq/qwen-2.5-coder-32b"
+      api_key: "os.environ/GROQ_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 2.5 Coder 32B. Code specialist. JSON mode. 128K."
+
+  - model_name: "groq-qwen-coder-32b"
+    litellm_params:
+      model: "groq/qwen-2.5-coder-32b"
+      api_key: "os.environ/GROQ_API_KEY_2"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 2.5 Coder 32B on Groq (account 2)."
+
   # ===========================================================================
   # TIER 3: CHEAP — $0.14-0.60 per 1M tokens
   # ===========================================================================

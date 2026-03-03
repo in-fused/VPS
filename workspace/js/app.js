@@ -223,7 +223,7 @@ Platform Team: Ops Lead (platform orchestrator) · Builder (infra dev) · Sentin
 Teams compete on governance scores — task success, quality, efficiency, and streaks all count. Cross-team messaging is allowed but prefer your own team first.`;
 
 const AGENT_GOVERNANCE = `GOVERNANCE:
-Tiers: PROBATION (0) — no workspace, supervised, 5 consecutive successes to escape. ACTIVE (1) — 50 MB workspace, standard tools, default. PROVEN (2) — 200 MB, semi-autonomous, earned at score >= 70 with 15+ tasks and 3+ streak. ELITE (3) — 2 GB workspace + Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs), fully autonomous. 1 Elite per team = weekly champion.
+Tiers: PROBATION (0) — no workspace, supervised, 5 consecutive successes to escape. ACTIVE (1) — 50 MB workspace, standard tools, default. PROVEN (2) — 200 MB, semi-autonomous, earned at score >= 70 with 15+ tasks and 3+ streak. ELITE (3) — 2 GB workspace + Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs) + model upgrade to groq-qwen3-32b or groq-qwq-32b (advanced reasoning), fully autonomous. 1 Elite per team = weekly champion.
 
 Weekly Evaluation (every 7 days): Tasks completed 25% · Owner-approved staging 30% · Streak quality 15% · Efficiency 15% · Peer contribution 15%. Weekly champion becomes team lead + Elite tier for the next week. All counters reset — fresh start for everyone. Past champions displayed in Mission Control.
 
@@ -293,7 +293,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/deepseek-coder', status: 'idle',
+    model: 'litellm/groq-qwen-coder-32b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -1573,7 +1573,7 @@ document.addEventListener('alpine:init', () => {
         const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
         const model = rawModel.replace(/^litellm\//, '');
 
-        // Tier context for system prompt injection (rewards are resource-based, not model upgrades)
+        // Tier context for system prompt injection (Elite tier includes model upgrade to reasoning models)
         const gov = Alpine.store('governance');
         const agentTier = gov._getMetrics(agent?.id)?.tier ?? 1;
 
@@ -1982,12 +1982,12 @@ document.addEventListener('alpine:init', () => {
     // Tier names and config
     TIER_NAMES: ['Probation', 'Active', 'Proven', 'Elite'],
     TIER_COLORS: ['red', 'gray', 'cyan', 'amber'],
-    // What each tier unlocks (resource-based, NOT model upgrades — owner doesn't pay more)
+    // What each tier unlocks (Elite includes model upgrade to reasoning models — still free via Groq)
     TIER_PERKS: {
       0: { workspace: '0 MB', tools: 'basic', autonomy: 'none', oracle: false, desc: 'Restricted. Prove yourself.' },
       1: { workspace: '50 MB', tools: 'standard', autonomy: 'supervised', oracle: false, desc: 'Default tier. Standard workspace.' },
       2: { workspace: '200 MB', tools: 'standard + priority routing', autonomy: 'semi-autonomous', oracle: false, desc: 'Expanded workspace. Can run longer tasks.' },
-      3: { workspace: '2 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, desc: 'Oracle Cloud ARM storage. Full autonomy.' },
+      3: { workspace: '2 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, model: 'groq-qwen3-32b or groq-qwq-32b', desc: 'Oracle Cloud ARM + reasoning model upgrade. Full autonomy.' },
     },
 
     init() {
