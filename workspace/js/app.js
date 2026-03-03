@@ -667,7 +667,15 @@ const litellmApi = {
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => resp.statusText);
-      throw new Error(`API ${resp.status}: ${text}`);
+      if (resp.status === 429) {
+        // Parse retry-after if available
+        const retryAfter = resp.headers.get('retry-after');
+        const retryMsg = retryAfter ? ` Try again in ${retryAfter}s.` : ' Try again in a minute.';
+        throw new Error(`Rate limit reached for this model.${retryMsg} Consider using a different agent/model.`);
+      }
+      // Truncate long error bodies (LiteLLM can return verbose JSON)
+      const shortText = text.length > 200 ? text.slice(0, 200) + '...' : text;
+      throw new Error(`API ${resp.status}: ${shortText}`);
     }
 
     const reader = resp.body.getReader();
@@ -722,6 +730,9 @@ const storage = {
       const raw = localStorage.getItem('mc-' + key);
       return raw ? JSON.parse(raw) : fallback;
     } catch { return fallback; }
+  },
+  remove(key) {
+    try { localStorage.removeItem('mc-' + key); } catch {}
   },
 };
 
@@ -998,37 +1009,63 @@ document.addEventListener('alpine:init', () => {
     async _syncSessionsFromOpenClaw() {
       try {
         const sessions = await window.openclawClient.listSessions();
-        if (sessions && sessions.length > 0) {
-          const sessionStore = Alpine.store('sessions');
-          // sessions.list returns objects with 'key' (sessionKey), 'sessionId' (internal UUID),
-          // 'displayName', 'derivedTitle', 'lastMessagePreview', 'updatedAt', etc.
-          // Extract agentId from session key format: "agent:<agentId>:..." or "<agentId>:main"
-          sessionStore.list = sessions.map(s => {
-            const sk = s.key || s.sessionKey || '';
-            // Parse agentId from key: "agent:<id>:..." or "<id>:main"
-            let agentId = '';
-            if (sk.startsWith('agent:')) {
-              agentId = sk.split(':')[1] || '';
-            } else if (sk.includes(':')) {
-              agentId = sk.split(':')[0] || '';
-            }
-            const agentStore = Alpine.store('agents');
-            const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
-            return {
-              id: s.sessionId || sk || generateId(),
-              sessionKey: sk,
-              agentId: agentId,
-              agentName: agent?.name || s.displayName || agentId || 'Agent',
-              agentEmoji: agent?.emoji || '🤖',
-              title: s.derivedTitle || s.label || s.displayName || 'Conversation',
-              lastMessage: s.lastMessagePreview || '',
-              updatedAt: s.updatedAt || Date.now(),
-              unread: 0,
-              _source: 'openclaw',
-            };
-          });
-          Alpine.store('monitor').addLog('info', `Synced ${sessions.length} sessions from OpenClaw`);
+        if (!sessions || sessions.length === 0) return;
+
+        const sessionStore = Alpine.store('sessions');
+        const agentStore = Alpine.store('agents');
+        // Build a map of existing local sessions by sessionKey for merge
+        const localByKey = {};
+        for (const ls of sessionStore.list) {
+          if (ls.sessionKey) localByKey[ls.sessionKey] = ls;
         }
+
+        const merged = sessions.map(s => {
+          const sk = s.key || s.sessionKey || '';
+          // Parse agentId from key: "agent:<id>:..." or "<id>:main"
+          let agentId = '';
+          if (sk.startsWith('agent:')) {
+            agentId = sk.split(':')[1] || '';
+          } else if (sk.includes(':')) {
+            agentId = sk.split(':')[0] || '';
+          }
+          const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
+
+          // lastMessagePreview may be string or object { content, role, ... }
+          const rawPreview = s.lastMessagePreview;
+          const previewText = typeof rawPreview === 'string' ? rawPreview
+            : (rawPreview?.content || rawPreview?.text || '');
+          const lastMessage = typeof previewText === 'string' ? previewText : String(previewText || '');
+
+          // Merge with existing local session to preserve local ID and message cache
+          const existing = localByKey[sk];
+          if (existing) {
+            existing.agentName = agent?.name || s.displayName || existing.agentName;
+            existing.agentEmoji = agent?.emoji || existing.agentEmoji;
+            existing.title = s.derivedTitle || s.label || existing.title;
+            existing.lastMessage = lastMessage || existing.lastMessage;
+            existing.updatedAt = s.updatedAt || existing.updatedAt;
+            existing._source = 'openclaw';
+            delete localByKey[sk]; // mark as matched
+            return existing;
+          }
+
+          return {
+            id: s.sessionId || sk || generateId(),
+            sessionKey: sk,
+            agentId: agentId,
+            agentName: agent?.name || s.displayName || agentId || 'Agent',
+            agentEmoji: agent?.emoji || '🤖',
+            title: s.derivedTitle || s.label || s.displayName || 'Conversation',
+            lastMessage,
+            updatedAt: s.updatedAt || Date.now(),
+            unread: 0,
+            _source: 'openclaw',
+          };
+        });
+
+        sessionStore.list = merged;
+        sessionStore._persist();
+        Alpine.store('monitor').addLog('info', `Synced ${sessions.length} sessions from OpenClaw`);
       } catch (err) {
         console.warn('[Sync] Session sync failed:', err.message);
       }
@@ -1143,8 +1180,13 @@ document.addEventListener('alpine:init', () => {
         if (state === 'error' || state === 'aborted') {
           // Chat error or aborted
           if (sessions._streamingMsg) {
-            const errText = payload.errorMessage || payload.message || 'Unknown error';
-            sessions._streamingMsg.content += '\n\nError: ' + errText;
+            let errText = payload.errorMessage || payload.message || 'Unknown error';
+            if (typeof errText !== 'string') errText = errText?.content || errText?.text || JSON.stringify(errText);
+            // Detect rate limit errors and show friendly message
+            if (/rate.?limit|429|too many|quota/i.test(errText)) {
+              errText = 'Rate limit reached for this model. Try again in a minute, or use a different agent.';
+            }
+            sessions._streamingMsg.content += '\n\n' + errText;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
@@ -1427,12 +1469,18 @@ document.addEventListener('alpine:init', () => {
           const historyKey = session?.sessionKey || id;
           const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
-            this.messages = history.map(m => ({
-              id: m.id || generateId(),
-              role: m.role === 'assistant' ? 'agent' : m.role,
-              content: m.content || '',
-              time: m.time || m.timestamp || '',
-            }));
+            this.messages = history.map(m => {
+              // m.content may be string or object { type, text, content, ... }
+              const raw = m.content;
+              const content = typeof raw === 'string' ? raw
+                : (raw?.text || raw?.content || (typeof raw === 'object' ? JSON.stringify(raw) : String(raw || '')));
+              return {
+                id: m.id || generateId(),
+                role: m.role === 'assistant' ? 'agent' : m.role,
+                content,
+                time: m.time || m.timestamp || '',
+              };
+            });
             this._messageStore[id] = this.messages;
             Alpine.store('monitor').addLog('info', `Loaded ${history.length} messages from OpenClaw`);
             return;
@@ -1447,7 +1495,7 @@ document.addEventListener('alpine:init', () => {
       this._messageStore[id] = this.messages;
     },
 
-    createSession(agentId) {
+    createSession(agentId, forceNew) {
       const agent = Alpine.store('agents').list.find(a => a.id === agentId);
       if (!agent) return;
 
@@ -1455,9 +1503,28 @@ document.addEventListener('alpine:init', () => {
       // One persistent conversation per agent (OpenClaw model).
       const sessionKey = 'agent:' + agentId + ':main';
 
-      // If a session with this sessionKey already exists, just select it
+      // If a session exists: select it, or reset for a fresh start
       const existing = this.list.find(s => s.sessionKey === sessionKey);
       if (existing) {
+        if (forceNew) {
+          // Reset server-side session for a fresh conversation
+          if (window.openclawClient?.authenticated) {
+            window.openclawClient.resetSession(sessionKey, 'User started new conversation').catch(e => {
+              console.warn('[Sessions] Server reset failed:', e.message);
+            });
+          }
+          // Clear local messages
+          this.messages = [];
+          this._messageStore[existing.id] = [];
+          existing.lastMessage = '';
+          existing.title = 'New conversation';
+          existing.updatedAt = Date.now();
+          this.activeId = existing.id;
+          this._persist();
+          Alpine.store('app').setView('chat');
+          Alpine.store('monitor').addLog('info', `Reset conversation with ${agent.name}`);
+          return;
+        }
         this.activeId = existing.id;
         this.select(existing.id);
         Alpine.store('app').setView('chat');
@@ -1481,6 +1548,33 @@ document.addEventListener('alpine:init', () => {
       this._messageStore[session.id] = this.messages;
       this._persist();
       Alpine.store('app').setView('chat');
+    },
+
+    async deleteSession(sessionId) {
+      const session = this.list.find(s => s.id === sessionId);
+      if (!session) return;
+
+      // Delete from OpenClaw server
+      if (session.sessionKey && window.openclawClient?.authenticated) {
+        try {
+          await window.openclawClient.deleteSession(session.sessionKey);
+        } catch (e) {
+          console.warn('[Sessions] Server delete failed:', e.message);
+        }
+      }
+
+      // Remove from local state
+      this.list = this.list.filter(s => s.id !== sessionId);
+      delete this._messageStore[sessionId];
+      storage.remove('msgs-' + sessionId);
+
+      // If this was the active session, clear it
+      if (this.activeId === sessionId) {
+        this.activeId = this.list[0]?.id || null;
+        this.messages = this.activeId ? (this._messageStore[this.activeId] || []) : [];
+      }
+      this._persist();
+      Alpine.store('monitor').addLog('info', `Deleted conversation with ${session.agentName}`);
     },
 
     async sendMessage() {
@@ -1650,7 +1744,7 @@ document.addEventListener('alpine:init', () => {
 
     _persist() {
       storage.save('sessions', this.list.map(s => ({
-        id: s.id, agentId: s.agentId, agentName: s.agentName,
+        id: s.id, sessionKey: s.sessionKey, agentId: s.agentId, agentName: s.agentName,
         agentEmoji: s.agentEmoji, title: s.title,
         lastMessage: s.lastMessage, updatedAt: s.updatedAt, unread: 0,
       })));

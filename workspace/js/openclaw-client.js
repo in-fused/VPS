@@ -576,6 +576,12 @@ class OpenClawClient {
     return this.request('sessions.delete', { key: sessionKey });
   }
 
+  async resetSession(sessionKey, reason) {
+    const params = { key: sessionKey };
+    if (reason) params.reason = reason;
+    return this.request('sessions.reset', params);
+  }
+
   // ---------------------------------------------------------------------------
   // HIGH-LEVEL API: CHAT
   // ---------------------------------------------------------------------------
