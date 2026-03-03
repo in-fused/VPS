@@ -227,3 +227,20 @@ litellm_settings:
   request_timeout: 120
   # Number of retries on failure
   num_retries: 2
+
+router_settings:
+  # When a Groq model hits rate limits (429), fall back to DeepSeek (cheap, high limits).
+  # Format: { "primary_model": ["fallback_model_1", "fallback_model_2"] }
+  fallbacks:
+    - groq-llama-3.3-70b: ["deepseek-chat"]
+    - groq-qwen3-32b: ["deepseek-chat"]
+    - groq-qwq-32b: ["deepseek-chat"]
+    - groq-qwen-coder-32b: ["deepseek-coder"]
+  # Retry failed requests within the same model group before falling back
+  num_retries: 1
+  retry_after: 2
+  # Use lowest-latency model when multiple are available (load balancing)
+  routing_strategy: "latency-based-routing"
+  # Allow 429s to trigger fallback (default only triggers on 5xx)
+  retry_policy:
+    RateLimitErrorRetries: 2

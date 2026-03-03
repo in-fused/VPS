@@ -618,6 +618,12 @@ The exact working format (validated 2026-03-02):
 ### LiteLLM `drop_params: true`
 - LiteLLM is configured to silently drop unsupported parameters instead of rejecting requests. This means if you send a parameter that doesn't exist for a model (e.g., `store` for DeepSeek), it won't error — it just ignores it. Good for compatibility, but can hide bugs.
 
+### LiteLLM Rate Limit Fallbacks
+- `router_settings.fallbacks` configured so Groq models (6,000 TPM free tier) automatically fall back to DeepSeek ($0.14/M) on 429 errors
+- Groq → DeepSeek chat for orchestrators (llama, qwen3, qwq); Groq → DeepSeek coder for code specialists
+- This means agents never get stuck on rate limits — the first request uses Groq (free), retries on DeepSeek (cheap)
+- `routing_strategy: latency-based-routing` picks the fastest available deployment when load-balancing across Groq accounts
+
 ---
 
 ## Resolved Issues (Brief Reference)
