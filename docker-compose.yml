@@ -247,8 +247,8 @@ services:
   # Scrapling — Web Scraping API for Agents
   # ===========================================================================
   # Lightweight HTTP API wrapping the Scrapling library.
-  # Agents call: exec curl http://scrapling:8000/scrape -d '{"url":"..."}'
-  # Default "fast" mode uses curl_cffi (no browser, ~50MB RAM).
+  # Agents call: exec wget -qO- 'http://scrapling:8000/scrape?url=...'
+  # Modes: "fast" (curl_cffi, ~50MB), "stealth" (Patchright, ~300MB), "browser" (Playwright, ~300MB).
   scrapling:
     build:
       context: ./scrapling
@@ -261,7 +261,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
