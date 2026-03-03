@@ -88,6 +88,11 @@ config.agents.defaults.models = { litellm: {} };
 // Enable sub-agent creation and agent-to-agent communication
 config.tools = config.tools || {};
 
+// Tool profile: explicitly set 'full' to ensure coding agents have exec,
+// read, write, edit tools. v2026.3.2 changed default to 'messaging' which
+// excludes these. 'full' includes all built-in tools.
+config.tools.profile = 'full';
+
 // Agent-to-agent messaging: allow all defined agents to talk to each other
 // (peer-to-peer, not just parent→child). This enables team collaboration
 // where any agent can message any other agent directly via sessions_send.
@@ -275,5 +280,9 @@ fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
 console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=8 (2 teams)');
 "
+
+# Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.
+# Only creates files that don't exist — preserves agent modifications.
+node /opt/scripts/seed-agent-workspaces.js
 
 exec node openclaw.mjs gateway --allow-unconfigured

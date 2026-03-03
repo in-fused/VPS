@@ -309,13 +309,30 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 
 ### OpenClaw Config Validation (DO NOT ADD THESE KEYS — causes crash loop)
 - `identity.description` — only `name`, `emoji` are valid identity keys
-- `agent.instructions` — NOT a valid agent key (system prompts live in app.js only)
+- `agent.instructions` — NOT a valid agent key (system prompts live in workspace files)
 - `subagents.maxDepth/maxConcurrent/maxChildrenPerAgent/runTimeoutSeconds` — not valid
 - `tools.agentToAgent.maxPingPongTurns` — not valid
 - `compaction`, `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
 - `gateway.trustProxy` — use `gateway.trustedProxies` instead
 
-**Agent system prompts are CLIENT-SIDE in our setup** — defined in `workspace/js/app.js` DEMO_AGENTS array, injected into the first message of each OpenClaw conversation (app.js line ~1524) and as a `system` role message in the LiteLLM SSE fallback (app.js line ~1576). Note: OpenClaw v3 DOES support server-side prompts via workspace files (`SOUL.md`, `AGENTS.md`, `IDENTITY.md` etc. in each agent's workspace dir), but `instructions` is NOT a valid agent config key — the entrypoint scrubs it.
+**Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, and `HEARTBEAT.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). Files are only seeded if missing — agent modifications are preserved.
+
+**Prompt architecture (dual-path):**
+- **Route 1 (OpenClaw WS):** Server-side SOUL.md handles the full system prompt. App.js only injects a brief dynamic `[STATUS]` line (tier, score, week) on the first message.
+- **Route 2 (LiteLLM SSE fallback):** Full client-side system prompt from `DEMO_AGENTS` array in `app.js` + tier context as `system` role message. This path is used when OpenClaw WS is unavailable.
+- **`instructions` is NOT a valid agent config key** — the entrypoint scrubs it. Prompts live in workspace files only.
+
+**Workspace files per agent:**
+| File | Purpose | Shared? |
+|------|---------|---------|
+| `SOUL.md` | Agent identity, role, rules, protocols | No (agent-specific) |
+| `USER.md` | Owner profile, mobile workflow, preferences | Yes (all agents) |
+| `AGENTS.md` | Team structure, competition rules | Yes (all agents) |
+| `MEMORY.md` | Project context, infrastructure, file paths | Yes (all agents, initial seed) |
+| `TOOLS.md` | Available tools, usage guidelines, cost awareness | Yes (all agents) |
+| `HEARTBEAT.md` | Periodic check-in behavior (leads get extended version) | Yes (role-specific) |
+
+**Tool profile:** `tools.profile = 'full'` is explicitly set in the entrypoint. v2026.3.2 changed the default to "messaging" which excludes coding tools (exec, read, write, edit). Without this, agents lose their core capabilities.
 
 ---
 
@@ -538,6 +555,7 @@ VPS/
     ├── setup-server.sh           ← Server hardening
     ├── setup-ollama-server.sh    ← Oracle Ollama setup
     ├── openclaw-entrypoint.sh    ← OpenClaw config patching
+    ├── seed-agent-workspaces.js  ← Seeds SOUL.md, MEMORY.md etc. per agent
     ├── caddy-entrypoint.sh       ← Auth token generation
     └── test-api-keys.sh          ← API key validation
 ```
@@ -648,10 +666,12 @@ These are solved — do not re-investigate or re-fix:
 ### Version Warning
 **Do NOT update the OpenClaw Docker image to v2026.2.26 until [PR #30227](https://github.com/openclaw/openclaw/pull/30227) is merged.** Issue [#30092](https://github.com/openclaw/openclaw/issues/30092): `dangerouslyDisableDeviceAuth=true` fails with `device-required` behind HTTPS reverse proxy on v2026.2.26. We run behind Caddy (HTTPS). Current `ghcr.io/openclaw/openclaw:main` tag may auto-update — consider pinning to a known-good version if this becomes an issue.
 
-### Entrypoint Config Additions (2026-03-02)
+### Entrypoint Config Additions (2026-03-03)
 - `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
 - `tools.sessions.visibility = 'all'` — agents can see each other's sessions for team coordination
+- `tools.profile = 'full'` — ensures coding tools (exec, read, write, edit) are available. v2026.3.2 changed default to "messaging" which excludes these
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
+- **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md per agent (idempotent)
 
 ### Available OpenClaw RPC Methods (via WebSocket)
 
@@ -685,9 +705,30 @@ Agents can create cron jobs that run server-side 24/7:
 - **Session targets:** `"main"` or `"isolated"`
 - **Created via:** `cron` tool (available to all agents) or `cron.add` RPC method
 
-### Server-Side Agent Workspace Files
+### Server-Side Agent Workspace Files (ACTIVE)
 
-OpenClaw v3 builds agent system prompts from workspace files (not config). Valid files:
-`AGENTS.md`, `SOUL.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `MEMORY.md`, `BOOTSTRAP.md`
+OpenClaw v3 builds agent system prompts from workspace files. The entrypoint seeds these via `scripts/seed-agent-workspaces.js` on every container start (idempotent — only creates missing files).
 
-These are read from `~/.openclaw/workspace-<agentWorkspace>/` on every turn. We currently use client-side prompt injection instead (app.js DEMO_AGENTS), but could migrate to workspace files for true server-side prompts.
+**Seeded files:** `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`
+**Also valid but not seeded:** `IDENTITY.md`, `BOOTSTRAP.md` (agents can create these themselves)
+
+**Workspace directories:** `~/.openclaw/workspace-<agentWorkspace>/` — read on every turn.
+- Lead → `workspace-Lead/`
+- CodeCraft → `workspace-CodeCraft/`
+- Scout → `workspace-Scout/`
+- Scribe → `workspace-Scribe/`
+- Ops Lead → `workspace-Ops Lead/`
+- Builder → `workspace-Builder/`
+- Sentinel → `workspace-Sentinel/`
+- Chronicler → `workspace-Chronicler/`
+
+**Memory system:** Each agent has `MEMORY.md` (seeded with project context) and a `memory/` subdirectory for daily logs (`YYYY-MM-DD.md`). The `memory_search` tool does hybrid vector+BM25 search across these files. Embedding provider is auto-detected from available API keys (OpenAI key is available via LiteLLM master key).
+
+**Prompt size limits:** Default 20,000 chars per file, 150,000 chars total. Configurable via `agents.defaults.bootstrapMaxChars`.
+
+**To reset an agent's prompts** (re-seed from scratch):
+```bash
+# Delete workspace files for a specific agent (e.g., Lead):
+rm -f /home/node/.openclaw/workspace-Lead/SOUL.md /home/node/.openclaw/workspace-Lead/USER.md /home/node/.openclaw/workspace-Lead/AGENTS.md /home/node/.openclaw/workspace-Lead/MEMORY.md /home/node/.openclaw/workspace-Lead/TOOLS.md /home/node/.openclaw/workspace-Lead/HEARTBEAT.md
+# Then restart OpenClaw — entrypoint will re-seed missing files
+```

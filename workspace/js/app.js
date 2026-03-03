@@ -1486,17 +1486,17 @@ document.addEventListener('alpine:init', () => {
         try {
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
 
-          // Inject system prompt on the first message of each conversation.
-          // OpenClaw doesn't support server-side agent instructions, so we
-          // prepend the identity/context block to the first user message.
-          // Subsequent messages inherit context from OpenClaw's conversation history.
+          // Server-side SOUL.md handles the full system prompt for OpenClaw WS.
+          // Only inject dynamic tier context on the first message (changes per session).
+          // Full system prompt injection is in Route 2 (LiteLLM SSE fallback) below.
           let messageText = text;
           const priorUserMsgs = this.messages.filter(m => m.role === 'user');
-          if (priorUserMsgs.length <= 1 && agent?.systemPrompt) {
-            // Inject dynamic tier context alongside static system prompt
+          if (priorUserMsgs.length <= 1 && agent) {
             const gov = Alpine.store('governance');
-            const tierInfo = gov ? `\n\n[CURRENT STATUS] Tier: ${gov.getTierName(agent.id)} (${gov._getMetrics(agent.id).tier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Weekly tasks: ${gov._getMetrics(agent.id).weeklyTasks}` : '';
-            messageText = `[SYSTEM INSTRUCTIONS — follow these for the entire conversation]\n${agent.systemPrompt}${tierInfo}\n[END SYSTEM INSTRUCTIONS]\n\n${text}`;
+            if (gov) {
+              const tierCtx = `[STATUS] Tier: ${gov.getTierName(agent.id)} (${gov._getMetrics(agent.id).tier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Tasks: ${gov._getMetrics(agent.id).weeklyTasks}`;
+              messageText = `${tierCtx}\n\n${text}`;
+            }
           }
 
           // Session key: use server-synced key, or derive from agent ID
