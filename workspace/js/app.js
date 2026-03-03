@@ -470,6 +470,30 @@ function timeNow() {
   return new Date().toTimeString().slice(0, 5);
 }
 
+// Extract readable text from OpenClaw message content.
+// OpenClaw returns content in multiple formats:
+//   - String: "hello"  (plain text)
+//   - Content blocks array: [{"type":"text","text":"hello"}, {"type":"tool_use",...}]
+//   - Object: { content: "hello" } or { text: "hello" }
+//   - null/undefined
+// This normalizes all formats to a plain string.
+function extractMessageText(raw) {
+  if (raw == null) return '';
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    // Content blocks array — extract text from "text" type blocks only
+    const texts = raw
+      .filter(b => b && (b.type === 'text' || !b.type))
+      .map(b => b.text || b.content || '')
+      .filter(t => t);
+    return texts.join('\n');
+  }
+  if (typeof raw === 'object') {
+    return raw.text || raw.content || '';
+  }
+  return String(raw);
+}
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -926,11 +950,8 @@ document.addEventListener('alpine:init', () => {
           }
           const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
 
-          // lastMessagePreview may be string or object { content, role, ... }
-          const rawPreview = s.lastMessagePreview;
-          const previewText = typeof rawPreview === 'string' ? rawPreview
-            : (rawPreview?.content || rawPreview?.text || '');
-          const lastMessage = typeof previewText === 'string' ? previewText : String(previewText || '');
+          // lastMessagePreview may be string, object, or content blocks array
+          const lastMessage = extractMessageText(s.lastMessagePreview);
 
           // Merge with existing local session to preserve local ID and message cache
           const existing = localByKey[sk];
@@ -988,9 +1009,8 @@ document.addEventListener('alpine:init', () => {
         if (state === 'delta') {
           // Streaming content delta
           if (sessions._streamingMsg) {
-            // Extract text from message — may be string or object with content field
-            const msg = payload.message;
-            const delta = typeof msg === 'string' ? msg : (msg?.content || msg?.text || payload.content || payload.delta || '');
+            // Extract text from message — may be string, object, or content blocks array
+            const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
             sessions._streamingMsg.content += delta;
             sessions._scrollToBottom();
           }
@@ -1002,14 +1022,18 @@ document.addEventListener('alpine:init', () => {
           if (sessions._streamingMsg) {
             // If final message has content, append it
             if (payload.message) {
-              const msg = payload.message;
-              const finalContent = typeof msg === 'string' ? msg : (msg?.content || msg?.text || '');
+              const finalContent = extractMessageText(payload.message);
               if (finalContent && !sessions._streamingMsg.content.endsWith(finalContent)) {
                 sessions._streamingMsg.content += finalContent;
               }
             }
-            sessions._streamingMsg.streaming = false;
-            sessions._streamingMsg.time = timeNow();
+            // If streaming produced no visible text (tool-use-only turn), remove the empty bubble
+            if (!sessions._streamingMsg.content.trim()) {
+              sessions.messages = sessions.messages.filter(m => m !== sessions._streamingMsg);
+            } else {
+              sessions._streamingMsg.streaming = false;
+              sessions._streamingMsg.time = timeNow();
+            }
             sessions._streamingMsg = null;
           }
           sessions._sending = false;
@@ -1018,7 +1042,7 @@ document.addEventListener('alpine:init', () => {
           // Update session metadata
           const session = sessions.active;
           if (session) {
-            const lastMsg = sessions.messages[sessions.messages.length - 1];
+            const lastMsg = sessions.messages.filter(m => m.role === 'agent' && m.content?.trim()).pop();
             session.lastMessage = (lastMsg?.content || '').slice(0, 60);
             session.updatedAt = Date.now();
           }
@@ -1076,13 +1100,14 @@ document.addEventListener('alpine:init', () => {
         if (state === 'error' || state === 'aborted') {
           // Chat error or aborted
           if (sessions._streamingMsg) {
-            let errText = payload.errorMessage || payload.message || 'Unknown error';
-            if (typeof errText !== 'string') errText = errText?.content || errText?.text || JSON.stringify(errText);
+            let errText = extractMessageText(payload.errorMessage) || extractMessageText(payload.message) || 'Unknown error';
             // Detect rate limit errors and show friendly message
             if (/rate.?limit|429|too many|quota/i.test(errText)) {
               errText = 'Rate limit reached for this model. Try again in a minute, or use a different agent.';
             }
-            sessions._streamingMsg.content += '\n\n' + errText;
+            // Show error cleanly — avoid leading newlines if no content streamed yet
+            const prefix = sessions._streamingMsg.content.trim() ? '\n\n' : '';
+            sessions._streamingMsg.content = sessions._streamingMsg.content.trim() + prefix + '⚠️ ' + errText;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
@@ -1360,18 +1385,15 @@ document.addEventListener('alpine:init', () => {
           const historyKey = session?.sessionKey || id;
           const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
-            this.messages = history.map(m => {
-              // m.content may be string or object { type, text, content, ... }
-              const raw = m.content;
-              const content = typeof raw === 'string' ? raw
-                : (raw?.text || raw?.content || (typeof raw === 'object' ? JSON.stringify(raw) : String(raw || '')));
-              return {
+            this.messages = history
+              .map(m => ({
                 id: m.id || generateId(),
                 role: m.role === 'assistant' ? 'agent' : m.role,
-                content,
+                content: extractMessageText(m.content),
                 time: m.time || m.timestamp || '',
-              };
-            });
+              }))
+              // Filter out empty messages (tool-use-only turns with no text)
+              .filter(m => m.role === 'user' || m.content.trim());
             this._messageStore[id] = this.messages;
             Alpine.store('monitor').addLog('info', `Loaded ${history.length} messages from OpenClaw`);
             return;
@@ -1506,13 +1528,12 @@ document.addEventListener('alpine:init', () => {
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
 
           // Server-side SOUL.md handles the full system prompt for OpenClaw WS.
-          // Only inject dynamic tier context on the first message (changes per session).
-          // Full system prompt injection is in Route 2 (LiteLLM SSE fallback) below.
+          // Only inject dynamic tier context on the first message when governance is active.
           let messageText = text;
-          const priorUserMsgs = this.messages.filter(m => m.role === 'user');
-          if (priorUserMsgs.length <= 1 && agent) {
-            const gov = Alpine.store('governance');
-            if (gov) {
+          const gov = Alpine.store('governance');
+          if (!gov?.paused) {
+            const priorUserMsgs = this.messages.filter(m => m.role === 'user');
+            if (priorUserMsgs.length <= 1 && agent && gov) {
               const tierCtx = `[STATUS] Tier: ${gov.getTierName(agent.id)} (${gov._getMetrics(agent.id).tier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Tasks: ${gov._getMetrics(agent.id).weeklyTasks}`;
               messageText = `${tierCtx}\n\n${text}`;
             }
@@ -1558,14 +1579,16 @@ document.addEventListener('alpine:init', () => {
         const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
         const model = rawModel.replace(/^litellm\//, '');
 
-        // Tier context for system prompt injection (Elite tier includes model upgrade to reasoning models)
         const gov = Alpine.store('governance');
-        const agentTier = gov._getMetrics(agent?.id)?.tier ?? 1;
 
         const apiMessages = [];
         if (agent?.systemPrompt) {
-          // Inject dynamic tier context into system prompt
-          const tierCtx = gov ? `\n\n[CURRENT STATUS] Tier: ${gov.getTierName(agent.id)} (${agentTier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Weekly tasks: ${gov._getMetrics(agent.id).weeklyTasks}` : '';
+          // Inject dynamic tier context into system prompt only when governance is active
+          let tierCtx = '';
+          if (!gov?.paused) {
+            const agentTier = gov._getMetrics(agent?.id)?.tier ?? 1;
+            tierCtx = `\n\n[CURRENT STATUS] Tier: ${gov.getTierName(agent.id)} (${agentTier}/3) | Score: ${gov.getScore(agent.id)} | Week ${gov.week.number}, ${gov.getWeekDaysRemaining()} days left | Weekly tasks: ${gov._getMetrics(agent.id).weeklyTasks}`;
+          }
           apiMessages.push({ role: 'system', content: agent.systemPrompt + tierCtx });
         }
         for (const msg of this.messages) {
@@ -1954,6 +1977,11 @@ document.addEventListener('alpine:init', () => {
   // --------------------------------------------------------------------------
 
   Alpine.store('governance', {
+    // PAUSED: Disable automatic tier changes, lead promotions, and weekly evaluations.
+    // Raw stats (tasks completed/failed) still tracked for display.
+    // Re-enable when P2P agent communication and autonomous tasks are working.
+    paused: true,
+
     // Per-agent performance metrics (persisted to localStorage, synced to volume)
     metrics: storage.load('governance-metrics', {}),
 
@@ -2094,14 +2122,13 @@ document.addEventListener('alpine:init', () => {
 
       this._persist();
 
-      // Evaluate tier changes
-      this._evaluateTier(agentId);
-
-      // Check if this agent should be promoted to lead
-      this._evaluateLeadership(agentId);
-
-      // Check if weekly evaluation is due
-      this._checkWeeklyEvaluation();
+      // Skip automatic tier changes, promotions, and weekly evaluations when paused.
+      // Raw stats above still tracked — only the automated consequences are disabled.
+      if (!this.paused) {
+        this._evaluateTier(agentId);
+        this._evaluateLeadership(agentId);
+        this._checkWeeklyEvaluation();
+      }
     },
 
     // Record a staging approval/rejection (called from staging store)

@@ -1172,10 +1172,20 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h1 class="text-xl font-bold text-mc-text">Teams & Governance</h1>
-                <p class="text-sm text-mc-text-muted mt-1">Performance tracking, tier system, and weekly evaluation</p>
+                <p class="text-sm text-mc-text-muted mt-1" x-show="!$store.governance.paused">Performance tracking, tier system, and weekly evaluation</p>
+                <p class="text-sm text-amber-400 mt-1" x-show="$store.governance.paused">Auto-scoring paused — stats tracked, no tier/promotion changes</p>
               </div>
               <div class="flex items-center gap-2">
-                <button @click="$store.governance.forceWeeklyEval()"
+                <button @click="$store.governance.paused = !$store.governance.paused"
+                        :title="$store.governance.paused ? 'Resume automatic evaluations' : 'Pause automatic evaluations'"
+                        :class="$store.governance.paused
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg hover:opacity-80 border transition-all"
+                        x-text="$store.governance.paused ? 'Resume Scoring' : 'Pause Scoring'">
+                </button>
+                <button x-show="!$store.governance.paused"
+                        @click="$store.governance.forceWeeklyEval()"
                         title="Force run weekly evaluation now"
                         class="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all">
                   Evaluate Now

@@ -182,7 +182,8 @@ class OpenClawClient {
         };
 
         ws.onerror = () => {
-          this._log('warn', `error on ${url} (browser hides details)`);
+          // Note: browsers hide WebSocket error details for security — this is normal
+          this._log('info', `WebSocket error event on ${url} (see close code for details)`);
         };
 
         ws.onclose = (event) => {
