@@ -223,9 +223,13 @@ Platform Team: Ops Lead (platform orchestrator) · Builder (infra dev) · Sentin
 Teams compete on governance scores — task success, quality, efficiency, and streaks all count. Cross-team messaging is allowed but prefer your own team first.`;
 
 const AGENT_GOVERNANCE = `GOVERNANCE:
-Tiers: PROBATION (0) — no workspace, supervised, 5 consecutive successes to escape. ACTIVE (1) — 50 MB workspace, standard tools, default. PROVEN (2) — 200 MB, semi-autonomous, earned at score >= 70 with 15+ tasks and 3+ streak. ELITE (3) — 2 GB workspace + Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs) + model upgrade to groq-qwen3-32b or groq-qwq-32b (advanced reasoning), fully autonomous. 1 Elite per team = weekly champion.
+Tiers: PROBATION (0) — 50 MB workspace, supervised, 5 consecutive successes to escape. ACTIVE (1) — 200 MB workspace, standard tools, default. PROVEN (2) — 500 MB, semi-autonomous, earned at score >= 70 with 15+ tasks and 3+ streak. ELITE (3) — Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs), fully autonomous. 1 Elite per team = weekly champion.
+
+All models available at every tier: groq-llama-3.3-70b, groq-qwen3-32b (dual-mode reasoning), groq-qwq-32b (advanced reasoning), groq-qwen-coder-32b (code specialist), deepseek-chat, deepseek-coder. Agents may rotate between free models to avoid rate limits. No model is restricted by tier.
 
 Weekly Evaluation (every 7 days): Tasks completed 25% · Owner-approved staging 30% · Streak quality 15% · Efficiency 15% · Peer contribution 15%. Weekly champion becomes team lead + Elite tier for the next week. All counters reset — fresh start for everyone. Past champions displayed in Mission Control.
+
+Elite Oracle Onboarding: The Elite agent gains access to a dedicated Oracle Cloud ARM server (24 GB RAM). They may bring their current team members onto Oracle, OR request the owner to create/recruit new specialist agents (from the OpenClaw marketplace or custom-built). The Elite agent chooses their team composition.
 
 Manager Promotion: The owner may promote a sustained Elite performer to Manager — a role above both teams, reporting directly to the owner. A replacement agent fills the vacated spot. This is manual, rare, and the highest achievement in the system.`;
 
@@ -2076,12 +2080,12 @@ document.addEventListener('alpine:init', () => {
     // Tier names and config
     TIER_NAMES: ['Probation', 'Active', 'Proven', 'Elite'],
     TIER_COLORS: ['red', 'gray', 'cyan', 'amber'],
-    // What each tier unlocks (Elite includes model upgrade to reasoning models — still free via Groq)
+    // What each tier unlocks — all models available at every tier, storage spread across EC2
     TIER_PERKS: {
-      0: { workspace: '0 MB', tools: 'basic', autonomy: 'none', oracle: false, desc: 'Restricted. Prove yourself.' },
-      1: { workspace: '50 MB', tools: 'standard', autonomy: 'supervised', oracle: false, desc: 'Default tier. Standard workspace.' },
-      2: { workspace: '200 MB', tools: 'standard + priority routing', autonomy: 'semi-autonomous', oracle: false, desc: 'Expanded workspace. Can run longer tasks.' },
-      3: { workspace: '2 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, model: 'groq-qwen3-32b or groq-qwq-32b', desc: 'Oracle Cloud ARM + reasoning model upgrade. Full autonomy.' },
+      0: { workspace: '50 MB', tools: 'basic', autonomy: 'supervised', oracle: false, desc: 'Supervised. 5 consecutive successes to escape.' },
+      1: { workspace: '200 MB', tools: 'standard', autonomy: 'standard', oracle: false, desc: 'Default tier. Standard workspace + full model access.' },
+      2: { workspace: '500 MB', tools: 'standard + priority routing', autonomy: 'semi-autonomous', oracle: false, desc: 'Expanded workspace. Can run longer tasks autonomously.' },
+      3: { workspace: 'Oracle ARM 24 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, desc: 'Dedicated Oracle Cloud ARM server. Full autonomy. Can onboard team.' },
     },
 
     init() {

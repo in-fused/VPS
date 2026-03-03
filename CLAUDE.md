@@ -219,17 +219,26 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Chronicler | gpt-4o-mini | Platform documentation | (none) |
 
 **Model budget strategy:**
-- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b), CodeCraft (groq-qwen-coder-32b) — high-frequency orchestration/research/code
+- All free models are available to agents at every tier (no model restrictions by tier level)
+- Groq (free, 2K req/day with 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b), CodeCraft (groq-qwen-coder-32b)
+- Groq reasoning models (free): groq-qwen3-32b (dual-mode reasoning, 131K ctx), groq-qwq-32b (advanced reasoning, 128K ctx)
 - DeepSeek ($0.14/1M): Builder, Sentinel (code + reasoning, dirt cheap)
 - gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
-- **Elite upgrade models** (Groq free tier): groq-qwen3-32b (dual-mode reasoning), groq-qwq-32b (advanced reasoning). Available as governance rewards when an agent reaches Elite tier.
+- Agents may rotate between free models to avoid rate limits — this is encouraged
 
-**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier with model upgrade rewards. The owner can manually promote a sustained Elite performer to Manager (above both teams).
+**Tier storage (EC2 t3.small, ~2GB total workspace):**
+- PROBATION (0): 50 MB — supervised, must prove competence
+- ACTIVE (1): 200 MB — default starting tier, standard tools
+- PROVEN (2): 500 MB — semi-autonomous, priority routing
+- ELITE (3): Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs) — fully autonomous
 
-**Elite model upgrades:** When an agent reaches Elite tier, they can be upgraded to a more powerful model as a reward:
-- `groq-qwen3-32b` — dual-mode reasoning (thinking + non-thinking), tool use, 131K context. Best free reasoning model.
-- `groq-qwq-32b` — advanced reasoning specialist (math, code, analysis), 128K context. Rivals DeepSeek-R1.
-- These are free on Groq's free tier (load-balanced across 2 accounts), so upgrades cost nothing.
+**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier. The owner can manually promote a sustained Elite performer to Manager (above both teams).
+
+**Elite Oracle Onboarding:** The weekly champion (Elite tier) gains access to a dedicated Oracle Cloud ARM server (24 GB RAM). They may:
+- Bring their current team members onto Oracle alongside them
+- Request the owner to create new specialist agents for their Oracle team
+- Recruit agents from the OpenClaw marketplace
+- Choose their own team composition for the Oracle partition
 
 Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
 - `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
