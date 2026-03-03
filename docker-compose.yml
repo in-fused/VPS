@@ -218,6 +218,11 @@ services:
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      # v2026.3.2: plaintext ws:// restricted to loopback by default.
+      # Docker bridge network is private (not loopback) — Caddy proxies
+      # to openclaw:18789 via ws:// on the bridge. Without this, internal
+      # WebSocket connections fail with connection refused.
+      - OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1
       # Telegram bot integration (optional — set in .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     networks:

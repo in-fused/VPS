@@ -85,10 +85,13 @@ config.models.providers.litellm = {
     { id: 'minimax-m2.5', name: 'MiniMax M2.5 (mid)', contextWindow: 1000000, maxTokens: 16384 },
     // Premium
     { id: 'claude-sonnet', name: 'Claude Sonnet (premium)', contextWindow: 200000, maxTokens: 8192 },
+    { id: 'claude-opus', name: 'Claude Opus (premium)', contextWindow: 200000, maxTokens: 4096 },
     { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
+    { id: 'o1', name: 'OpenAI o1 (premium)', contextWindow: 200000, maxTokens: 100000 },
     // Local Ollama
     { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B (free/local)', contextWindow: 32768, maxTokens: 8192 },
-    { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 }
+    { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 },
+    { id: 'deepseek-coder-v2:16b', name: 'DeepSeek Coder V2 16B (free/local)', contextWindow: 128000, maxTokens: 8192 }
   ]
 };
 
@@ -132,6 +135,13 @@ config.tools.sessions.visibility = 'all';
 config.cron = config.cron || {};
 config.cron.enabled = true;
 config.cron.maxConcurrentRuns = 1;
+
+// Compaction: prevent aggressive compaction loop regression (#32106).
+// v2026.3.1 defaults softThresholdTokens to 4000 which triggers compaction
+// every 2-3 minutes. Set to 50000 to prevent this.
+config.agents.defaults.compaction = config.agents.defaults.compaction || {};
+config.agents.defaults.compaction.memoryFlush = config.agents.defaults.compaction.memoryFlush || {};
+config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
 
 // Auto-updater: keep OpenClaw on stable channel with automatic updates.
 // In-app mechanism (separate from Docker image tags). Stable channel avoids

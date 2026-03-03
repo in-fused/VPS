@@ -1,6 +1,6 @@
 # CLAUDE.md — in-fused.org Project Memory
 
-> **Updated:** Mar 2, 2026 | **Commits:** 94 | **Status:** Stack deployed, core functionality working — now building agent autonomy
+> **Updated:** Mar 3, 2026 | **Commits:** 96 | **Status:** Stack deployed, Scrapling sidecar added, V3 compatibility verified
 
 ## Project Overview
 
@@ -12,7 +12,8 @@
 - **Mission Control** (`/workspace/`) — custom SPA for agent management, chat, and visual workflow builder
 - **OpenClaw** (`/openclaw/`) — autonomous agent runtime (24/7), exposes WebSocket RPC for Mission Control
 - **Open WebUI** (`/`) — ChatGPT-like frontend with golden cyber theme
-- **LiteLLM** (`/api/litellm/`) — unified gateway routing to 20 models across 6 providers
+- **LiteLLM** (`/api/litellm/`) — unified gateway routing to 20+ models across 6 providers
+- **Scrapling** (internal only) — web scraping API for agents at `http://scrapling:8000`
 - **Caddy** — reverse proxy, auto-HTTPS, site-wide cookie auth
 
 ---
@@ -143,6 +144,7 @@ Internet → https://in-fused.org → Caddy (auto-HTTPS)
   └── / (everything else)    → Cookie-gated → Open WebUI :8080
 
 OpenClaw → LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, MiniMax, Ollama(Oracle Cloud ARM)
+OpenClaw agents → Scrapling :8000 (internal web scraping API)
 Docker network: ai-hub-network (bridge)
 ```
 
@@ -150,15 +152,16 @@ Docker network: ai-hub-network (bridge)
 
 | Service | Image | Memory | Port |
 |---------|-------|--------|------|
-| caddy | caddy:2-alpine | 64M | 80, 443 |
+| caddy | in-fused/caddy:latest (custom build) | 64M | 80, 443 |
 | open-webui | in-fused/open-webui:latest (custom build) | 768M | 8080 |
 | litellm | ghcr.io/berriai/litellm:main-stable | 512M | 4000 |
 | litellm-db | postgres:16-alpine | 128M | 5432 |
 | openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
+| scrapling | in-fused/scrapling:latest (custom build) | 256M | 8000 (internal) |
 | openclaw-init | alpine:3 | — | — |
 | workspace-init | alpine:3 | — | — |
 
-Total ~3GB (2GB RAM + 4GB swap). Open WebUI uses `build:` in docker-compose — `deploy.sh` runs `docker compose build open-webui` then `docker compose up -d`.
+Total ~3.3GB (2GB RAM + 4GB swap). Custom images (caddy, open-webui, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
 
 ---
 
@@ -313,13 +316,14 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 8. Check **Staging** view for any content agents have produced for review
 9. Check **Workflows** view for any workflows agents have created
 
-### OpenClaw Config Validation (DO NOT ADD THESE KEYS — causes crash loop)
+### OpenClaw Config Validation (these keys cause crash loops — do not add)
 - `identity.description` — only `name`, `emoji` are valid identity keys
 - `agent.instructions` — NOT a valid agent key (system prompts live in workspace files)
 - `subagents.maxDepth/maxConcurrent/maxChildrenPerAgent/runTimeoutSeconds` — not valid
 - `tools.agentToAgent.maxPingPongTurns` — not valid
-- `compaction`, `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
+- `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
 - `gateway.trustProxy` — use `gateway.trustedProxies` instead
+- **Valid since v2026.3.1:** `agents.defaults.compaction.memoryFlush.softThresholdTokens` (we set to 50000)
 
 **Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, and `HEARTBEAT.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). Files are only seeded if missing — agent modifications are preserved.
 
@@ -541,11 +545,15 @@ VPS/
 ├── .env                          ← Secrets (NOT in git)
 ├── .env.example                  ← Template
 ├── Caddyfile                     ← Reverse proxy config
-├── docker-compose.yml            ← 7 services + 1 optional
-├── litellm_config.yaml           ← 20 models, 5 tiers
+├── docker-compose.yml            ← 8 services + 1 optional
+├── litellm_config.yaml           ← 25+ models, 8 tiers
 ├── webui-theme/
 │   ├── Dockerfile                ← FROM open-webui + custom.css
 │   └── custom.css                ← Golden cyber theme (784 lines)
+├── scrapling/                    ← Web scraping sidecar
+│   ├── Dockerfile                ← Python 3.12 + Scrapling + FastAPI
+│   ├── api.py                    ← Scraping API endpoints
+│   └── requirements.txt          ← scrapling[fetchers], fastapi, uvicorn
 ├── workspace/                    ← Mission Control SPA
 │   ├── index.html                ← Main SPA (1429 lines)
 │   ├── auth.html                 ← Site login page
@@ -587,6 +595,7 @@ VPS/
 | `WEBUI_SECRET_KEY` | Open WebUI session secret |
 | `DB_PASSWORD` | PostgreSQL for LiteLLM |
 | `COMPOSE_PROJECT_NAME` | ai-hub |
+| `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | `1` — allows plaintext WS on Docker bridge (v2026.3.2+) |
 
 ## Wiring & Gotchas (Things That Will Bite You)
 
@@ -616,8 +625,17 @@ These are non-obvious behaviors across the system. A future session that doesn't
 ### workspace-init Overwrites On Every Deploy
 - The `workspace-init` container runs `cp -r /seed/. /workspace/` on every deploy, copying repo `workspace/` files into the Docker volume. This means any manual edits to `index.html`, `app.js`, etc. made directly on the volume (not in the repo) will be **overwritten** on next deploy. Always edit files in the repo, not on the running container.
 
-### OpenClaw Auth Handshake — VERIFIED WORKING, DO NOT CHANGE
-**⚠️ This handshake was broken 3 times in a row by well-intentioned "cleanups". Every field is load-bearing. Do NOT modify `_sendHandshake()` in `openclaw-client.js` without testing on the live server first.**
+### OpenClaw Container Has No curl
+- The OpenClaw Docker image (`ghcr.io/openclaw/openclaw:main`) is Node.js-based and uses `wget` (not `curl`). The healthcheck confirms this: `wget -qO- http://localhost:18789/openclaw/`.
+- When agents use the `exec` tool to make HTTP requests (e.g., to the Scrapling API), they must use `wget` or `node -e "fetch(...)"`, NOT `curl`.
+- Scrapling API provides a GET endpoint for easy wget usage: `wget -qO- 'http://scrapling:8000/scrape?url=...'`
+
+### Scrapling Is Internal Only
+- The Scrapling service has no external ports — it's only reachable on the Docker bridge network at `http://scrapling:8000`. Agents access it via `exec wget`. It is NOT exposed through Caddy.
+- Memory limit: 256M. The default `"fast"` fetcher uses ~50MB. Stealth/browser modes require more but are not enabled by default.
+
+### OpenClaw Auth Handshake — VERIFIED WORKING, DO NOT BREAK
+**⚠️ This handshake was broken 3 times in a row by well-intentioned "cleanups". Every field is load-bearing. Improvements are welcome, but do NOT remove or rename existing fields in `_sendHandshake()` in `openclaw-client.js` without testing on the live server first. Adding new optional fields is safe; changing or removing existing ones is not.**
 
 The exact working format (validated 2026-03-02):
 ```javascript
@@ -627,7 +645,7 @@ The exact working format (validated 2026-03-02):
     minProtocol: 3, maxProtocol: 3,
     auth: { token: pw, password: pw },  // NO mode field — schema rejects it
     role: 'operator',
-    scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals'],
+    scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
     client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'webchat' },
     // NO device block
   }
@@ -650,6 +668,54 @@ The exact working format (validated 2026-03-02):
 - 6 free providers (Groq, Cerebras, Gemini, Mistral, Ollama + Groq account 2) are exhausted before any paid API ($0.28/M DeepSeek) is hit
 - This means agents never get stuck on rate limits — requests cascade through free providers before falling back to cheap paid
 - `routing_strategy: latency-based-routing` picks the fastest available deployment when load-balancing
+
+---
+
+## Scrapling — Web Scraping Sidecar (added 2026-03-03)
+
+**Purpose:** Dedicated web scraping API for OpenClaw agents. Wraps the [Scrapling](https://github.com/D4Vinci/Scrapling) Python library behind a FastAPI server.
+
+**Internal only** — no external ports, only accessible on the Docker network at `http://scrapling:8000`.
+
+**Endpoints:**
+- `GET /health` — health check
+- `GET /scrape?url=...` — quick scrape (agents use `exec wget -qO- 'http://scrapling:8000/scrape?url=...'`)
+- `POST /scrape` — full scrape with options (selectors, links, images, method)
+- `POST /scrape/batch` — scrape up to 10 URLs sequentially
+
+**Fetcher methods:**
+- `"fast"` (default) — curl_cffi HTTP with TLS fingerprint spoofing, no browser needed, ~50MB RAM
+- `"stealth"` — Patchright (stealth Chromium), bypasses Cloudflare, needs browser binaries
+- `"browser"` — Playwright Chromium, full JS rendering, needs browser binaries
+
+**Note:** Only `"fast"` works out of the box. `"stealth"` and `"browser"` require running `scrapling install` in the container to download browser binaries (~400MB). The fast fetcher handles most scraping needs.
+
+**Agent usage:** Agents call via `exec` tool using `wget` (curl is NOT available in the OpenClaw container):
+```
+exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
+```
+
+**Files:** `scrapling/Dockerfile`, `scrapling/api.py`, `scrapling/requirements.txt`
+
+---
+
+## OpenClaw V3 Compatibility (verified 2026-03-03)
+
+**Key changes in v2026.3.1 / v2026.3.2 and how we handle them:**
+
+| Change | Risk | Our Protection |
+|--------|------|----------------|
+| `tools.profile` default → `"messaging"` | Agents lose exec, read, write, edit | Entrypoint explicitly sets `'full'` |
+| Plaintext `ws://` loopback-only | Docker bridge WS breaks | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` in docker-compose |
+| Compaction loop regression (#32106) | Agents compact every 2-3 min | `softThresholdTokens = 50000` in entrypoint |
+| Issue #30092 (device-required behind HTTPS) | WS auth fails | `allowInsecureAuth=true` + `dangerouslyDisableDeviceAuth=true` |
+| Workspace sandbox read-only | Agent writes to /workspace/ fail | Monitor — not yet confirmed as affecting our setup |
+| `NO_REPLY` token filtering | Tokens leak to chat | Auto-fixed in v2026.3.2 |
+
+**Watch for:**
+- If agents exhibit compaction loops (every 2-3 min), the `softThresholdTokens` fix is in the entrypoint
+- If WebSocket connections fail after image update, check `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` is set
+- Consider pinning OpenClaw image to a known-good digest instead of floating on `:main`
 
 ---
 
@@ -679,6 +745,9 @@ These are solved — do not re-investigate or re-fix:
 - `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
 - `tools.sessions.visibility = 'all'` — agents can see each other's sessions for team coordination
 - `tools.profile = 'full'` — ensures coding tools (exec, read, write, edit) are available. v2026.3.2 changed default to "messaging" which excludes these
+- `compaction.memoryFlush.softThresholdTokens = 50000` — prevents aggressive compaction loop (v2026.3.1 regression #32106)
+- `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` — env var in docker-compose, allows plaintext `ws://` on Docker bridge (v2026.3.2 restricted to loopback)
+- Missing models added to provider list: `claude-opus`, `o1`, `deepseek-coder-v2:16b`
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
 - **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md per agent (idempotent)
 

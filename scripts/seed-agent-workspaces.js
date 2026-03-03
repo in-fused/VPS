@@ -120,20 +120,26 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 
 ## Web Scraping (Scrapling API)
 A dedicated scraping service runs at http://scrapling:8000 on the Docker network.
+NOTE: This container does NOT have curl. Use wget or node fetch for HTTP requests.
 
-**Scrape a single URL:**
+**Quick scrape (GET — simplest):**
 \`\`\`
-exec curl -s -X POST http://scrapling:8000/scrape -H 'Content-Type: application/json' -d '{"url":"https://example.com"}'
+exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
 \`\`\`
 
-**With CSS selectors and links:**
+**Full scrape with options (POST via wget):**
 \`\`\`
-exec curl -s -X POST http://scrapling:8000/scrape -H 'Content-Type: application/json' -d '{"url":"https://example.com","selectors":{"titles":"h2::text","prices":".price::text"},"extract_links":true}'
+exec wget -qO- --post-data='{"url":"https://example.com","extract_links":true}' --header='Content-Type: application/json' http://scrapling:8000/scrape
+\`\`\`
+
+**With CSS selectors:**
+\`\`\`
+exec wget -qO- --post-data='{"url":"https://example.com","selectors":{"titles":"h2::text","prices":".price::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape
 \`\`\`
 
 **Batch scrape (up to 10 URLs):**
 \`\`\`
-exec curl -s -X POST http://scrapling:8000/scrape/batch -H 'Content-Type: application/json' -d '{"urls":["https://a.com","https://b.com"]}'
+exec wget -qO- --post-data='{"urls":["https://a.com","https://b.com"]}' --header='Content-Type: application/json' http://scrapling:8000/scrape/batch
 \`\`\`
 
 Methods: "fast" (default, HTTP with TLS spoofing, no browser), "stealth" (bypasses Cloudflare, needs browser), "browser" (full JS rendering, needs browser).

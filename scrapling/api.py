@@ -151,6 +151,18 @@ def health():
     return {"status": "ok", "service": "scrapling"}
 
 
+@app.get("/scrape")
+def scrape_get(url: str, method: str = "fast", extract_links: bool = False,
+               extract_images: bool = False, timeout: int = 30):
+    """Simple GET endpoint for quick scraping via wget/web_fetch.
+
+    Usage: wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
+    """
+    req = ScrapeRequest(url=url, method=method, extract_links=extract_links,
+                        extract_images=extract_images, timeout=timeout)
+    return scrape(req)
+
+
 @app.post("/scrape")
 def scrape(req: ScrapeRequest):
     """Scrape a single URL and return structured content."""
