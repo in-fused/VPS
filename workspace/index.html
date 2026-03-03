@@ -241,9 +241,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
           </svg>
           <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Agents</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.agents.running > 0"
-                class="ml-auto text-[10px] bg-mc-success-dim text-emerald-400 px-1.5 py-0.5 rounded-full font-mono"
-                x-text="$store.agents.running + ' active'"></span>
+          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.agents.scheduled > 0"
+                class="ml-auto text-[10px] bg-mc-warning-dim text-amber-400 px-1.5 py-0.5 rounded-full font-mono"
+                x-text="$store.agents.scheduled + ' scheduled'"></span>
         </button>
 
         <!-- Workflows -->
@@ -485,7 +485,7 @@
             <div class="mc-stat-border cyan relative bg-mc-surface border border-mc-border rounded-xl p-5">
               <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Agents</div>
               <div class="text-2xl font-bold text-mc-text" x-text="$store.agents.list.length"></div>
-              <div class="text-xs text-emerald-400 mt-1"><span x-text="$store.agents.running"></span> running</div>
+              <div class="text-xs mt-1" :class="$store.agents.scheduled > 0 ? 'text-amber-400' : 'text-mc-text-muted'"><span x-text="$store.agents.scheduled"></span> scheduled</div>
             </div>
             <div class="mc-stat-border green relative bg-mc-surface border border-mc-border rounded-xl p-5">
               <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Sessions</div>
@@ -523,7 +523,7 @@
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2">
                         <span class="font-semibold text-mc-text truncate" x-text="agent.name"></span>
-                        <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                        <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
                       </div>
                       <div class="text-xs text-mc-text-muted truncate" x-text="agent.description"></div>
                     </div>
@@ -665,7 +665,7 @@
                           <div class="flex items-center gap-2">
                             <span class="font-semibold text-mc-text" x-text="agent.name"></span>
                             <span x-show="team.lead === agent.id" class="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded font-medium">LEAD</span>
-                            <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                            <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
                           </div>
                           <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
                         </div>
@@ -683,11 +683,14 @@
                         </template>
                       </div>
                     </div>
-                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
-                      <button @click="$store.agents.toggleAgent(agent.id)"
+                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2 relative">
+                      <button @click="$store.cron.toggle(agent.id)"
                               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
-                        <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
+                              :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-elevated text-mc-text-muted hover:bg-mc-surface hover:text-mc-text-sec'">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span x-text="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' job' + ($store.cron.countForAgent(agent.id) !== 1 ? 's' : '') : 'Cron'"></span>
                       </button>
                       <button @click="$store.sessions.createSession(agent.id)"
                               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
@@ -699,6 +702,43 @@
                           <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
                         </svg>
                       </button>
+                      <!-- Cron jobs popover -->
+                      <template x-if="$store.cron.activeAgent === agent.id">
+                        <div class="absolute bottom-full left-0 right-0 mb-2 bg-mc-surface border border-mc-border rounded-xl shadow-2xl z-50 p-4 mc-card-glow"
+                             @click.outside="$store.cron.close()">
+                          <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-mc-text">Scheduled Jobs</span>
+                            <button @click="$store.cron.close()" class="text-mc-text-muted hover:text-mc-text">
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                          <div x-show="$store.cron.loading" class="text-xs text-mc-text-muted py-2 text-center">Loading...</div>
+                          <div x-show="!$store.cron.loading && $store.cron.forAgent(agent.id).length === 0" class="text-xs text-mc-text-muted py-2 text-center">
+                            No scheduled jobs yet. Agents can create them via the cron tool.
+                          </div>
+                          <div x-show="!$store.cron.loading" class="space-y-2 max-h-48 overflow-y-auto">
+                            <template x-for="job in $store.cron.forAgent(agent.id)" :key="job.id || job.jobId">
+                              <div class="flex items-center justify-between bg-mc-elevated rounded-lg px-3 py-2">
+                                <div class="flex-1 min-w-0 mr-2">
+                                  <div class="text-xs text-mc-text truncate" x-text="job.label || job.name || job.id || 'Unnamed'"></div>
+                                  <div class="text-[10px] text-mc-text-muted font-mono" x-text="job.schedule || job.cron || job.every || '—'"></div>
+                                </div>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                  <button @click="$store.cron.runNow(job.id || job.jobId)" title="Run now"
+                                          class="p-1.5 rounded text-mc-text-muted hover:text-emerald-400 hover:bg-emerald-500/10 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                                  </button>
+                                  <button @click="$store.cron.remove(job.id || job.jobId)" title="Remove"
+                                          class="p-1.5 rounded text-mc-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                          <div x-show="$store.cron.error" class="text-xs text-red-400 mt-2" x-text="$store.cron.error"></div>
+                        </div>
+                      </template>
                     </div>
                   </div>
                 </template>
@@ -722,7 +762,7 @@
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-2">
                             <span class="font-semibold text-mc-text" x-text="agent.name"></span>
-                            <span class="mc-dot" :class="agent.status === 'running' ? 'mc-dot-running' : 'mc-dot-idle'"></span>
+                            <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
                           </div>
                           <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
                         </div>
@@ -732,11 +772,14 @@
                         <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
                       </div>
                     </div>
-                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
-                      <button @click="$store.agents.toggleAgent(agent.id)"
+                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2 relative">
+                      <button @click="$store.cron.toggle(agent.id)"
                               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              :class="agent.status === 'running' ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20'">
-                        <span x-text="agent.status === 'running' ? 'Pause' : 'Start'"></span>
+                              :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-elevated text-mc-text-muted hover:bg-mc-surface hover:text-mc-text-sec'">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span x-text="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' job' + ($store.cron.countForAgent(agent.id) !== 1 ? 's' : '') : 'Cron'"></span>
                       </button>
                       <button @click="$store.sessions.createSession(agent.id)"
                               class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
@@ -748,6 +791,43 @@
                           <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
                         </svg>
                       </button>
+                      <!-- Cron jobs popover -->
+                      <template x-if="$store.cron.activeAgent === agent.id">
+                        <div class="absolute bottom-full left-0 right-0 mb-2 bg-mc-surface border border-mc-border rounded-xl shadow-2xl z-50 p-4 mc-card-glow"
+                             @click.outside="$store.cron.close()">
+                          <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-semibold text-mc-text">Scheduled Jobs</span>
+                            <button @click="$store.cron.close()" class="text-mc-text-muted hover:text-mc-text">
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                          <div x-show="$store.cron.loading" class="text-xs text-mc-text-muted py-2 text-center">Loading...</div>
+                          <div x-show="!$store.cron.loading && $store.cron.forAgent(agent.id).length === 0" class="text-xs text-mc-text-muted py-2 text-center">
+                            No scheduled jobs yet. Agents can create them via the cron tool.
+                          </div>
+                          <div x-show="!$store.cron.loading" class="space-y-2 max-h-48 overflow-y-auto">
+                            <template x-for="job in $store.cron.forAgent(agent.id)" :key="job.id || job.jobId">
+                              <div class="flex items-center justify-between bg-mc-elevated rounded-lg px-3 py-2">
+                                <div class="flex-1 min-w-0 mr-2">
+                                  <div class="text-xs text-mc-text truncate" x-text="job.label || job.name || job.id || 'Unnamed'"></div>
+                                  <div class="text-[10px] text-mc-text-muted font-mono" x-text="job.schedule || job.cron || job.every || '—'"></div>
+                                </div>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                  <button @click="$store.cron.runNow(job.id || job.jobId)" title="Run now"
+                                          class="p-1.5 rounded text-mc-text-muted hover:text-emerald-400 hover:bg-emerald-500/10 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                                  </button>
+                                  <button @click="$store.cron.remove(job.id || job.jobId)" title="Remove"
+                                          class="p-1.5 rounded text-mc-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                          <div x-show="$store.cron.error" class="text-xs text-red-400 mt-2" x-text="$store.cron.error"></div>
+                        </div>
+                      </template>
                     </div>
                   </div>
                 </template>
@@ -1969,7 +2049,7 @@
         <span class="opacity-30">|</span>
         <span class="flex-shrink-0" x-text="$store.agents.list.length + ' agents'"></span>
         <span class="opacity-30 mc-statusbar-extra">|</span>
-        <span class="mc-statusbar-extra" x-text="$store.agents.running + ' active'"></span>
+        <span class="mc-statusbar-extra" x-text="$store.agents.scheduled + ' scheduled'"></span>
         <span class="opacity-30 mc-statusbar-extra">|</span>
         <span class="mc-statusbar-extra" x-text="$store.sessions.list.length + ' sessions'"></span>
         <div class="flex-1"></div>

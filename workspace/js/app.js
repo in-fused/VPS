@@ -822,9 +822,10 @@ document.addEventListener('alpine:init', () => {
             this.ocConnected = true;
             monitor.addLog('info', 'OpenClaw WebSocket connected — agents are live');
 
-            // Load real agents from OpenClaw
+            // Load real agents, sessions, and cron jobs from OpenClaw
             await this._syncAgentsFromOpenClaw();
             await this._syncSessionsFromOpenClaw();
+            Alpine.store('cron').fetch();
 
             // Listen for real-time events
             this._setupOpenClawEvents();
@@ -1122,6 +1123,7 @@ document.addEventListener('alpine:init', () => {
         ocMode = 'connected';
         this._syncAgentsFromOpenClaw();
         this._syncSessionsFromOpenClaw();
+        Alpine.store('cron').fetch();
       });
     },
 
@@ -1220,8 +1222,13 @@ document.addEventListener('alpine:init', () => {
       model: 'litellm/groq-llama-3.3-70b', systemPrompt: '', tools: [],
     },
 
-    get running() { return this.list.filter(a => a.status === 'running').length; },
-    get idle() { return this.list.filter(a => a.status === 'idle').length; },
+    // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
+    get scheduled() {
+      const cronStore = Alpine.store('cron');
+      return this.list.filter(a => cronStore.countForAgent(a.id) > 0).length;
+    },
+    get running() { return this.scheduled; }, // backward compat for status bar
+    get idle() { return this.list.length - this.scheduled; },
 
     _persist() { storage.save('agents', this.list); },
 
@@ -1314,19 +1321,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     toggleAgent(id) {
-      const agent = this.list.find(a => a.id === id);
-      if (!agent) return;
-      if (agent.status === 'running') {
-        agent.status = 'idle';
-        agent.currentTask = null;
-        Alpine.store('monitor').addLog('info', `Agent "${agent.name}" paused`);
-      } else {
-        agent.status = 'running';
-        agent.currentTask = 'Awaiting instructions...';
-        agent.lastActive = 'Now';
-        Alpine.store('monitor').addLog('info', `Agent "${agent.name}" started`);
-      }
-      this._persist();
+      // Legacy method — now opens the cron popover for this agent
+      Alpine.store('cron').toggle(id);
     },
   });
 
@@ -2489,6 +2485,98 @@ document.addEventListener('alpine:init', () => {
           this._syncPending = false;
           window.workflowBridge.syncGovernance();
         }, 30000);
+      }
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // STORE: CRON — per-agent scheduled job management
+  // --------------------------------------------------------------------------
+
+  Alpine.store('cron', {
+    jobs: [],          // all cron jobs from OpenClaw
+    loading: false,
+    activeAgent: null, // agent ID whose popover is open
+    error: null,
+
+    // Jobs filtered by agent ID (matches job.agentId or sessionKey containing the agent)
+    forAgent(agentId) {
+      return this.jobs.filter(j => {
+        if (j.agentId === agentId) return true;
+        // sessionKey format: "agent:<id>:main" or similar
+        if (j.sessionKey && j.sessionKey.includes(`:${agentId}:`)) return true;
+        if (j.agent === agentId) return true;
+        return false;
+      });
+    },
+
+    countForAgent(agentId) {
+      return this.forAgent(agentId).length;
+    },
+
+    async fetch() {
+      if (!window.openclawClient?.authenticated) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        const jobs = await window.openclawClient.listCronJobs();
+        this.jobs = Array.isArray(jobs) ? jobs : [];
+      } catch (err) {
+        this.error = err.message;
+        console.warn('[Cron] Fetch failed:', err.message);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    toggle(agentId) {
+      if (this.activeAgent === agentId) {
+        this.activeAgent = null;
+      } else {
+        this.activeAgent = agentId;
+        this.fetch(); // refresh on open
+      }
+    },
+
+    close() {
+      this.activeAgent = null;
+    },
+
+    async remove(jobId) {
+      if (!window.openclawClient?.authenticated) return;
+      try {
+        await window.openclawClient.removeCronJob(jobId);
+        this.jobs = this.jobs.filter(j => (j.id || j.jobId) !== jobId);
+        Alpine.store('monitor').addLog('info', `Cron job ${jobId} removed`);
+      } catch (err) {
+        Alpine.store('monitor').addLog('error', `Failed to remove cron job: ${err.message}`);
+      }
+    },
+
+    async runNow(jobId) {
+      if (!window.openclawClient?.authenticated) return;
+      try {
+        await window.openclawClient.runCronJob(jobId);
+        Alpine.store('monitor').addLog('info', `Cron job ${jobId} triggered`);
+      } catch (err) {
+        Alpine.store('monitor').addLog('error', `Failed to run cron job: ${err.message}`);
+      }
+    },
+
+    async addQuick(agentId, { label, schedule, message }) {
+      if (!window.openclawClient?.authenticated) return;
+      try {
+        await window.openclawClient.addCronJob({
+          agentId,
+          label: label || 'Quick task',
+          schedule,
+          payload: { kind: 'systemEvent', message },
+          session: 'main',
+        });
+        Alpine.store('monitor').addLog('info', `Cron job added for ${agentId}`);
+        await this.fetch(); // refresh list
+      } catch (err) {
+        Alpine.store('monitor').addLog('error', `Failed to add cron job: ${err.message}`);
       }
     },
   });

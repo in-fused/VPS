@@ -636,6 +636,32 @@ class OpenClawClient {
   async getCronJobs() {
     return this.request('cron.status');
   }
+
+  // ---------------------------------------------------------------------------
+  // HIGH-LEVEL API: CRON JOBS
+  // ---------------------------------------------------------------------------
+
+  async listCronJobs() {
+    const result = await this.request('cron.list');
+    return result.jobs || result || [];
+  }
+
+  async addCronJob(job) {
+    return this.request('cron.add', job);
+  }
+
+  async removeCronJob(jobId) {
+    return this.request('cron.remove', { id: jobId });
+  }
+
+  async runCronJob(jobId) {
+    return this.request('cron.run', { id: jobId });
+  }
+
+  async getCronRuns(jobId) {
+    const result = await this.request('cron.runs', { id: jobId });
+    return result.runs || result || [];
+  }
 }
 
 // Singleton instance
