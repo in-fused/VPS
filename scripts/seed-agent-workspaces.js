@@ -118,6 +118,28 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 - **cron** — Create scheduled background jobs (runs 24/7 server-side)
 - **agents_list** — List all configured agents
 
+## Web Scraping (Scrapling API)
+A dedicated scraping service runs at http://scrapling:8000 on the Docker network.
+
+**Scrape a single URL:**
+\`\`\`
+exec curl -s -X POST http://scrapling:8000/scrape -H 'Content-Type: application/json' -d '{"url":"https://example.com"}'
+\`\`\`
+
+**With CSS selectors and links:**
+\`\`\`
+exec curl -s -X POST http://scrapling:8000/scrape -H 'Content-Type: application/json' -d '{"url":"https://example.com","selectors":{"titles":"h2::text","prices":".price::text"},"extract_links":true}'
+\`\`\`
+
+**Batch scrape (up to 10 URLs):**
+\`\`\`
+exec curl -s -X POST http://scrapling:8000/scrape/batch -H 'Content-Type: application/json' -d '{"urls":["https://a.com","https://b.com"]}'
+\`\`\`
+
+Methods: "fast" (default, HTTP with TLS spoofing, no browser), "stealth" (bypasses Cloudflare, needs browser), "browser" (full JS rendering, needs browser).
+Response: {url, status, title, text, selected, links, images, metadata}.
+Use this instead of web_fetch for serious scraping — it handles anti-bot and parses HTML into clean text.
+
 ## File System Rules
 - Write output to /workspace/staging/ for owner review
 - Update index.json when creating staged content

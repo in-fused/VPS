@@ -212,6 +212,14 @@ else
     exit 1
 fi
 
+log_info "Building scrapling API service..."
+if docker compose build scrapling; then
+    log_ok "Scrapling API image built"
+else
+    log_error "Scrapling build failed — check scrapling/Dockerfile"
+    exit 1
+fi
+
 ###############################################################################
 # 6. Start the stack
 ###############################################################################
