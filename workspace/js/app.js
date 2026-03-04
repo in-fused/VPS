@@ -793,8 +793,8 @@ document.addEventListener('alpine:init', () => {
     demoMode: true,       // false when LiteLLM is reachable
     awayReport: null,     // populated on boot if agents worked while you were away
     stagingPanelOpen: false, // mobile: toggleable staging panel
-    _reconnecting: false,  // guard: prevents concurrent reconnect attempts
     _reconnecting: false, // guard against concurrent reconnect attempts
+    _booted: false,       // guard against boot() being called twice
 
     init() {
       // Listen for screen resize to update mobile state
@@ -828,6 +828,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     async boot() {
+      // Prevent double-boot (login triggers boot + Alpine init triggers boot if auth.ok)
+      if (this._booted) return;
+      this._booted = true;
       await new Promise(r => setTimeout(r, 1000));
       this.booting = false;
 
@@ -953,46 +956,53 @@ document.addEventListener('alpine:init', () => {
           if (ls.sessionKey) localByKey[ls.sessionKey] = ls;
         }
 
-        const merged = sessions.map(s => {
-          const sk = s.key || s.sessionKey || '';
-          // Parse agentId from key: "agent:<id>:..." or "<id>:main"
-          let agentId = '';
-          if (sk.startsWith('agent:')) {
-            agentId = sk.split(':')[1] || '';
-          } else if (sk.includes(':')) {
-            agentId = sk.split(':')[0] || '';
-          }
-          const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
+        const merged = sessions
+          // Skip sessions the user deleted — canonical sessions (agent:X:main)
+          // persist on the server even after reset/delete, so we filter them here.
+          .filter(s => {
+            const sk = s.key || s.sessionKey || '';
+            return !sessionStore._deletedKeys.has(sk);
+          })
+          .map(s => {
+            const sk = s.key || s.sessionKey || '';
+            // Parse agentId from key: "agent:<id>:..." or "<id>:main"
+            let agentId = '';
+            if (sk.startsWith('agent:')) {
+              agentId = sk.split(':')[1] || '';
+            } else if (sk.includes(':')) {
+              agentId = sk.split(':')[0] || '';
+            }
+            const agent = agentId ? agentStore.list.find(a => a.id === agentId) : null;
 
-          // lastMessagePreview may be string, object, or content blocks array
-          const lastMessage = extractMessageText(s.lastMessagePreview);
+            // lastMessagePreview may be string, object, or content blocks array
+            const lastMessage = extractMessageText(s.lastMessagePreview);
 
-          // Merge with existing local session to preserve local ID and message cache
-          const existing = localByKey[sk];
-          if (existing) {
-            existing.agentName = agent?.name || s.displayName || existing.agentName;
-            existing.agentEmoji = agent?.emoji || existing.agentEmoji;
-            existing.title = s.derivedTitle || s.label || existing.title;
-            existing.lastMessage = lastMessage || existing.lastMessage;
-            existing.updatedAt = s.updatedAt || existing.updatedAt;
-            existing._source = 'openclaw';
-            delete localByKey[sk]; // mark as matched
-            return existing;
-          }
+            // Merge with existing local session to preserve local ID and message cache
+            const existing = localByKey[sk];
+            if (existing) {
+              existing.agentName = agent?.name || s.displayName || existing.agentName;
+              existing.agentEmoji = agent?.emoji || existing.agentEmoji;
+              existing.title = s.derivedTitle || s.label || existing.title;
+              existing.lastMessage = lastMessage || existing.lastMessage;
+              existing.updatedAt = s.updatedAt || existing.updatedAt;
+              existing._source = 'openclaw';
+              delete localByKey[sk]; // mark as matched
+              return existing;
+            }
 
-          return {
-            id: s.sessionId || sk || generateId(),
-            sessionKey: sk,
-            agentId: agentId,
-            agentName: agent?.name || s.displayName || agentId || 'Agent',
-            agentEmoji: agent?.emoji || '🤖',
-            title: s.derivedTitle || s.label || s.displayName || 'Conversation',
-            lastMessage,
-            updatedAt: s.updatedAt || Date.now(),
-            unread: 0,
-            _source: 'openclaw',
-          };
-        });
+            return {
+              id: s.sessionId || sk || generateId(),
+              sessionKey: sk,
+              agentId: agentId,
+              agentName: agent?.name || s.displayName || agentId || 'Agent',
+              agentEmoji: agent?.emoji || '🤖',
+              title: s.derivedTitle || s.label || s.displayName || 'Conversation',
+              lastMessage,
+              updatedAt: s.updatedAt || Date.now(),
+              unread: 0,
+              _source: 'openclaw',
+            };
+          });
 
         sessionStore.list = merged;
         sessionStore._persist();
@@ -1146,20 +1156,62 @@ document.addEventListener('alpine:init', () => {
 
         if (state === 'error' || state === 'aborted') {
           // Chat error or aborted
+          const rawErr = extractMessageText(payload.errorMessage) || extractMessageText(payload.message) || 'Unknown error';
+          const isRateLimit = /rate.?limit|429|too many|quota/i.test(rawErr);
+
+          // Auto-retry once on rate limit errors — LiteLLM's fallback chain
+          // (Groq → Cerebras → DeepSeek) needs a fresh request to try the next provider.
+          if (isRateLimit && !sessions._rateLimitRetried && sessions._streamingMsg) {
+            sessions._rateLimitRetried = true;
+            // Show retry message in the streaming bubble
+            sessions._streamingMsg.content = '⏳ Rate limited — auto-retrying with fallback provider...';
+            Alpine.store('monitor').addLog('info', 'Rate limit hit — auto-retrying in 3s via LiteLLM fallback chain');
+
+            // Retry after 3s to let LiteLLM route to fallback provider
+            setTimeout(async () => {
+              try {
+                const sk = sessions._activeSessionKey;
+                if (sk && window.openclawClient?.authenticated) {
+                  // Find the last user message to resend
+                  const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
+                  if (lastUserMsg) {
+                    await window.openclawClient.sendChat(lastUserMsg.content, { sessionKey: sk });
+                    // Response will arrive via streaming events
+                    return;
+                  }
+                }
+              } catch (retryErr) {
+                Alpine.store('monitor').addLog('warn', `Rate limit retry failed: ${retryErr.message}`);
+              }
+              // If retry setup fails, show the error
+              if (sessions._streamingMsg) {
+                sessions._streamingMsg.content = '⚠️ Rate limit reached on all providers. Please try again in a minute.';
+                sessions._streamingMsg.streaming = false;
+                sessions._streamingMsg = null;
+              }
+              sessions._sending = false;
+              sessions._sendingSessionId = null;
+              sessions._persistMessages();
+            }, 3000);
+            return; // Don't mark as failed yet — retry is pending
+          }
+
           if (sessions._streamingMsg) {
-            let errText = extractMessageText(payload.errorMessage) || extractMessageText(payload.message) || 'Unknown error';
+            let errText = rawErr;
             // Detect rate limit errors and show friendly message
-            if (/rate.?limit|429|too many|quota/i.test(errText)) {
-              errText = 'Rate limit reached for this model. LiteLLM will auto-fallback to another provider on next request.';
+            if (isRateLimit) {
+              errText = 'Rate limit reached on all providers. Please try again in a minute.';
             }
             // Strip processing indicator before showing error
             let prior = sessions._streamingMsg.content.trim();
-            if (prior === '⏳ Agent is processing (using tools)...') prior = '';
+            if (prior === '⏳ Agent is processing (using tools)...' || prior === '⏳ Rate limited — auto-retrying with fallback provider...') prior = '';
             const prefix = prior ? '\n\n' : '';
             sessions._streamingMsg.content = prior + prefix + '⚠️ ' + errText;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
+          // Reset retry flag for next message
+          sessions._rateLimitRetried = false;
           sessions._sending = false;
           sessions._sendingSessionId = null;
           sessions._persistMessages();
@@ -1420,6 +1472,7 @@ document.addEventListener('alpine:init', () => {
     _sendingSessionId: null, // which session is waiting for a response
     _streamingMsg: null, // current streaming message (for OpenClaw events)
     _messageStore: {}, // sessionId -> messages[]
+    _deletedKeys: new Set(), // sessionKeys deleted by user — prevents sync from re-adding them
 
     get active() {
       return this.list.find(s => s.id === this.activeId) || null;
@@ -1472,6 +1525,9 @@ document.addEventListener('alpine:init', () => {
       // One persistent conversation per agent (OpenClaw model).
       const sessionKey = 'agent:' + agentId + ':main';
 
+      // Clear deletion tracking — user is intentionally re-engaging with this agent
+      this._deletedKeys.delete(sessionKey);
+
       // If a session exists: select it, or reset for a fresh start
       const existing = this.list.find(s => s.sessionKey === sessionKey);
       if (existing) {
@@ -1523,12 +1579,29 @@ document.addEventListener('alpine:init', () => {
       const session = this.list.find(s => s.id === sessionId);
       if (!session) return;
 
-      // Delete from OpenClaw server
+      // Track deleted session key so _syncSessionsFromOpenClaw doesn't re-add it.
+      // OpenClaw canonical sessions (agent:X:main) persist on the server even after
+      // sessions.delete — the next sync would bring them right back.
+      if (session.sessionKey) {
+        this._deletedKeys.add(session.sessionKey);
+      }
+
+      // Reset on OpenClaw server (clears conversation history).
+      // Use sessions.reset instead of sessions.delete — canonical sessions
+      // like "agent:lead:main" auto-recreate after delete, but reset clears them.
       if (session.sessionKey && window.openclawClient?.authenticated) {
         try {
-          await window.openclawClient.deleteSession(session.sessionKey);
+          await window.openclawClient.request('sessions.reset', {
+            key: session.sessionKey,
+            reason: 'User deleted conversation from Mission Control',
+          });
         } catch (e) {
-          console.warn('[Sessions] Server delete failed:', e.message);
+          // Fallback to delete if reset not available
+          try {
+            await window.openclawClient.deleteSession(session.sessionKey);
+          } catch (e2) {
+            console.warn('[Sessions] Server delete failed:', e2.message);
+          }
         }
       }
 
@@ -1551,6 +1624,9 @@ document.addEventListener('alpine:init', () => {
       if (!text || !this.activeId) return;
       // Only block if we're waiting for a response in THIS session
       if (this._sending && this._sendingSessionId === this.activeId) return;
+
+      // Reset rate-limit retry flag for new user-initiated messages
+      this._rateLimitRetried = false;
 
       // Add user message
       const userMsg = { id: generateId(), role: 'user', content: text, time: timeNow() };

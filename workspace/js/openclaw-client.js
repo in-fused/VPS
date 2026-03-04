@@ -108,6 +108,21 @@ class OpenClawClient {
   // ---------------------------------------------------------------------------
 
   connect(password, { maxRetries = 2 } = {}) {
+    // Close any existing connection to prevent orphaned WebSockets.
+    // This can happen if boot() or reconnect() is called while already connected.
+    if (this.ws && this.ws.readyState <= WebSocket.OPEN) {
+      const oldWs = this.ws;
+      oldWs.onclose = null; // prevent auto-reconnect from the old socket
+      oldWs.onmessage = null;
+      oldWs.onerror = null;
+      oldWs.close();
+      this.ws = null;
+    }
+    // Cancel any pending reconnect from the old connection
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     this._password = password;
     this._lastError = null;
     this._connectionState = 'connecting';
