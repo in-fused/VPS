@@ -556,6 +556,7 @@ const litellmApi = {
   async fetchModels() {
     try {
       const r = await fetch('/api/mc/v1/models', {
+        credentials: 'same-origin',
         signal: AbortSignal.timeout(8000),
       });
       if (!r.ok) return [];
@@ -581,18 +582,30 @@ const litellmApi = {
     const resp = await fetch('/api/mc/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ model, messages, stream: true }),
     });
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => resp.statusText);
       if (resp.status === 429) {
-        // Parse retry-after if available
         const retryAfter = resp.headers.get('retry-after');
         const retryMsg = retryAfter ? ` Try again in ${retryAfter}s.` : ' Try again in a minute.';
-        throw new Error(`Rate limit reached for this model.${retryMsg} Consider using a different agent/model.`);
+        throw new Error(`Rate limit reached for ${model}.${retryMsg} LiteLLM will auto-fallback on next request.`);
       }
-      // Truncate long error bodies (LiteLLM can return verbose JSON)
+      if (resp.status === 401) {
+        throw new Error('Auth error (401): LiteLLM master key may be missing or wrong. Check .env LITELLM_MASTER_KEY.');
+      }
+      if (resp.status === 400 || resp.status === 422) {
+        // Parse LiteLLM error for model-not-found or invalid params
+        let detail = text;
+        try { detail = JSON.parse(text)?.error?.message || text; } catch {}
+        const shortDetail = detail.length > 200 ? detail.slice(0, 200) + '...' : detail;
+        throw new Error(`Model error for "${model}": ${shortDetail}`);
+      }
+      if (resp.status >= 500) {
+        throw new Error(`LiteLLM server error (${resp.status}). The upstream provider may be down. Try a different model.`);
+      }
       const shortText = text.length > 200 ? text.slice(0, 200) + '...' : text;
       throw new Error(`API ${resp.status}: ${shortText}`);
     }
@@ -627,6 +640,7 @@ const litellmApi = {
     const resp = await fetch('/api/mc/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ model, messages, stream: false }),
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
@@ -1018,21 +1032,26 @@ document.addEventListener('alpine:init', () => {
         }
 
         if (state === 'final') {
-          // Chat complete
-          if (sessions._streamingMsg) {
+          // Chat complete — handle both normal flow and late arrivals after timeout
+          const streamMsg = sessions._streamingMsg;
+          if (streamMsg) {
+            // Strip processing indicator if present
+            if (streamMsg.content === '⏳ Agent is processing (using tools)...') {
+              streamMsg.content = '';
+            }
             // If final message has content, append it
             if (payload.message) {
               const finalContent = extractMessageText(payload.message);
-              if (finalContent && !sessions._streamingMsg.content.endsWith(finalContent)) {
-                sessions._streamingMsg.content += finalContent;
+              if (finalContent && !streamMsg.content.endsWith(finalContent)) {
+                streamMsg.content += finalContent;
               }
             }
             // If streaming produced no visible text (tool-use-only turn), remove the empty bubble
-            if (!sessions._streamingMsg.content.trim()) {
-              sessions.messages = sessions.messages.filter(m => m !== sessions._streamingMsg);
+            if (!streamMsg.content.trim()) {
+              sessions.messages = sessions.messages.filter(m => m !== streamMsg);
             } else {
-              sessions._streamingMsg.streaming = false;
-              sessions._streamingMsg.time = timeNow();
+              streamMsg.streaming = false;
+              streamMsg.time = timeNow();
             }
             sessions._streamingMsg = null;
           }
@@ -1047,15 +1066,15 @@ document.addEventListener('alpine:init', () => {
             session.updatedAt = Date.now();
           }
 
-          // Update agent stats + governance metrics
+          // Update agent stats + governance metrics — only count real content
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-          if (agent) {
+          const lastAgentMsg = sessions.messages.filter(m => m.role === 'agent' && m.content?.trim()).pop();
+          if (agent && lastAgentMsg?.content?.trim()) {
             agent.tasksCompleted++;
             agent.lastActive = 'Just now';
             Alpine.store('agents')._persist();
 
-            const lastMsg = sessions.messages[sessions.messages.length - 1];
-            const tokens = Math.round(((lastMsg?.content || '').length) / 4);
+            const tokens = Math.round(((lastAgentMsg.content || '').length) / 4);
             Alpine.store('governance').recordTask(agent.id, {
               success: true, tokens, taskType: 'chat-openclaw',
             });
@@ -1103,11 +1122,13 @@ document.addEventListener('alpine:init', () => {
             let errText = extractMessageText(payload.errorMessage) || extractMessageText(payload.message) || 'Unknown error';
             // Detect rate limit errors and show friendly message
             if (/rate.?limit|429|too many|quota/i.test(errText)) {
-              errText = 'Rate limit reached for this model. Try again in a minute, or use a different agent.';
+              errText = 'Rate limit reached for this model. LiteLLM will auto-fallback to another provider on next request.';
             }
-            // Show error cleanly — avoid leading newlines if no content streamed yet
-            const prefix = sessions._streamingMsg.content.trim() ? '\n\n' : '';
-            sessions._streamingMsg.content = sessions._streamingMsg.content.trim() + prefix + '⚠️ ' + errText;
+            // Strip processing indicator before showing error
+            let prior = sessions._streamingMsg.content.trim();
+            if (prior === '⏳ Agent is processing (using tools)...') prior = '';
+            const prefix = prior ? '\n\n' : '';
+            sessions._streamingMsg.content = prior + prefix + '⚠️ ' + errText;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
@@ -1548,19 +1569,30 @@ document.addEventListener('alpine:init', () => {
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
 
-          // Safety timeout: if no response arrives within 30s, unblock sending.
-          // Agent may still be processing — this just unblocks the UI.
-          setTimeout(() => {
+          // Safety timeout: agents using tools (exec, web_fetch, etc.) can take
+          // 2+ minutes. Show a "still processing" indicator after 15s, but keep
+          // _streamingMsg alive for 120s so late responses aren't silently dropped.
+          const _processingTimer = setTimeout(() => {
+            if (this._sending && this._streamingMsg === botMsg && !botMsg.content.trim()) {
+              botMsg.content = '⏳ Agent is processing (using tools)...';
+              this._scrollToBottom();
+            }
+          }, 15000);
+          const _safetyTimer = setTimeout(() => {
             if (this._sending && this._streamingMsg === botMsg) {
-              botMsg.content = botMsg.content || '(No response received — agent may not be processing. Check Monitor for details.)';
+              // Only give up after 120s — replace processing indicator with timeout
+              botMsg.content = botMsg.content === '⏳ Agent is processing (using tools)...'
+                ? '(No response after 2 minutes — agent may be stuck. Try sending again or check Monitor.)'
+                : botMsg.content || '(No response after 2 minutes — check Monitor for details.)';
               botMsg.streaming = false;
               this._streamingMsg = null;
               this._sending = false;
               this._sendingSessionId = null;
               this._persistMessages();
-              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 30s — agent may not be active');
+              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 120s');
             }
-          }, 30000);
+            clearTimeout(_processingTimer);
+          }, 120000);
         } catch (e) {
           botMsg.content = 'Error: ' + e.message;
           botMsg.streaming = false;
@@ -1620,16 +1652,21 @@ document.addEventListener('alpine:init', () => {
         if (agent) {
           const tokens = Math.round((text.length + botMsg.content.length) / 4);
           agent.tokensUsed += tokens;
-          agent.tasksCompleted++;
           agent.lastActive = 'Just now';
+
+          // Only count as completed if the response has real content (not an error)
+          const isError = botMsg.content.startsWith('Error:');
+          if (!isError) {
+            agent.tasksCompleted++;
+            mcAudio.chatComplete();
+          } else {
+            mcAudio.taskFail();
+          }
           Alpine.store('agents')._persist();
 
-          // Record in governance (success if content, failure if error)
-          const isError = botMsg.content.startsWith('Error:');
           Alpine.store('governance').recordTask(agent.id, {
             success: !isError, tokens, taskType: 'chat-litellm',
           });
-          if (isError) mcAudio.taskFail(); else mcAudio.chatComplete();
         }
 
         this._persist();
