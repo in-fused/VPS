@@ -61,13 +61,6 @@ config.models.providers.litellm = {
   baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
   apiKey: process.env.OPENAI_API_KEY || '',
   api: 'openai-completions',
-  // Issue #27037: OpenClaw sends 'developer' message role to all openai-completions
-  // providers. Non-OpenAI backends (Groq, Cerebras, DeepSeek, Gemini, Mistral) reject
-  // it with 400 errors. LiteLLM's drop_params doesn't fix this (it's a role, not a param).
-  supportsDeveloperRole: false,
-  // Issue #33272: OpenClaw injects reasoning_effort into requests for custom providers
-  // with unknown baseUrls. Most backends reject this parameter.
-  supportsReasoningEffort: false,
   models: [
     // Free — Groq (load-balanced across 2 accounts)
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },

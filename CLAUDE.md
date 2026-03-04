@@ -325,6 +325,8 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 - `tools.agentToAgent.maxPingPongTurns` — not valid
 - `contextPruning`, `memorySearch`, `experimental` — not valid top-level keys
 - `gateway.trustProxy` — use `gateway.trustedProxies` instead
+- `models.providers.<name>.supportsDeveloperRole` — not a valid provider key (causes "unexpected property" crash)
+- `models.providers.<name>.supportsReasoningEffort` — not a valid provider key (causes "unexpected property" crash)
 - **Valid since v2026.3.1:** `agents.defaults.compaction.memoryFlush.softThresholdTokens` (we set to 50000)
 
 **Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, and `HEARTBEAT.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). Files are only seeded if missing — agent modifications are preserved.
