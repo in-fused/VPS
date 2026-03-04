@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>in-fused.org — Deployment Guide</title>
+<style>
+  @media print {
+    body { font-size: 11pt; }
+    .no-print { display: none !important; }
+    .page-break { page-break-before: always; }
+    pre { white-space: pre-wrap; word-wrap: break-word; font-size: 9pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 15pt; page-break-after: avoid; }
+    h3 { font-size: 12pt; page-break-after: avoid; }
+    a { color: #000; text-decoration: underline; }
+    .step { page-break-inside: avoid; }
+  }
+
+  :root {
+    --gold: #f0b429;
+    --dark: #0a0e1a;
+    --darker: #060910;
+    --card: #111827;
+    --border: #1f2937;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    color: var(--gold);
+    font-size: 2rem;
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    color: var(--gold);
+    font-size: 1.4rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    color: #d1d5db;
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p { margin-bottom: 0.8rem; }
+
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .step-num {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--dark);
+    font-weight: 700;
+    width: 28px;
+    height: 28px;
+    text-align: center;
+    line-height: 28px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .step-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #f3f4f6;
+  }
+
+  pre {
+    background: var(--darker);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 0.8rem 0;
+    color: #d1d5db;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--darker);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--gold);
+  }
+
+  .label {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+  }
+
+  .label-ios { background: #1e3a5f; color: #60a5fa; }
+  .label-desktop { background: #1a3a2a; color: #4ade80; }
+  .label-warn { background: #3a2a1a; color: #fbbf24; }
+  .label-info { background: #1a2a3a; color: #60a5fa; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--darker);
+    color: var(--gold);
+    text-align: left;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--border);
+    font-weight: 600;
+  }
+
+  td {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+  ul, ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  li { margin-bottom: 0.3rem; }
+
+  .warn-box {
+    background: #1a1500;
+    border: 1px solid #854d0e;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    color: #fde68a;
+  }
+
+  .info-box {
+    background: #001a2e;
+    border: 1px solid #1e3a5f;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    color: #93c5fd;
+  }
+
+  .checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .checklist li::before {
+    content: "\2610  ";
+    color: var(--muted);
+    font-size: 1.1em;
+  }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .toc h3 { margin-top: 0; color: var(--gold); }
+  .toc ol { margin-bottom: 0; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--gold); }
+
+  .save-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 100;
+  }
+  .save-btn:hover { opacity: 0.9; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .arch-diagram {
+    background: var(--darker);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    white-space: pre;
+    overflow-x: auto;
+    color: #d1d5db;
+    margin: 0.5rem 0 1rem 0;
+  }
+</style>
+</head>
+<body>
+
+<button class="save-btn no-print" onclick="window.print()">Save as PDF</button>
+
+<h1>in-fused.org</h1>
+<p class="subtitle">Self-Hosted Multi-Agent AI Hub &mdash; Complete Deployment Guide<br>
+Updated: March 2026 &nbsp;|&nbsp; EC2 t3.small (~$25/month) &nbsp;|&nbsp; Managed from iPhone via SSM</p>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#overview">Architecture Overview</a></li>
+    <li><a href="#prereqs">Prerequisites & API Keys</a></li>
+    <li><a href="#provision">Provision EC2 Instance</a></li>
+    <li><a href="#server-setup">Server Hardening & Docker</a></li>
+    <li><a href="#domain">Domain & DNS Setup</a></li>
+    <li><a href="#repo">Clone Repo & Configure .env</a></li>
+    <li><a href="#deploy">Deploy the Stack</a></li>
+    <li><a href="#verify">Post-Deploy Verification</a></li>
+    <li><a href="#ssm">Mobile Access (AWS SSM)</a></li>
+    <li><a href="#mission-control">Mission Control Quick Start</a></li>
+    <li><a href="#agents">Agent System Overview</a></li>
+    <li><a href="#maintenance">Maintenance & Operations</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================== -->
+<h2 id="overview">1. Architecture Overview</h2>
+
+<div class="arch-diagram">Internet &rarr; https://in-fused.org &rarr; Caddy (auto-HTTPS, rate limiting)
+  &#9500;&#9472; /auth/verify           &rarr; Password check (header comparison)
+  &#9500;&#9472; /api/mc/*              &rarr; Cookie-gated LiteLLM proxy (SSE streaming)
+  &#9500;&#9472; /api/litellm/*         &rarr; LiteLLM :4000
+  &#9500;&#9472; /openclaw/*            &rarr; Cookie-gated &rarr; OpenClaw :18789
+  &#9500;&#9472; /ws/openclaw           &rarr; Cookie-gated WebSocket &rarr; OpenClaw :18789
+  &#9500;&#9472; /workspace/*           &rarr; Mission Control static files
+  &#9492;&#9472; / (everything else)    &rarr; Open WebUI :8080
+
+OpenClaw &rarr; LiteLLM &rarr; Anthropic, OpenAI, DeepSeek, Groq, Cerebras, Gemini, Mistral, Ollama
+OpenClaw agents &rarr; Scrapling :8000 (internal web scraping)
+Docker network: ai-hub-network (bridge)</div>
+
+<h3>Services</h3>
+<table>
+  <tr><th>Service</th><th>Image</th><th>Memory</th><th>Port</th></tr>
+  <tr><td>Caddy</td><td>in-fused/caddy:latest (custom)</td><td>64M</td><td>80, 443</td></tr>
+  <tr><td>Open WebUI</td><td>in-fused/open-webui:latest (custom)</td><td>768M</td><td>8080</td></tr>
+  <tr><td>LiteLLM</td><td>ghcr.io/berriai/litellm:main-stable</td><td>512M</td><td>4000</td></tr>
+  <tr><td>LiteLLM DB</td><td>postgres:16-alpine</td><td>128M</td><td>5432</td></tr>
+  <tr><td>OpenClaw</td><td>ghcr.io/openclaw/openclaw:main</td><td>1536M</td><td>18789</td></tr>
+  <tr><td>Scrapling</td><td>in-fused/scrapling:latest (custom)</td><td>512M</td><td>8000 (internal)</td></tr>
+</table>
+<p>Total memory: ~3.3 GB (2 GB RAM + 4 GB swap on t3.small).</p>
+
+<!-- ================================================================== -->
+<h2 id="prereqs" class="page-break">2. Prerequisites & API Keys</h2>
+
+<h3>Required</h3>
+<ul class="checklist">
+  <li>AWS account with EC2 access</li>
+  <li>A domain name (e.g., in-fused.org) with DNS control</li>
+  <li>At least ONE LLM API key (more = better agent performance)</li>
+</ul>
+
+<h3>API Keys (get these first)</h3>
+<table>
+  <tr><th>Provider</th><th>Cost</th><th>Sign Up</th><th>Notes</th></tr>
+  <tr><td>Groq</td><td>FREE</td><td>console.groq.com/keys</td><td>100K-500K tokens/day. Get 2 accounts for double.</td></tr>
+  <tr><td>Cerebras</td><td>FREE</td><td>cloud.cerebras.ai</td><td>1M tokens/day. Fastest inference.</td></tr>
+  <tr><td>Google Gemini</td><td>FREE</td><td>aistudio.google.com/apikey</td><td>250-1000 requests/day.</td></tr>
+  <tr><td>Mistral</td><td>FREE</td><td>console.mistral.ai/api-keys</td><td>2 RPM, 1B tokens/month.</td></tr>
+  <tr><td>DeepSeek</td><td>$0.14/1M</td><td>platform.deepseek.com/api_keys</td><td>Cheapest paid fallback.</td></tr>
+  <tr><td>Anthropic</td><td>$3-15/1M</td><td>console.anthropic.com</td><td>Claude models (premium).</td></tr>
+  <tr><td>OpenAI</td><td>$2.50-15/1M</td><td>platform.openai.com/api-keys</td><td>GPT models (premium).</td></tr>
+</table>
+
+<div class="info-box">
+  <strong>Budget strategy:</strong> 6 free providers are exhausted before any paid API is hit.
+  Fallback chain: Groq &rarr; Cerebras &rarr; DeepSeek on rate limits. Agents run mostly free.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="provision" class="page-break">3. Provision EC2 Instance</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Launch EC2 Instance</span>
+  <ul>
+    <li><strong>Instance type:</strong> t3.small (2 vCPU, 2 GB RAM) &mdash; ~$25/month</li>
+    <li><strong>AMI:</strong> Ubuntu 22.04 LTS (or 24.04)</li>
+    <li><strong>Storage:</strong> 30 GB gp3 (minimum, 20 GB will be too tight)</li>
+    <li><strong>Security Group:</strong> Allow inbound ports 80 (HTTP), 443 (HTTPS), 2222 (SSH)</li>
+    <li><strong>Key Pair:</strong> Create or select an SSH key pair</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Enable SSM for Mobile Access (Recommended)</span>
+  <ul>
+    <li>Attach the IAM role <code>AmazonSSMManagedInstanceCore</code> to the instance</li>
+    <li>Install the SSM agent (pre-installed on Ubuntu AMIs)</li>
+    <li>Install the AWS Console app on iPhone for mobile management</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Allocate Elastic IP</span>
+  <p>Allocate an Elastic IP and associate it with your instance. This gives you a static IP that persists across stops/starts.</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="server-setup">4. Server Hardening & Docker</h2>
+
+<p>SSH into your new instance and run the setup script. It handles everything: system updates, SSH hardening, firewall, Docker, swap, and security patches.</p>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Initial SSH Connection</span>
+  <pre>ssh -i your-key.pem ubuntu@YOUR_ELASTIC_IP</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Clone the Repository</span>
+  <pre>sudo apt-get install -y git
+sudo git clone https://github.com/in-fused/VPS.git /home/VPS
+cd /home/VPS</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Run Server Setup</span>
+  <pre>sudo bash scripts/setup-server.sh</pre>
+  <p>This script performs:</p>
+  <ul>
+    <li>System update & essential packages</li>
+    <li>Creates <code>deploy</code> user with sudo + SSH keys</li>
+    <li>SSH hardening: port 2222, key-only, no root login</li>
+    <li>UFW firewall: allow 2222, 80, 443 only</li>
+    <li>Fail2Ban: ban after 3 failed SSH attempts</li>
+    <li>Docker + Docker Compose installation</li>
+    <li>4 GB swap space (critical for t3.small)</li>
+    <li>Unattended security upgrades</li>
+    <li>Docker log rotation (10 MB max per container)</li>
+  </ul>
+</div>
+
+<div class="warn-box">
+  <strong>Do NOT close your current SSH session!</strong> Open a NEW terminal and verify SSH on port 2222 works before closing the original connection:<br>
+  <code>ssh -i your-key.pem -p 2222 deploy@YOUR_ELASTIC_IP</code>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="domain" class="page-break">5. Domain & DNS Setup</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Point Domain to EC2</span>
+  <p>In your DNS provider (Route 53, Cloudflare, Namecheap, etc.), create an <strong>A record</strong>:</p>
+  <table>
+    <tr><th>Type</th><th>Name</th><th>Value</th><th>TTL</th></tr>
+    <tr><td>A</td><td>@ (root)</td><td>YOUR_ELASTIC_IP</td><td>300</td></tr>
+  </table>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Verify DNS Propagation</span>
+  <pre>dig +short your-domain.com</pre>
+  <p>Should return your Elastic IP. May take 5-30 minutes to propagate.</p>
+</div>
+
+<div class="info-box">
+  <strong>Caddy handles HTTPS automatically.</strong> Once DNS points to your server and ports 80/443 are open,
+  Caddy obtains and renews Let's Encrypt certificates without any configuration.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="repo">6. Clone Repo & Configure .env</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Create .env from Template</span>
+  <pre>cd /home/VPS
+cp .env.example .env
+nano .env</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Fill in Required Values</span>
+  <table>
+    <tr><th>Variable</th><th>Required?</th><th>Notes</th></tr>
+    <tr><td><code>DOMAIN</code></td><td>Yes</td><td>Your domain (e.g., <code>in-fused.org</code>). Enables auto-HTTPS.</td></tr>
+    <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Recommended</td><td>For Claude models.</td></tr>
+    <tr><td><code>OPENAI_API_KEY</code></td><td>Recommended</td><td>For GPT models.</td></tr>
+    <tr><td><code>GROQ_API_KEY</code></td><td>Recommended</td><td>Free tier, great for agents.</td></tr>
+    <tr><td><code>GROQ_API_KEY_2</code></td><td>Optional</td><td>Second Groq account, doubles free tier.</td></tr>
+    <tr><td><code>CEREBRAS_API_KEY</code></td><td>Recommended</td><td>Free, fastest inference.</td></tr>
+    <tr><td><code>GEMINI_API_KEY</code></td><td>Optional</td><td>Free tier, good backup.</td></tr>
+    <tr><td><code>MISTRAL_API_KEY</code></td><td>Optional</td><td>Free tier, good for coding.</td></tr>
+    <tr><td><code>DEEPSEEK_API_KEY</code></td><td>Recommended</td><td>Cheapest paid fallback.</td></tr>
+    <tr><td><code>OPENCLAW_PASSWORD</code></td><td>Auto-generated</td><td>Set one you'll remember, or let deploy.sh generate it.</td></tr>
+  </table>
+  <p>All other secrets (<code>WEBUI_SECRET_KEY</code>, <code>LITELLM_MASTER_KEY</code>, <code>LITELLM_SALT_KEY</code>, <code>DB_PASSWORD</code>) are <strong>auto-generated</strong> on first deploy if left blank.</p>
+</div>
+
+<div class="warn-box">
+  <strong>Immutable after first run:</strong> <code>DB_PASSWORD</code> and <code>LITELLM_SALT_KEY</code> cannot be changed
+  after the first deploy without deleting their respective Docker volumes. The deploy script guards against this.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="deploy" class="page-break">7. Deploy the Stack</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Run the Deploy Script</span>
+  <p><span class="label label-desktop">Desktop/SSH</span></p>
+  <pre>cd /home/VPS
+sudo bash scripts/deploy.sh</pre>
+  <p><span class="label label-ios">iOS/SSM</span></p>
+  <pre>cd /home/VPS && sudo bash scripts/deploy.sh</pre>
+  <p>The script will:</p>
+  <ol>
+    <li>Validate <code>.env</code> &mdash; checks for at least one API key</li>
+    <li>Auto-generate secrets &mdash; fills any empty keys in <code>.env</code></li>
+    <li>Clean old Docker images &mdash; frees disk space</li>
+    <li>Pull pre-built images &mdash; LiteLLM, PostgreSQL, OpenClaw</li>
+    <li>Build custom images &mdash; Caddy (with rate-limit), Open WebUI (with theme), Scrapling</li>
+    <li>Start the stack &mdash; <code>docker compose up -d</code></li>
+    <li>Health checks &mdash; waits for LiteLLM, Open WebUI, OpenClaw</li>
+    <li>Print status &mdash; shows URLs, providers, and useful commands</li>
+  </ol>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Expected Output (Success)</span>
+  <pre>============================================================
+  AI Hub is running!
+============================================================
+
+  Access URL:  https://your-domain.com
+
+  -- Configured Providers ---------------------------------
+  &#10003; Anthropic (Claude)
+  &#10003; OpenAI (ChatGPT)
+  &#10003; DeepSeek
+  &#10003; Groq (free tier)
+
+  -- Services ---------------------------------------------
+  Open WebUI:      https://your-domain.com/
+  OpenClaw Agent:  https://your-domain.com/openclaw/
+  Agent Workspace: https://your-domain.com/workspace/
+  LiteLLM API:     https://your-domain.com/api/litellm/</pre>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="verify">8. Post-Deploy Verification</h2>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Check All Services Running</span>
+  <pre>sudo docker compose ps</pre>
+  <p>All services should show <code>Up (healthy)</code> or <code>Up</code>. The init containers (<code>openclaw-init</code>, <code>workspace-init</code>) will show <code>Exited (0)</code> &mdash; that's correct.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Verify in Browser</span>
+  <ul class="checklist">
+    <li>Open <code>https://your-domain.com/</code> &mdash; should show login page</li>
+    <li>Log in with OPENCLAW_PASSWORD &mdash; should show Open WebUI</li>
+    <li>Open <code>https://your-domain.com/workspace/</code> &mdash; should show Mission Control</li>
+    <li>Open <code>https://your-domain.com/openclaw/</code> &mdash; should show OpenClaw UI</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Verify LLM Connectivity</span>
+  <pre># Check LiteLLM models are loaded
+sudo docker compose exec litellm curl -s http://localhost:4000/v1/models \
+  -H "Authorization: Bearer $(grep LITELLM_MASTER_KEY .env | cut -d= -f2)" \
+  | python3 -m json.tool | head -30</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">4</span>
+  <span class="step-title">Check Logs if Something is Wrong</span>
+  <pre># All services
+sudo docker compose logs --tail=50
+
+# Specific service
+sudo docker compose logs --tail=50 openclaw
+sudo docker compose logs --tail=50 litellm
+sudo docker compose logs --tail=50 caddy</pre>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="ssm" class="page-break">9. Mobile Access (AWS SSM)</h2>
+
+<p>SSM lets you manage the server from the AWS Console iOS app without SSH keys or open ports.</p>
+
+<h3>Setup</h3>
+<ol>
+  <li>In AWS Console &rarr; IAM &rarr; Roles &rarr; attach <code>AmazonSSMManagedInstanceCore</code> to your EC2 instance's role</li>
+  <li>Install the <strong>AWS Console</strong> app on iPhone</li>
+  <li>Navigate to Systems Manager &rarr; Session Manager &rarr; Start a session &rarr; select your instance</li>
+</ol>
+
+<h3>SSM Gotchas</h3>
+<div class="warn-box">
+  <ul>
+    <li><strong>Always run first:</strong> <code>sudo git config --global --add safe.directory /home/VPS</code> (SSM runs as ssm-user)</li>
+    <li>Commands must be <strong>single-line</strong> chained with <code>&&</code> (SSM doesn't persist shell state)</li>
+    <li>Always use <code>-y</code> flags &mdash; no interactive prompts</li>
+    <li>Sessions time out, but <code>docker compose up -d</code> runs detached &mdash; deploys complete even if session drops</li>
+  </ul>
+</div>
+
+<h3>Common Mobile Commands</h3>
+
+<p><strong>Full deploy from feature branch:</strong></p>
+<pre>cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin main && sudo bash scripts/deploy.sh</pre>
+
+<p><strong>Restart all services:</strong></p>
+<pre>cd /home/VPS && sudo docker compose restart</pre>
+
+<p><strong>Check status:</strong></p>
+<pre>cd /home/VPS && sudo docker compose ps</pre>
+
+<p><strong>View logs:</strong></p>
+<pre>cd /home/VPS && sudo docker compose logs --tail=50</pre>
+
+<p><strong>Update a single service (e.g., openclaw):</strong></p>
+<pre>cd /home/VPS && sudo docker compose pull openclaw && sudo docker compose rm -sf openclaw && sudo docker compose up -d openclaw && sleep 10 && sudo docker compose logs --tail=50 openclaw</pre>
+
+<!-- ================================================================== -->
+<h2 id="mission-control" class="page-break">10. Mission Control Quick Start</h2>
+
+<p>Mission Control is the custom SPA at <code>/workspace/</code> for managing agents, chat, and workflows. It works as a mobile PWA.</p>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Open Mission Control</span>
+  <p>Navigate to <code>https://your-domain.com/workspace/</code> and log in with the site password.</p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Start a Chat</span>
+  <ol>
+    <li>Go to <strong>Chat</strong> in the sidebar</li>
+    <li>Click <strong>New Conversation</strong></li>
+    <li>Select <strong>Lead</strong> (the orchestrator agent)</li>
+    <li>Give Lead a task &mdash; it will delegate to the right specialist</li>
+  </ol>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Install as PWA (iPhone)</span>
+  <ol>
+    <li>Open Mission Control in Safari</li>
+    <li>Tap the Share button &rarr; "Add to Home Screen"</li>
+    <li>Now it opens full-screen like a native app</li>
+  </ol>
+</div>
+
+<h3>Chat Fallback Chain</h3>
+<table>
+  <tr><th>Priority</th><th>Route</th><th>When Used</th></tr>
+  <tr><td>1</td><td>OpenClaw WebSocket</td><td>Primary. Real agent execution with tools, memory, sub-agents.</td></tr>
+  <tr><td>2</td><td>LiteLLM SSE</td><td>Fallback when OpenClaw WS unavailable. Direct model access.</td></tr>
+  <tr><td>3</td><td>Demo Mode</td><td>Offline. Static placeholder messages.</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="agents" class="page-break">11. Agent System Overview</h2>
+
+<h3>Two-Team Structure</h3>
+
+<p><strong>Core Team</strong> &mdash; General tasks and feature development:</p>
+<table>
+  <tr><th>Agent</th><th>Model</th><th>Role</th></tr>
+  <tr><td>Lead</td><td>groq-llama-3.3-70b</td><td>Orchestrator &mdash; delegates to specialists</td></tr>
+  <tr><td>CodeCraft</td><td>cerebras-qwen3-32b</td><td>Full-stack developer</td></tr>
+  <tr><td>Scout</td><td>groq-llama-3.3-70b</td><td>Research specialist</td></tr>
+  <tr><td>Scribe</td><td>gpt-4o-mini</td><td>Documentation writer</td></tr>
+</table>
+
+<p><strong>Platform Team</strong> &mdash; Infrastructure, deployments, monitoring:</p>
+<table>
+  <tr><th>Agent</th><th>Model</th><th>Role</th></tr>
+  <tr><td>Ops Lead</td><td>groq-llama-3.3-70b</td><td>Platform orchestrator</td></tr>
+  <tr><td>Builder</td><td>deepseek-coder</td><td>Infrastructure developer</td></tr>
+  <tr><td>Sentinel</td><td>deepseek-chat</td><td>Security & monitoring</td></tr>
+  <tr><td>Chronicler</td><td>gpt-4o-mini</td><td>Platform documentation</td></tr>
+</table>
+
+<h3>Governance & Competition</h3>
+<ul>
+  <li>Both teams scored on success rate, quality, efficiency, streaks</li>
+  <li>Auto-promotion: agent outperforms lead by 15+ points after 10+ tasks &rarr; becomes lead</li>
+  <li>Weekly champion earns <strong>Elite tier</strong> with Oracle Cloud ARM access</li>
+  <li>Owner can promote sustained Elite to <strong>Manager</strong> (above both teams)</li>
+</ul>
+
+<h3>Tier System</h3>
+<table>
+  <tr><th>Tier</th><th>Storage</th><th>Status</th></tr>
+  <tr><td>0 - Probation</td><td>50 MB</td><td>Supervised, must prove competence</td></tr>
+  <tr><td>1 - Active</td><td>200 MB</td><td>Default starting tier</td></tr>
+  <tr><td>2 - Proven</td><td>500 MB</td><td>Semi-autonomous, priority routing</td></tr>
+  <tr><td>3 - Elite</td><td>Oracle partition</td><td>Fully autonomous, 24 GB RAM</td></tr>
+</table>
+
+<!-- ================================================================== -->
+<h2 id="maintenance" class="page-break">12. Maintenance & Operations</h2>
+
+<h3>Updating the Stack</h3>
+
+<p><strong>Full update (pull latest + rebuild + restart):</strong></p>
+<p><span class="label label-ios">iOS/SSM</span></p>
+<pre>cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin main && sudo bash scripts/deploy.sh</pre>
+
+<p><span class="label label-desktop">Desktop/SSH</span></p>
+<pre>cd /home/VPS
+sudo git pull origin main
+sudo bash scripts/deploy.sh</pre>
+
+<h3>Free Disk Space</h3>
+<pre># Remove unused Docker images, containers, build cache
+sudo docker system prune -af
+
+# Check disk usage
+df -h /
+
+# Find large files
+du -sh /var/lib/docker/*</pre>
+
+<h3>Reset OpenClaw (re-seeds all agents from scratch)</h3>
+<p><span class="label label-ios">iOS/SSM</span></p>
+<pre>cd /home/VPS && sudo docker compose rm -sf openclaw openclaw-init && sudo docker volume rm ai-hub_openclaw-data && sudo docker compose up -d openclaw</pre>
+
+<h3>View Agent Workspace Files</h3>
+<pre># List agent workspace directories
+sudo docker compose exec openclaw ls -la /home/node/.openclaw/
+
+# Read an agent's soul file
+sudo docker compose exec openclaw cat /home/node/.openclaw/workspace-Lead/SOUL.md</pre>
+
+<h3>Backup</h3>
+<pre># Backup all Docker volumes
+sudo docker compose down
+sudo tar czf /tmp/ai-hub-backup-$(date +%Y%m%d).tar.gz \
+  /var/lib/docker/volumes/ai-hub_*</pre>
+
+<!-- ================================================================== -->
+<h2 id="troubleshooting" class="page-break">13. Troubleshooting</h2>
+
+<div class="step">
+  <span class="step-title">OpenClaw won't start</span>
+  <p>OpenClaw depends on LiteLLM being healthy. Check LiteLLM first:</p>
+  <pre>sudo docker compose logs --tail=30 litellm
+sudo docker compose ps litellm</pre>
+  <p>If LiteLLM is unhealthy, check <code>DB_PASSWORD</code> matches the existing PostgreSQL volume.</p>
+</div>
+
+<div class="step">
+  <span class="step-title">Caddy build fails (no space left on device)</span>
+  <p>The Dockerfile uses a pre-built binary download (no Go compilation needed). If it still fails:</p>
+  <pre>sudo docker system prune -af && sudo docker builder prune -af
+df -h /</pre>
+  <p>You need at least ~1 GB free for Docker builds.</p>
+</div>
+
+<div class="step">
+  <span class="step-title">WebSocket connection fails</span>
+  <p>Check that <code>OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1</code> is in docker-compose.yml. Also verify:</p>
+  <pre>sudo docker compose logs --tail=20 openclaw | grep -i "gateway\|websocket\|listen"</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">Chat not streaming / hanging</span>
+  <p>Caddy must have <code>flush_interval -1</code> on every proxy handler. Check the Caddyfile:</p>
+  <pre>grep flush_interval Caddyfile</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">Agents can't use tools (exec, write, edit)</span>
+  <p>OpenClaw v2026.3.2 changed <code>tools.profile</code> default to "messaging". The entrypoint forces <code>'full'</code>.
+  Verify:</p>
+  <pre>sudo docker compose exec openclaw cat /home/node/.openclaw/openclaw.json | grep -A2 profile</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">Rate limits / 429 errors</span>
+  <p>LiteLLM auto-fallbacks: Groq &rarr; Cerebras &rarr; DeepSeek. If all free providers are exhausted,
+  requests hit DeepSeek ($0.28/1M). Check rate limit status:</p>
+  <pre>sudo docker compose logs --tail=50 litellm | grep -i "429\|rate\|fallback"</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">DB_PASSWORD mismatch after volume exists</span>
+  <p>PostgreSQL only reads the password on first bootstrap. If the volume exists but password changed:</p>
+  <pre># Option 1: Set the original password in .env
+# Option 2: Remove the volume and start fresh
+sudo docker compose down
+sudo docker volume rm ai-hub_litellm-db-data
+sudo bash scripts/deploy.sh</pre>
+</div>
+
+<hr>
+
+<h2>Quick Reference Card</h2>
+
+<table>
+  <tr><th>Action</th><th>Command</th></tr>
+  <tr><td>Deploy / Update</td><td><code>sudo bash scripts/deploy.sh</code></td></tr>
+  <tr><td>Status</td><td><code>sudo docker compose ps</code></td></tr>
+  <tr><td>Restart all</td><td><code>sudo docker compose restart</code></td></tr>
+  <tr><td>View all logs</td><td><code>sudo docker compose logs --tail=50</code></td></tr>
+  <tr><td>View service logs</td><td><code>sudo docker compose logs --tail=50 SERVICE</code></td></tr>
+  <tr><td>Stop everything</td><td><code>sudo docker compose down</code></td></tr>
+  <tr><td>Free disk space</td><td><code>sudo docker system prune -af</code></td></tr>
+  <tr><td>View password</td><td><code>grep OPENCLAW_PASSWORD .env</code></td></tr>
+  <tr><td>SSH access</td><td><code>ssh -i key.pem -p 2222 deploy@DOMAIN</code></td></tr>
+</table>
+
+<p style="text-align: center; color: var(--muted); margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+  in-fused.org Deployment Guide &mdash; Generated March 2026<br>
+  <small>Print this page or use the "Save as PDF" button for an offline copy.</small>
+</p>
+
+</body>
+</html>
