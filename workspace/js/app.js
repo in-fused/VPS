@@ -1211,9 +1211,16 @@ document.addEventListener('alpine:init', () => {
       monitor.systemHealth.litellm = health.litellm ? 'healthy' : 'offline';
       monitor.systemHealth.openclaw = health.openclaw ? 'healthy' : 'offline';
 
-      // NOTE: Do NOT trigger reconnect() from here — it causes a recursive storm
-      // because reconnect() calls _applyHealth() again. Let the client's own
-      // _scheduleReconnect handle retries, and the manual Reconnect button handle user-initiated retries.
+      // Auto-connect WS when OpenClaw HTTP is healthy but WS isn't connected.
+      // This handles the post-deploy case where OpenClaw wasn't ready at boot.
+      // reconnect() has its own _reconnecting guard so this is safe to call.
+      if (health.openclaw && !this.ocConnected && !this._reconnecting) {
+        const pw = window.openclawClient?._password
+          || (() => { try { return sessionStorage.getItem('mc-oc-pw') || ''; } catch { return ''; } })();
+        if (pw) {
+          this.reconnect();
+        }
+      }
     },
 
     async reconnect() {
