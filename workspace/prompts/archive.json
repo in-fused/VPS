@@ -23,6 +23,30 @@
       "archivedAt": 1740873600000,
       "archivedBy": "owner",
       "tags": ["first-run", "delegation", "self-discovery", "security-audit", "cron"]
+    },
+    {
+      "id": "research-prompt-marketplace-20260304",
+      "title": "Prompt Marketplace — Competitive Research",
+      "target": "scout",
+      "category": "research",
+      "text": "RESEARCH TASK — Prompt Marketplace Landscape\n\nI'm considering building a P2P marketplace for LLM prompts as our first creative project. Before committing resources, I need to know what already exists and where the gaps are.\n\nDELIVERABLES — write a full report to /workspace/staging/prompt-marketplace-research.html:\n\n1. EXISTING PLAYERS: Find and analyze every notable prompt marketplace, directory, or exchange platform. For each one document:\n   - Name, URL, launch date, business model (free/paid/commission)\n   - Is it centralized or decentralized? Curated or open?\n   - What do they sell? (raw prompts, prompt templates, fine-tuned chains, agent configs, workflows?)\n   - Pricing model (fixed price, auction, subscription, tips?)\n   - Community size if available (users, listings, revenue)\n   - Strengths and weaknesses\n\n   Known names to start: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.\n\n2. GAP ANALYSIS: What's missing from the current market?\n   - Is there a true P2P marketplace (no central curator, seller-to-buyer direct)?\n   - Is anyone doing prompt versioning, forking, or collaborative iteration?\n   - Is anyone handling prompt-to-agent-config (not just raw text but full agent system prompts)?\n   - Is anyone doing on-chain or decentralized prompt trading?\n   - What about prompt bundles, workflows, or multi-agent orchestration configs?\n\n3. FEASIBILITY ASSESSMENT: If we built a P2P prompt marketplace:\n   - What would differentiate us from PromptBase etc.?\n   - Could we use our agent system to build it (agents creating, testing, and listing prompts)?\n   - What's the minimum viable product look like?\n   - Technical requirements (hosting, payments, identity)\n\n4. RECOMMENDATION: Build from scratch, fork something, or skip it entirely?\n\nUse web_search and web_fetch extensively. I want current data, not training knowledge. Cite URLs.\n\nLog this task to the activity log when you start and when you finish.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1709553600000,
+      "archivedBy": "owner",
+      "tags": ["research", "prompt-marketplace", "competitive-analysis", "P2P"]
+    },
+    {
+      "id": "build-prompt-marketplace-20260304",
+      "title": "Prompt Marketplace — Build Plan",
+      "target": "lead",
+      "category": "creative-project",
+      "text": "CREATIVE PROJECT — P2P Prompt Marketplace\n\nScout has completed (or is working on) research into existing prompt marketplaces. Read their report at /workspace/staging/prompt-marketplace-research.html first.\n\nBased on Scout's findings, I want you to lead the team in planning a P2P prompt marketplace. This is our first real creative build — the agents building something from the ground up.\n\nDELEGATION PLAN:\n\n1. YOU (Lead): Read Scout's research, synthesize the opportunity. Decide the product direction — what makes ours different. Write a 1-page product brief to /workspace/staging/prompt-marketplace-brief.html.\n\n2. CODECRAFT: Based on the brief, architect the technical approach. Consider:\n   - Can it run as a static site served from our /workspace/ volume? (Zero hosting cost)\n   - Or does it need a backend service added to docker-compose?\n   - P2P options: could we use IPFS, Nostr, or just a git-based exchange?\n   - Payment: crypto, Stripe, or free/donation-based to start?\n   - Write a technical spec to /workspace/staging/prompt-marketplace-spec.html\n\n3. SCOUT: Continue monitoring the competitive landscape. Set up a weekly cron job to check the top 5 prompt marketplaces for new features, pricing changes, or shutdowns. Log findings to the activity log.\n\n4. SCRIBE: Create a landing page mockup for the marketplace. Put it in /workspace/staging/prompt-marketplace-landing.html. Mobile-first, matches our golden cyber theme.\n\nCONSTRAINTS:\n- This must be buildable by our agent team. Don't design something that needs a human dev team.\n- Start small — an MVP that proves the concept, not a full platform.\n- All deliverables to /workspace/staging/ for my review before any code gets committed.\n- Log all activity. I want to see the full build process when I check in.\n\nConfirm you've read Scout's research and get your team moving.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1709553600000,
+      "archivedBy": "owner",
+      "tags": ["creative-project", "prompt-marketplace", "delegation", "MVP"]
     }
   ]
 }

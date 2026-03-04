@@ -239,6 +239,90 @@ RULES OF ENGAGEMENT:
 Confirm team connectivity and begin.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🔍</span>Prompt Marketplace Research</div>
+            <div class="prompt-subtitle"><span class="tag">Scout</span> competitive landscape + P2P feasibility</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('starter3', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="starter3">RESEARCH TASK — Prompt Marketplace Landscape
+
+I'm considering building a P2P marketplace for LLM prompts as our first creative project. Before committing resources, I need to know what already exists and where the gaps are.
+
+DELIVERABLES — write a full report to /workspace/staging/prompt-marketplace-research.html:
+
+1. EXISTING PLAYERS: Find and analyze every notable prompt marketplace, directory, or exchange platform. For each one document:
+   - Name, URL, launch date, business model (free/paid/commission)
+   - Is it centralized or decentralized? Curated or open?
+   - What do they sell? (raw prompts, prompt templates, fine-tuned chains, agent configs, workflows?)
+   - Pricing model (fixed price, auction, subscription, tips?)
+   - Community size if available (users, listings, revenue)
+   - Strengths and weaknesses
+
+   Known names to start: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.
+
+2. GAP ANALYSIS: What's missing from the current market?
+   - Is there a true P2P marketplace (no central curator, seller-to-buyer direct)?
+   - Is anyone doing prompt versioning, forking, or collaborative iteration?
+   - Is anyone handling prompt-to-agent-config (not just raw text but full agent system prompts)?
+   - Is anyone doing on-chain or decentralized prompt trading?
+   - What about prompt bundles, workflows, or multi-agent orchestration configs?
+
+3. FEASIBILITY ASSESSMENT: If we built a P2P prompt marketplace:
+   - What would differentiate us from PromptBase etc.?
+   - Could we use our agent system to build it (agents creating, testing, and listing prompts)?
+   - What's the minimum viable product look like?
+   - Technical requirements (hosting, payments, identity)
+
+4. RECOMMENDATION: Build from scratch, fork something, or skip it entirely?
+
+Use web_search and web_fetch extensively. I want current data, not training knowledge. Cite URLs.
+
+Log this task to the activity log when you start and when you finish.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Prompt Marketplace — Build Plan</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> delegate to team after Scout research</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('starter4', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="starter4">CREATIVE PROJECT — P2P Prompt Marketplace
+
+Scout has completed (or is working on) research into existing prompt marketplaces. Read their report at /workspace/staging/prompt-marketplace-research.html first.
+
+Based on Scout's findings, I want you to lead the team in planning a P2P prompt marketplace. This is our first real creative build — the agents building something from the ground up.
+
+DELEGATION PLAN:
+
+1. YOU (Lead): Read Scout's research, synthesize the opportunity. Decide the product direction — what makes ours different. Write a 1-page product brief to /workspace/staging/prompt-marketplace-brief.html.
+
+2. CODECRAFT: Based on the brief, architect the technical approach. Consider:
+   - Can it run as a static site served from our /workspace/ volume? (Zero hosting cost)
+   - Or does it need a backend service added to docker-compose?
+   - P2P options: could we use IPFS, Nostr, or just a git-based exchange?
+   - Payment: crypto, Stripe, or free/donation-based to start?
+   - Write a technical spec to /workspace/staging/prompt-marketplace-spec.html
+
+3. SCOUT: Continue monitoring the competitive landscape. Set up a weekly cron job to check the top 5 prompt marketplaces for new features, pricing changes, or shutdowns. Log findings to the activity log.
+
+4. SCRIBE: Create a landing page mockup for the marketplace. Put it in /workspace/staging/prompt-marketplace-landing.html. Mobile-first, matches our golden cyber theme.
+
+CONSTRAINTS:
+- This must be buildable by our agent team. Don't design something that needs a human dev team.
+- Start small — an MVP that proves the concept, not a full platform.
+- All deliverables to /workspace/staging/ for my review before any code gets committed.
+- Log all activity. I want to see the full build process when I check in.
+
+Confirm you've read Scout's research and get your team moving.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
     </div>
 
     <!-- ARCHIVE TAB -->
