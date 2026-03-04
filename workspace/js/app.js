@@ -1020,6 +1020,15 @@ document.addEventListener('alpine:init', () => {
         const sessions = Alpine.store('sessions');
         const state = payload.state;
 
+        // Bug #32579: Gateway broadcasts ALL chat events to ALL connected
+        // WebSocket clients. Filter by sessionKey to only process events
+        // for the active chat session (or events without a sessionKey for
+        // backward compatibility).
+        if (payload.sessionKey && sessions._activeSessionKey
+            && payload.sessionKey !== sessions._activeSessionKey) {
+          return; // Not for our active session — ignore
+        }
+
         if (state === 'delta') {
           // Streaming content delta
           if (sessions._streamingMsg) {
@@ -1027,6 +1036,25 @@ document.addEventListener('alpine:init', () => {
             const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
             sessions._streamingMsg.content += delta;
             sessions._scrollToBottom();
+          } else if (sessions._sending === false && sessions.messages.length > 0) {
+            // Bug #28410: Model fallback UI freeze recovery.
+            // When the primary model errors, we set _streamingMsg=null and _sending=false.
+            // But LiteLLM may fallback to another provider, and OpenClaw sends new delta
+            // events from the fallback model. Recover by creating a new streaming message.
+            const lastMsg = sessions.messages[sessions.messages.length - 1];
+            if (lastMsg?.role === 'agent') {
+              // Strip the error prefix if the fallback is now succeeding
+              if (lastMsg.content.startsWith('⚠️')) {
+                lastMsg.content = '';
+              }
+              lastMsg.streaming = true;
+              sessions._streamingMsg = lastMsg;
+              sessions._sending = true;
+              const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
+              lastMsg.content += delta;
+              sessions._scrollToBottom();
+              Alpine.store('monitor').addLog('info', 'Model fallback detected — resuming stream from alternate provider');
+            }
           }
           return;
         }
@@ -1564,6 +1592,9 @@ document.addEventListener('alpine:init', () => {
           const sessionKey = session?.sessionKey || (agent?.id ? 'agent:' + agent.id + ':main' : 'agent:lead:main');
           // Store sessionKey back on session if it was missing
           if (session && !session.sessionKey) session.sessionKey = sessionKey;
+          // Track active session key for event filtering (Bug #32579:
+          // gateway broadcasts ALL chat events to ALL clients)
+          this._activeSessionKey = sessionKey;
 
           await window.openclawClient.sendChat(messageText, { sessionKey });
           // Response will arrive via events (chat.delta, chat.complete)

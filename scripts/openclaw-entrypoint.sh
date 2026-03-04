@@ -61,6 +61,13 @@ config.models.providers.litellm = {
   baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
   apiKey: process.env.OPENAI_API_KEY || '',
   api: 'openai-completions',
+  // Issue #27037: OpenClaw sends 'developer' message role to all openai-completions
+  // providers. Non-OpenAI backends (Groq, Cerebras, DeepSeek, Gemini, Mistral) reject
+  // it with 400 errors. LiteLLM's drop_params doesn't fix this (it's a role, not a param).
+  supportsDeveloperRole: false,
+  // Issue #33272: OpenClaw injects reasoning_effort into requests for custom providers
+  // with unknown baseUrls. Most backends reject this parameter.
+  supportsReasoningEffort: false,
   models: [
     // Free — Groq (load-balanced across 2 accounts)
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
@@ -138,10 +145,19 @@ config.cron.maxConcurrentRuns = 1;
 
 // Compaction: prevent aggressive compaction loop regression (#32106).
 // v2026.3.1 defaults softThresholdTokens to 4000 which triggers compaction
-// every 2-3 minutes. Set to 50000 to prevent this.
+// every 2-3 minutes. Set to 50000 to prevent this. PR #32803 is the
+// definitive fix but is still under review.
 config.agents.defaults.compaction = config.agents.defaults.compaction || {};
+config.agents.defaults.compaction.mode = 'safeguard';
 config.agents.defaults.compaction.memoryFlush = config.agents.defaults.compaction.memoryFlush || {};
+config.agents.defaults.compaction.memoryFlush.enabled = true;
 config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
+// Preserve ticket/issue IDs during summarization
+config.agents.defaults.compaction.identifierPolicy = 'strict';
+
+// Loop detection: safety net against runaway agent tool loops
+config.tools.loopDetection = config.tools.loopDetection || {};
+config.tools.loopDetection.enabled = true;
 
 // Auto-updater: keep OpenClaw on stable channel with automatic updates.
 // In-app mechanism (separate from Docker image tags). Stable channel avoids
