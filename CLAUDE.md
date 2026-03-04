@@ -112,13 +112,13 @@ sudo docker compose up -d openclaw
 cd /home/VPS && sudo docker compose restart
 ```
 ```
-sudo docker compose ps
+cd /home/VPS && sudo docker compose ps
 ```
 ```
-sudo docker compose logs --tail=50
+cd /home/VPS && sudo docker compose logs --tail=50
 ```
 ```
-sudo docker compose logs --tail=50 openclaw
+cd /home/VPS && sudo docker compose logs --tail=50 openclaw
 ```
 
 ### SSM Gotchas
@@ -126,7 +126,9 @@ sudo docker compose logs --tail=50 openclaw
 - When removing Docker volumes, you must also remove ALL containers that reference the volume (e.g., both `openclaw` and `openclaw-init` share `openclaw-data`)
 - SSM sessions time out, but `docker compose up -d` runs detached — deploys complete even if the session drops
 
-**Access:** Mobile via SSM | Desktop via `ssh -i key.pem -p 2222 user@in-fused.org`
+**Access:**
+- **Mobile:** AWS Session Manager (SSM)
+- **Desktop (Windows):** `ssh -i Infused-VPS-key.pem -p 2222 deploy@13.222.43.154` (from `C:\Users\Taylor\Downloads\`)
 
 ---
 
