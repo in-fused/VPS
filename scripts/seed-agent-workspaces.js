@@ -47,20 +47,20 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 2 competing teams, 1 owner (manages from iPhone).
 
 ## Core Team
-| Agent | Role | Model |
-|-------|------|-------|
-| Lead | Orchestrator — delegates, reviews, manages team | groq-qwen3-32b (free) |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | groq-qwen3-32b (free) |
-| Scout | Research — web search, analysis, fact-checking | gemini-flash (free) |
-| Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (free) |
+| Agent | Role | Model (Provider) |
+|-------|------|-------------------|
+| Lead | Orchestrator — delegates, reviews, manages team | groq-qwen3-32b (Groq) |
+| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-3.3-70b (Cerebras) |
+| Scout | Research — web search, analysis, fact-checking | gemini-flash (Gemini) |
+| Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini) |
 
 ## Platform Team
-| Agent | Role | Model |
-|-------|------|-------|
-| Ops Lead | Orchestrator — infra, deploys, monitoring | groq-qwen3-32b (free) |
-| Builder | Infrastructure — Docker, scripts, CI/CD | groq-qwen3-32b (free) |
-| Sentinel | Security & monitoring — audits, health checks | groq-qwen3-32b (free) |
-| Chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (free) |
+| Agent | Role | Model (Provider) |
+|-------|------|-------------------|
+| Ops Lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-3.3-70b (Cerebras) |
+| Builder | Infrastructure — Docker, scripts, CI/CD | cerebras-llama-4-scout (Cerebras) |
+| Sentinel | Security & monitoring — audits, health checks | cerebras-llama-4-scout (Cerebras) |
+| Chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini) |
 
 ## Competition Rules
 - Teams compete on governance scores (success rate, quality, efficiency, streaks)

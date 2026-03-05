@@ -283,15 +283,16 @@ router_settings:
     - gemini-pro: ["gemini-flash", "deepseek-chat"]
     - mistral-large: ["deepseek-chat"]
     - codestral: ["deepseek-coder"]
-  # Retry once per deployment before falling back (don't waste time on exhausted providers)
-  num_retries: 0
+  # Allow 1 retry per deployment, then cascade to fallback chain.
+  # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
+  num_retries: 1
   retry_after: 1
   # After 2 failures, temporarily remove a deployment from the pool (60s cooldown)
   allowed_fails: 2
   cooldown_time: 60
   # Use lowest-latency model when multiple are available (load balancing)
   routing_strategy: "latency-based-routing"
-  # Allow 429s to trigger fallback immediately (default only triggers on 5xx)
+  # Allow 429s to trigger fallback chain (Groq → Cerebras → DeepSeek)
   retry_policy:
-    RateLimitErrorRetries: 0
+    RateLimitErrorRetries: 2
     ContentPolicyViolationErrorRetries: 0
