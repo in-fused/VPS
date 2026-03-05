@@ -489,7 +489,13 @@ function extractMessageText(raw) {
     return texts.join('\n');
   }
   if (typeof raw === 'object') {
-    return raw.text || raw.content || '';
+    // OpenClaw may nest content in various shapes
+    if (raw.text) return raw.text;
+    if (raw.content) return extractMessageText(raw.content);
+    if (raw.message) return extractMessageText(raw.message);
+    // Try role-based message objects (e.g. {role: 'assistant', content: '...'})
+    if (raw.role && raw.content !== undefined) return extractMessageText(raw.content);
+    return '';
   }
   return String(raw);
 }
@@ -795,6 +801,11 @@ document.addEventListener('alpine:init', () => {
     stagingPanelOpen: false, // mobile: toggleable staging panel
     _reconnecting: false, // guard against concurrent reconnect attempts
     _booted: false,       // guard against boot() being called twice
+    // Live event feed for chat transparency
+    lastEvent: '',        // human-readable last event description
+    lastEventTime: 0,     // timestamp of last event
+    chatEvents: [],       // recent chat-relevant events (max 50)
+    showEventFeed: false,  // toggle for event feed panel in chat view
 
     init() {
       // Listen for screen resize to update mobile state
@@ -812,6 +823,14 @@ document.addEventListener('alpine:init', () => {
         }
       };
       mq.addEventListener('change', update);
+    },
+
+    pushChatEvent(level, msg) {
+      const ev = { time: timeNow(), level, msg };
+      this.chatEvents.unshift(ev);
+      if (this.chatEvents.length > 50) this.chatEvents.length = 50;
+      this.lastEvent = msg;
+      this.lastEventTime = Date.now();
     },
 
     setView(v) {
@@ -1035,6 +1054,29 @@ document.addEventListener('alpine:init', () => {
             (payload.runId ? ` run=${payload.runId}` : '')
           : '';
         Alpine.store('monitor').addLog('info', `Event[${eventName}]: ${summary || JSON.stringify(payload).slice(0, 120)}`);
+
+        // Push human-readable events to the chat event feed
+        const app = Alpine.store('app');
+        if (eventName === 'chat') {
+          const state = payload.state;
+          if (state === 'delta') {
+            // Don't spam delta events — just update "last event"
+            app.lastEvent = 'Streaming response...';
+            app.lastEventTime = Date.now();
+          } else if (state === 'final') {
+            app.pushChatEvent('ok', 'Agent response complete');
+          } else if (state === 'error') {
+            app.pushChatEvent('error', payload.errorMessage || 'Agent error');
+          } else if (state === 'aborted') {
+            app.pushChatEvent('warn', 'Response aborted');
+          }
+        } else if (eventName === 'agent') {
+          if (payload.state === 'error' || payload.error || payload.errorMessage) {
+            app.pushChatEvent('error', `Agent turn: ${payload.errorMessage || payload.error || 'failed'}`);
+          } else if (payload.state === 'running' || payload.tool) {
+            app.pushChatEvent('info', `Agent working${payload.tool ? ': ' + payload.tool : ''}...`);
+          }
+        }
       });
 
       // Agent turn events — surface errors from the agent turn itself (model call
@@ -1067,6 +1109,14 @@ document.addEventListener('alpine:init', () => {
       oc.on('chat', (payload) => {
         const sessions = Alpine.store('sessions');
         const state = payload.state;
+
+        // Debug: log payload structure for diagnosing empty responses
+        if (state === 'delta' || state === 'final') {
+          const msgType = payload.message == null ? 'null' : typeof payload.message === 'string' ? 'string' : Array.isArray(payload.message) ? 'array' : 'object';
+          const extracted = extractMessageText(payload.message);
+          const preview = extracted ? extracted.slice(0, 80) : '(empty)';
+          Alpine.store('monitor').addLog('debug', `Chat ${state}: msgType=${msgType} extracted="${preview}" run=${payload.runId || 'n/a'}`);
+        }
 
         // Bug #32579: Gateway broadcasts ALL chat events to ALL connected
         // WebSocket clients. Filter by sessionKey to only process events
@@ -1130,9 +1180,14 @@ document.addEventListener('alpine:init', () => {
                 streamMsg.content += finalContent;
               }
             }
-            // If streaming produced no visible text (tool-use-only turn), remove the empty bubble
+            // If streaming produced no visible text (tool-use-only turn), show status instead of silently removing
             if (!streamMsg.content.trim()) {
-              sessions.messages = sessions.messages.filter(m => m !== streamMsg);
+              const toolHint = payload.usage ? ` (${payload.usage.total_tokens || 0} tokens used)` : '';
+              streamMsg.content = `[Agent completed — no text response${toolHint}. Check Monitor for details.]`;
+              streamMsg.streaming = false;
+              streamMsg.time = timeNow();
+              streamMsg._systemNote = true;
+              producedContent = false; // Don't count as visible user-facing content
             } else {
               streamMsg.streaming = false;
               streamMsg.time = timeNow();
@@ -1214,6 +1269,7 @@ document.addEventListener('alpine:init', () => {
             // Show retry message in the streaming bubble
             sessions._streamingMsg.content = '⏳ Rate limited — auto-retrying with fallback provider...';
             Alpine.store('monitor').addLog('info', 'Rate limit hit — auto-retrying in 3s via LiteLLM fallback chain');
+            Alpine.store('app').pushChatEvent('warn', 'Rate limited — retrying with fallback provider');
 
             // Retry after 3s to let LiteLLM route to fallback provider
             setTimeout(async () => {
@@ -1294,6 +1350,7 @@ document.addEventListener('alpine:init', () => {
       oc.on('connected', () => {
         this.ocConnected = true;
         ocMode = 'connected';
+        this.pushChatEvent('ok', 'Connected to OpenClaw');
       });
 
       oc.on('disconnect', (payload) => {
@@ -1301,12 +1358,14 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('monitor').addLog('warn', msg);
         this.ocConnected = false;
         ocMode = 'fallback';
+        this.pushChatEvent('error', msg);
       });
 
       oc.on('reconnect', () => {
         Alpine.store('monitor').addLog('info', 'OpenClaw WebSocket reconnected — agents are live');
         this.ocConnected = true;
         ocMode = 'connected';
+        this.pushChatEvent('ok', 'Reconnected to OpenClaw');
         this._syncAgentsFromOpenClaw();
         this._syncSessionsFromOpenClaw();
         Alpine.store('cron').fetch();
@@ -1764,6 +1823,7 @@ document.addEventListener('alpine:init', () => {
 
           const sendResult = await window.openclawClient.sendChat(messageText, { sessionKey });
           Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${sendResult?.runId || 'n/a'})`);
+          Alpine.store('app').pushChatEvent('info', `Message sent to ${session?.agentName || 'agent'}`);
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
 
