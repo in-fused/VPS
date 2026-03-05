@@ -98,7 +98,7 @@ model_list:
 
   - model_name: "cerebras-qwen3-32b"
     litellm_params:
-      model: "cerebras/qwen-3-32b"
+      model: "cerebras/qwen3-32b"
       api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
