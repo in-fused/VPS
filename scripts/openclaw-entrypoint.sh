@@ -96,9 +96,12 @@ config.models.providers.litellm = {
 };
 
 // Default model — object format with primary key (flat strings break subagents)
+// DeepSeek Chat: reliable tool calling via OpenAI-compatible format, $0.28/1M tokens.
+// Groq/Llama-3.3-70b was free but unreliable for OpenClaw's tool-use protocol,
+// causing silent agent turn failures (no chat events returned).
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/groq-llama-3.3-70b' };
+config.agents.defaults.model = { primary: 'litellm/deepseek-chat' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -186,40 +189,40 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-qwen3-32b' },
+      model: { primary: 'litellm/deepseek-coder' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
       id: 'scout',
       workspace: 'Scout',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: {
         name: 'Scout',
         emoji: '🔍',
       },
       subagents: {
         allowAgents: ['scribe'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
@@ -235,14 +238,14 @@ if (config.agents.list.length === 0) {
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/deepseek-chat' },
       },
     },
     {
@@ -311,7 +314,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-llama-3.3-70b, a2a=peer, agents=8 (2 teams), providers=groq+cerebras+gemini+mistral+deepseek');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=deepseek-chat, a2a=peer, agents=8 (2 teams), providers=deepseek+groq+cerebras+gemini+mistral');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

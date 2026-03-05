@@ -49,15 +49,15 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 ## Core Team
 | Agent | Role | Model |
 |-------|------|-------|
-| Lead | Orchestrator — delegates, reviews, manages team | groq-llama-3.3-70b |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-qwen3-32b |
-| Scout | Research — web search, analysis, fact-checking | groq-llama-3.3-70b |
+| Lead | Orchestrator — delegates, reviews, manages team | deepseek-chat |
+| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | deepseek-coder |
+| Scout | Research — web search, analysis, fact-checking | deepseek-chat |
 | Scribe | Documentation — READMEs, guides, changelogs | gpt-4o-mini |
 
 ## Platform Team
 | Agent | Role | Model |
 |-------|------|-------|
-| Ops Lead | Orchestrator — infra, deploys, monitoring | groq-llama-3.3-70b |
+| Ops Lead | Orchestrator — infra, deploys, monitoring | deepseek-chat |
 | Builder | Infrastructure — Docker, scripts, CI/CD | deepseek-coder |
 | Sentinel | Security & monitoring — audits, health checks | deepseek-chat |
 | Chronicler | Platform docs — runbooks, deploy guides | gpt-4o-mini |

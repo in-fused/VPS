@@ -265,7 +265,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -287,7 +287,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-qwen3-32b', status: 'idle',
+    model: 'litellm/deepseek-coder', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -308,7 +308,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -355,7 +355,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -924,7 +924,7 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'litellm/groq-llama-3.3-70b',
+            model: a.model?.primary || a.model || 'litellm/deepseek-chat',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -1035,6 +1035,27 @@ document.addEventListener('alpine:init', () => {
             (payload.runId ? ` run=${payload.runId}` : '')
           : '';
         Alpine.store('monitor').addLog('info', `Event[${eventName}]: ${summary || JSON.stringify(payload).slice(0, 120)}`);
+      });
+
+      // Agent turn events — surface errors from the agent turn itself (model call
+      // failures, tool errors, etc.) that may not produce any 'chat' events.
+      // Without this, a failed model call results in dead silence in the UI.
+      oc.on('agent', (payload) => {
+        const sessions = Alpine.store('sessions');
+        // Check if the agent event carries an error state
+        if (payload.state === 'error' || payload.error || payload.errorMessage) {
+          const errMsg = payload.errorMessage || payload.error?.message || payload.error || 'Agent turn failed (no details)';
+          Alpine.store('monitor').addLog('error', `Agent turn error: ${errMsg}`);
+          // Surface the error in the chat UI if we're waiting for a response
+          if (sessions._sending && sessions._streamingMsg) {
+            sessions._streamingMsg.content = `Error: ${errMsg}`;
+            sessions._streamingMsg.streaming = false;
+            sessions._streamingMsg = null;
+            sessions._sending = false;
+            sessions._sendingSessionId = null;
+            sessions._persistMessages();
+          }
+        }
       });
 
       // Chat streaming events — OpenClaw sends event name 'chat' with a 'state' field:
@@ -1369,7 +1390,7 @@ document.addEventListener('alpine:init', () => {
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'litellm/groq-llama-3.3-70b', systemPrompt: '', tools: [],
+      model: 'litellm/deepseek-chat', systemPrompt: '', tools: [],
     },
 
     // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
@@ -1385,7 +1406,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'litellm/groq-llama-3.3-70b', systemPrompt: '', tools: [],
+        model: 'litellm/deepseek-chat', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;
@@ -1767,7 +1788,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/groq-llama-3.3-70b';
+        const rawModel = agent?.model || 'litellm/deepseek-chat';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');

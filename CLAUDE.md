@@ -203,7 +203,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
 - Provider: custom "litellm" at http://litellm:4000/v1, openai wire format (chat/completions)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
-- Default model: `groq-llama-3.3-70b` (object format `{ primary: '...' }`)
+- Default model: `deepseek-chat` (object format `{ primary: '...' }`)
 - 19 models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
 
 ### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
@@ -212,29 +212,27 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | groq-llama-3.3-70b | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | cerebras-qwen3-32b | Full-stack developer | Scout, Scribe |
-| Scout | groq-llama-3.3-70b | Research specialist | Scribe |
+| Lead | deepseek-chat | Orchestrator | CodeCraft, Scout, Scribe |
+| CodeCraft | deepseek-coder | Full-stack developer | Scout, Scribe |
+| Scout | deepseek-chat | Research specialist | Scribe |
 | Scribe | gpt-4o-mini | Documentation writer | (none) |
 
 **Platform Team** — Infrastructure, deployments, monitoring:
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Ops Lead | groq-llama-3.3-70b | Platform orchestrator | Builder, Sentinel, Chronicler |
+| Ops Lead | deepseek-chat | Platform orchestrator | Builder, Sentinel, Chronicler |
 | Builder | deepseek-coder | Infrastructure developer | Sentinel, Chronicler |
 | Sentinel | deepseek-chat | Security & monitoring | Chronicler |
 | Chronicler | gpt-4o-mini | Platform documentation | (none) |
 
 **Model budget strategy:**
-- All free models are available to agents at every tier (no model restrictions by tier level)
-- Groq (free, load-balanced 2 accounts): Lead, Scout, Ops Lead (groq-llama-3.3-70b, 100K TPD), groq-qwen3-32b (500K TPD)
-- Cerebras (free, 1M TPD, fastest inference): CodeCraft (cerebras-qwen3-32b), also cerebras-llama-3.3-70b, cerebras-llama-4-scout
+- Primary models: DeepSeek Chat/Coder ($0.28/1M) — reliable tool calling, OpenAI-compatible format
+- Previous default (groq-llama-3.3-70b) caused silent agent turn failures due to unreliable tool calling via OpenAI format
+- All free models still available for agents to use on-demand (Groq, Cerebras, Gemini, Mistral)
 - Gemini (free): gemini-flash (250 RPD), gemini-flash-lite (1000 RPD), gemini-pro (100 RPD)
 - Mistral (free, 2 RPM, 1B tokens/month): codestral (coding overflow), mistral-large
-- DeepSeek ($0.28/1M): Builder, Sentinel (code + reasoning, dirt cheap, universal fallback)
 - gpt-4o-mini (OpenAI free tier, 3 RPM): Scribe, Chronicler (infrequent documentation only)
-- Agents may rotate between free providers to avoid rate limits — this is encouraged
 - Fallback chain: Groq → Cerebras → DeepSeek on 429 errors (automatic via LiteLLM)
 
 **Tier storage (EC2 t3.small, ~2GB total workspace):**
