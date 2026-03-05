@@ -474,8 +474,8 @@ input[type="range"].accent-amber-500::-moz-range-thumb {
     right: 0;
     bottom: 0;
     z-index: 35;
-    max-height: 65vh;
-    max-height: 65dvh;
+    max-height: 75vh;
+    max-height: 75dvh;
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
