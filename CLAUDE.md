@@ -236,7 +236,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Mistral (free, 2 RPM, 1B tokens/month): codestral, mistral-large — available for overflow
 - Fallback chain: Groq → Cerebras → DeepSeek ($0.28/1M, paid last resort) on 429 errors (automatic via LiteLLM)
 
-**Tier storage (EC2 t3.small, ~2GB total workspace):**
+**Tier storage (EC2 t3.small, 50GB gp3 volume):**
 - PROBATION (0): 50 MB — supervised, must prove competence
 - ACTIVE (1): 200 MB — default starting tier, standard tools
 - PROVEN (2): 500 MB — semi-autonomous, priority routing

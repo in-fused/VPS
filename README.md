@@ -34,7 +34,7 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 
 | Item | Monthly Cost |
 |------|-------------|
-| AWS EC2 t3.small (2 vCPU, 2GB RAM, 30GB gp3) | ~$15 |
+| AWS EC2 t3.small (2 vCPU, 2GB RAM, 50GB gp3) | ~$15 |
 | Oracle Cloud ARM 24GB | $0 (free forever) |
 | API credits | ~$10 |
 | **Total** | **~$25** |
