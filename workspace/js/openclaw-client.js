@@ -30,57 +30,38 @@ class OpenClawClient {
       if (saved) this._password = saved;
     } catch {}
 
-    // iOS/mobile: pause reconnection when app is backgrounded to save battery.
-    // Force a clean reconnect when the user returns.
-    this._onVisibilityChange = () => {
-      if (document.hidden) {
-        this._backgrounded = true;
-        // Cancel any pending reconnect timers — no point retrying while hidden
-        if (this._reconnectTimer) {
-          clearTimeout(this._reconnectTimer);
-          this._reconnectTimer = null;
-        }
-        // Stop keep-alive pings while backgrounded
-        this._stopKeepAlive();
-      } else {
+    // Shared reconnection logic — called from visibility, pageshow, and focus handlers.
+    // iOS needs all three: visibilitychange misses some app-switcher returns,
+    // pageshow misses some lock-screen returns, focus is the final fallback.
+    this._tryReconnect = () => {
+      if (this._password && !this.authenticated) {
         this._backgrounded = false;
-        // If we were authenticated but the socket died while backgrounded, reconnect
-        if (this._password && !this.authenticated) {
-          this._reconnectDelay = 2000; // reset backoff — user is actively returning
-          this._connectionState = 'reconnecting';
-          this._scheduleReconnect();
-        } else if (this.authenticated) {
-          // Socket survived backgrounding — restart keep-alive
-          this._startKeepAlive();
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', this._onVisibilityChange);
-
-    // iOS: pageshow fires more reliably than visibilitychange when returning
-    // from the app switcher or lock screen. 'persisted' means it was restored
-    // from the back-forward cache (bfcache).
-    this._onPageShow = (event) => {
-      if (event.persisted || !this.authenticated) {
-        // Page was restored from cache or socket is dead — force reconnect
-        if (this._password && !this.authenticated) {
-          this._backgrounded = false;
-          this._reconnectDelay = 2000;
-          this._connectionState = 'reconnecting';
-          this._scheduleReconnect();
-        }
-      }
-    };
-    window.addEventListener('pageshow', this._onPageShow);
-
-    // Additional reconnection trigger via focus event (catches cases where
-    // visibilitychange and pageshow both fail on iOS)
-    this._onFocus = () => {
-      if (this._password && !this.authenticated && !this._backgrounded) {
         this._reconnectDelay = 2000;
         this._connectionState = 'reconnecting';
         this._scheduleReconnect();
       }
+    };
+
+    this._onVisibilityChange = () => {
+      if (document.hidden) {
+        this._backgrounded = true;
+        if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+        this._stopKeepAlive();
+      } else {
+        this._backgrounded = false;
+        if (this.authenticated) this._startKeepAlive();
+        else this._tryReconnect();
+      }
+    };
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+    this._onPageShow = (event) => {
+      if (event.persisted || !this.authenticated) this._tryReconnect();
+    };
+    window.addEventListener('pageshow', this._onPageShow);
+
+    this._onFocus = () => {
+      if (!this._backgrounded) this._tryReconnect();
     };
     window.addEventListener('focus', this._onFocus);
   }
@@ -353,8 +334,8 @@ class OpenClawClient {
       return;
     }
 
-    // Handshake: server ack
-    if (msg.type === 'hello-ok' || msg.type === 'welcome') {
+    // Auth success helper (shared by hello-ok, welcome, and v3 connect response)
+    const _authSuccess = (payload) => {
       this._log('info', 'Authenticated successfully');
       this.connected = true;
       this.authenticated = true;
@@ -362,24 +343,29 @@ class OpenClawClient {
       this._connectionState = 'connected';
       this._startKeepAlive();
       if (connectResolve) connectResolve(true);
-      this._emit('connected', msg.payload || {});
+      this._emit('connected', payload || {});
+    };
+    const _authFail = (errMsg) => {
+      this._log('error', `Auth rejected: ${errMsg}`);
+      this._lastError = errMsg;
+      this._connectionState = 'disconnected';
+      if (connectReject) connectReject(new Error(errMsg));
+    };
+
+    // Handshake: server ack (legacy hello-ok / welcome)
+    if (msg.type === 'hello-ok' || msg.type === 'welcome') {
+      _authSuccess(msg.payload);
       return;
     }
 
     // Handshake: server rejection
     if (msg.type === 'hello-error' || msg.type === 'error') {
-      const errMsg = msg.error || msg.message || 'Auth failed';
-      this._log('error', `Auth rejected: ${errMsg}`);
-      this._lastError = errMsg;
-      this._connectionState = 'disconnected';
-      if (connectReject) connectReject(new Error(errMsg));
+      _authFail(msg.error || msg.message || 'Auth failed');
       return;
     }
 
     // Server-push event — may also be the server's hello in newer format
     if (msg.type === 'event') {
-      // If we haven't sent our handshake yet, this is the server's initial
-      // greeting (newer OpenClaw wraps hello as type=event). Send auth now.
       if (!this._handshakeSent) {
         this._log('info', `Server initial event (${msg.event || 'unknown'}), sending auth...`);
         this._handshakeSent = true;
@@ -389,25 +375,12 @@ class OpenClawClient {
       return;
     }
 
-    // Connect response — server acknowledges our v3 connect request.
-    // Matched by the ID we stored in _sendHandshake(). This is the
-    // primary auth success path for OpenClaw v3 protocol.
+    // Connect response — v3 protocol auth acknowledgment
     if (msg.type === 'res' && String(msg.id) === this._connectReqId) {
       if (msg.ok !== false && !msg.error) {
-        this._log('info', 'Authenticated successfully (v3 protocol)');
-        this.connected = true;
-        this.authenticated = true;
-        this._lastError = null;
-        this._connectionState = 'connected';
-        this._startKeepAlive();
-        if (connectResolve) connectResolve(true);
-        this._emit('connected', msg.payload || {});
+        _authSuccess(msg.payload);
       } else {
-        const errMsg = msg.error?.message || msg.error || 'Auth failed';
-        this._log('error', `Auth rejected: ${errMsg}`);
-        this._lastError = errMsg;
-        this._connectionState = 'disconnected';
-        if (connectReject) connectReject(new Error(errMsg));
+        _authFail(msg.error?.message || msg.error || 'Auth failed');
       }
       return;
     }
@@ -548,7 +521,7 @@ class OpenClawClient {
     const wild = this._eventHandlers.get('*');
     if (wild) {
       for (const cb of [...wild]) {
-        try { cb(event, payload); } catch {}
+        try { cb(event, payload); } catch (e) { console.error('[OpenClaw] Wildcard handler error:', e); }
       }
     }
   }

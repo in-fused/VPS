@@ -1167,13 +1167,7 @@ document.addEventListener('alpine:init', () => {
                       if (recovered && recovered.length > 10) {
                         sessions._streamingMsg.content = recovered;
                         sessions._streamingMsg.streaming = false;
-                        sessions._streamingMsg = null;
-                        sessions._sending = false;
-                        sessions._sendingSessionId = null;
-                        sessions._rateLimitRetried = false;
-                        sessions._rateLimitCount = 0;
-                        clearTimeout(sessions._rateLimitRecoveryTimer);
-                        sessions._stopResponsePolling();
+                        sessions._resetSendingState();
                         sessions._persistMessages();
                         Alpine.store('monitor').addLog('info', 'Recovered response from history after agent run completed');
                         Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
@@ -1399,14 +1393,7 @@ document.addEventListener('alpine:init', () => {
             }
             sessions._streamingMsg = null;
           }
-          sessions._rateLimitRetried = false;
-          sessions._rateLimitCount = 0;
-          clearTimeout(sessions._rateLimitRecoveryTimer);
-          sessions._sending = false;
-          sessions._sendingSessionId = null;
-          sessions._activeRunId = null;
-          sessions._retryRunId = null;
-          sessions._stopResponsePolling();
+          sessions._resetSendingState();
 
           // Notify user that response arrived (important for iOS PWA in background)
           if (producedContent) mcAudio.chatComplete();
@@ -1526,16 +1513,7 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
-          // Reset all rate-limit tracking for next message
-          sessions._rateLimitRetried = false;
-          sessions._rateLimitCount = 0;
-          sessions._route2Active = false;
-          clearTimeout(sessions._rateLimitRecoveryTimer);
-          sessions._sending = false;
-          sessions._sendingSessionId = null;
-          sessions._activeRunId = null;
-          sessions._retryRunId = null;
-          sessions._stopResponsePolling();
+          sessions._resetSendingState();
           sessions._persistMessages();
 
           const session = sessions.active;
@@ -1809,6 +1787,22 @@ document.addEventListener('alpine:init', () => {
     _deletedKeys: new Set(), // sessionKeys deleted by user — prevents sync from re-adding them
     _route2Active: false, // true when Route 2 fallback is in progress
 
+    // Atomically reset all sending/streaming/rate-limit state.
+    // Called from multiple completion paths (final, error, timeout, abort, fallback).
+    _resetSendingState() {
+      this._streamingMsg = null;
+      this._sending = false;
+      this._sendingSessionId = null;
+      this._activeRunId = null;
+      this._retryRunId = null;
+      this._rateLimitRetried = false;
+      this._rateLimitCount = 0;
+      this._rateLimitRecoveryStart = 0;
+      this._route2Active = false;
+      clearTimeout(this._rateLimitRecoveryTimer);
+      this._stopResponsePolling();
+    },
+
     // Route 2 fallback: when OpenClaw agent runs fail with rate limits,
     // bypass OpenClaw and call LiteLLM directly with model rotation.
     // Tries models from different providers to find one that works.
@@ -1834,13 +1828,13 @@ document.addEventListener('alpine:init', () => {
         window.openclawClient.abortChat(this._activeSessionKey, this._activeRunId).catch(() => {});
       }
 
-      // Clear OpenClaw streaming state
+      // Clear OpenClaw streaming state (but keep _sending=true for Route 2)
+      this._streamingMsg = null;
       this._rateLimitRetried = false;
       this._rateLimitCount = 0;
       this._rateLimitRecoveryStart = 0;
       clearTimeout(this._rateLimitRecoveryTimer);
       this._stopResponsePolling();
-      this._streamingMsg = null;
 
       // Build messages for Route 2
       const apiMessages = [];
@@ -1875,14 +1869,9 @@ document.addEventListener('alpine:init', () => {
           }
 
           if (content.trim()) {
-            // Success!
             botMsg.streaming = false;
             botMsg.time = timeNow();
-            this._sending = false;
-            this._sendingSessionId = null;
-            this._activeRunId = null;
-            this._retryRunId = null;
-            this._route2Active = false;
+            this._resetSendingState();
             this._persistMessages();
             Alpine.store('monitor').addLog('info', `Route 2 success with ${model} (${content.length} chars)`);
             Alpine.store('app').pushChatEvent('ok', `Response via ${model} (fallback)`);
@@ -1909,11 +1898,7 @@ document.addEventListener('alpine:init', () => {
       botMsg.content = '⚠️ All LLM providers failed. Check API keys in .env — run diagnostic commands from CLAUDE.md.';
       botMsg.streaming = false;
       botMsg.time = timeNow();
-      this._sending = false;
-      this._sendingSessionId = null;
-      this._activeRunId = null;
-      this._retryRunId = null;
-      this._route2Active = false;
+      this._resetSendingState();
       this._persistMessages();
       Alpine.store('monitor').addLog('error', 'Route 2 fallback: all models exhausted');
       Alpine.store('app').pushChatEvent('error', 'All providers failed — check API keys');
@@ -2041,13 +2026,7 @@ document.addEventListener('alpine:init', () => {
               Alpine.store('monitor').addLog('info', `History sync (${trigger}): recovered agent response (${serverAgentContent.length} chars)`);
               this._streamingMsg.content = serverAgentContent;
               this._streamingMsg.streaming = false;
-              this._streamingMsg = null;
-              this._sending = false;
-              this._sendingSessionId = null;
-              this._rateLimitRetried = false;
-              this._rateLimitCount = 0;
-              clearTimeout(this._rateLimitRecoveryTimer);
-              this._stopResponsePolling();
+              this._resetSendingState();
               this._persistMessages();
               Alpine.store('app').pushChatEvent('ok', 'Response received');
               mcAudio.chatComplete();
@@ -2219,18 +2198,8 @@ document.addEventListener('alpine:init', () => {
           this._streamingMsg.content = '(Stopped by user)';
         }
         this._streamingMsg.streaming = false;
-        this._streamingMsg = null;
       }
-      this._sending = false;
-      this._sendingSessionId = null;
-      this._activeRunId = null;
-      this._retryRunId = null;
-      this._rateLimitRetried = false;
-      this._rateLimitCount = 0;
-      this._rateLimitRecoveryStart = 0;
-      this._route2Active = false;
-      clearTimeout(this._rateLimitRecoveryTimer);
-      this._stopResponsePolling();
+      this._resetSendingState();
       this._persistMessages();
       Alpine.store('app').pushChatEvent('warn', 'Response stopped');
     },
@@ -2241,10 +2210,9 @@ document.addEventListener('alpine:init', () => {
       // Only block if we're waiting for a response in THIS session
       if (this._sending && this._sendingSessionId === this.activeId) return;
 
-      // Reset rate-limit tracking for new user-initiated messages
+      // Reset state for new message (clears any lingering rate-limit/fallback state)
       this._rateLimitRetried = false;
       this._rateLimitCount = 0;
-      this._rateLimitRecoveryStart = 0;
       this._route2Active = false;
       clearTimeout(this._rateLimitRecoveryTimer);
 
@@ -2339,9 +2307,7 @@ document.addEventListener('alpine:init', () => {
                 if (recovered && recovered.length > 10) {
                   botMsg.content = recovered;
                   botMsg.streaming = false;
-                  this._streamingMsg = null;
-                  this._sending = false;
-                  this._stopResponsePolling();
+                  this._resetSendingState();
                   this._persistMessages();
                   Alpine.store('monitor').addLog('info', 'Recovered response from history on safety timeout');
                   clearTimeout(_processingTimer);
@@ -2355,13 +2321,7 @@ document.addEventListener('alpine:init', () => {
             // Give up
             if (!hadContent) botMsg.content = '(No response after 120s — try sending again or check Monitor.)';
             botMsg.streaming = false;
-            this._streamingMsg = null;
-            this._sending = false;
-            this._route2Active = false;
-            this._rateLimitRetried = false;
-            this._rateLimitCount = 0;
-            clearTimeout(this._rateLimitRecoveryTimer);
-            this._stopResponsePolling();
+            this._resetSendingState();
             this._persistMessages();
             Alpine.store('monitor').addLog('warn', hadContent
               ? 'Chat timed out after 120s (partial content received)'
@@ -2371,12 +2331,7 @@ document.addEventListener('alpine:init', () => {
         } catch (e) {
           botMsg.content = 'Error: ' + e.message;
           botMsg.streaming = false;
-          this._streamingMsg = null;
-          this._sending = false;
-          this._sendingSessionId = null;
-          this._activeRunId = null;
-          this._retryRunId = null;
-          this._stopResponsePolling();
+          this._resetSendingState();
           Alpine.store('monitor').addLog('error', `OpenClaw chat error: ${e.message}`);
         }
         return;
