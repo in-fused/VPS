@@ -49,7 +49,7 @@ model_list:
   # TIER 2: FREE — Groq API (free tier, load-balanced across 2 accounts)
   # ===========================================================================
   # Fast cloud inference at no cost. llama-3.3-70b: 1K RPD, 100K TPD.
-  # qwen3-32b: 1K RPD, 500K TPD. Load-balanced across 2 Groq accounts.
+  # qwen3-32b: 1K RPD, 500K TPD. Load-balanced across 4 Groq accounts.
 
   - model_name: "groq-llama-3.3-70b"
     litellm_params:
@@ -67,6 +67,22 @@ model_list:
     model_info:
       description: "FREE — 70B model on Groq (account 2)."
 
+  - model_name: "groq-llama-3.3-70b"
+    litellm_params:
+      model: "groq/llama-3.3-70b-versatile"
+      api_key: "os.environ/GROQ_API_KEY_3"
+      stream: true
+    model_info:
+      description: "FREE — 70B model on Groq (account 3)."
+
+  - model_name: "groq-llama-3.3-70b"
+    litellm_params:
+      model: "groq/llama-3.3-70b-versatile"
+      api_key: "os.environ/GROQ_API_KEY_4"
+      stream: true
+    model_info:
+      description: "FREE — 70B model on Groq (account 4)."
+
   - model_name: "groq-qwen3-32b"
     litellm_params:
       model: "groq/qwen/qwen3-32b"
@@ -82,6 +98,22 @@ model_list:
       stream: true
     model_info:
       description: "FREE — Qwen 3 32B on Groq (account 2)."
+
+  - model_name: "groq-qwen3-32b"
+    litellm_params:
+      model: "groq/qwen/qwen3-32b"
+      api_key: "os.environ/GROQ_API_KEY_3"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 3 32B on Groq (account 3)."
+
+  - model_name: "groq-qwen3-32b"
+    litellm_params:
+      model: "groq/qwen/qwen3-32b"
+      api_key: "os.environ/GROQ_API_KEY_4"
+      stream: true
+    model_info:
+      description: "FREE — Qwen 3 32B on Groq (account 4)."
 
   # ===========================================================================
   # TIER 3: FREE — Cerebras (1M tokens/day, fastest inference)

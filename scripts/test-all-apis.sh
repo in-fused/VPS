@@ -467,6 +467,28 @@ else
   skip "GROQ_API_KEY_2"
 fi
 
+subsection "Groq (Account 3)"
+if [ -n "${GROQ_API_KEY_3:-}" ]; then
+  echo -e "  Key: $(mask_key "$GROQ_API_KEY_3")"
+  test_provider_direct "Groq-3" \
+    "https://api.groq.com/openai/v1/chat/completions" \
+    "Authorization: Bearer $GROQ_API_KEY_3" \
+    '{"model":"llama-3.3-70b-versatile","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+else
+  skip "GROQ_API_KEY_3"
+fi
+
+subsection "Groq (Account 4)"
+if [ -n "${GROQ_API_KEY_4:-}" ]; then
+  echo -e "  Key: $(mask_key "$GROQ_API_KEY_4")"
+  test_provider_direct "Groq-4" \
+    "https://api.groq.com/openai/v1/chat/completions" \
+    "Authorization: Bearer $GROQ_API_KEY_4" \
+    '{"model":"llama-3.3-70b-versatile","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+else
+  skip "GROQ_API_KEY_4"
+fi
+
 subsection "Cerebras"
 if [ -n "${CEREBRAS_API_KEY:-}" ]; then
   echo -e "  Key: $(mask_key "$CEREBRAS_API_KEY")"
@@ -663,8 +685,8 @@ else
 fi
 
 # Test that latency-based routing is working by hitting load-balanced models
-subsection "Load Balancing — Groq (2 accounts)"
-echo -e "${DIM}  groq-llama-3.3-70b has 2 deployments (GROQ_API_KEY + GROQ_API_KEY_2)${NC}"
+subsection "Load Balancing — Groq (4 accounts)"
+echo -e "${DIM}  groq-llama-3.3-70b has 4 deployments (GROQ_API_KEY + GROQ_API_KEY_2/3/4)${NC}"
 
 for i in 1 2 3; do
   start_ms=$(date +%s%N 2>/dev/null || echo 0)
