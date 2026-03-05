@@ -252,13 +252,17 @@ const WORKFLOW_REFERENCE = `WORKFLOWS: Write LiteGraph JSON to /workspace/agent-
 Nodes (mission/ namespace): trigger(prompt)→prompt,trigger | agent(agent,systemPrompt,maxTokens)←prompt,context→response,done | task(goal,constraints,priority)←input,execute→result,done | condition(condition,type:Contains/Equals/Regex/Length/IsEmpty)←input→true,false | output(destination,label)←result,done | loop(maxIter)←items→item,index,done | merge(mode:Concat/JSON/Best/Summary)←input_1,input_2→merged | tool(tool,config)←input,execute→result,done
 Links: {id:{id,type,origin_id,origin_slot,target_id,target_slot}}`;
 
-const LEAD_PROTOCOLS = `STAGING: Write to /workspace/staging/, update index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}. Owner reviews from phone.
-ACTIVITY LOG: Append to /workspace/agent-activity/log.json: {events:[{time,level:"info|warn|error",type:"task-complete|workflow-complete|staging-new",message}]}
+const LEAD_PROTOCOLS = `MANDATORY — AFTER EVERY TASK:
+1. Append "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back). Format: {events:[{time:<unix_ms>,level:"info",type:"task-complete",message:"..."}]}
+2. Write deliverables to /workspace/staging/{file}, update /workspace/staging/index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}
+3. No log entries = you did nothing. Owner checks from phone.
 WRITE_FILES: Messages starting with WRITE_FILES: contain JSON. Write each file, update index if specified. Respond "FILES_WRITTEN: <n> files".
 GOVERNANCE_ADJUST: Include GOVERNANCE_ADJUST:{key:value} to propose scoring changes. Owner reviews — never auto-applied.`;
 
-const SPECIALIST_PROTOCOLS = `STAGING: Write to /workspace/staging/, update index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}. Owner reviews from phone.
-ACTIVITY LOG: Append to /workspace/agent-activity/log.json: {events:[{time,level,type,message}]}`;
+const SPECIALIST_PROTOCOLS = `MANDATORY — AFTER EVERY TASK:
+1. Append "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back). Format: {events:[{time:<unix_ms>,level:"info",type:"task-complete",message:"..."}]}
+2. Write deliverables to /workspace/staging/{file}, update /workspace/staging/index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}
+3. Report completion to your team lead via sessions_send. No log entries = you did nothing.`;
 
 // Demo data — mirrors the agent hierarchy seeded in openclaw-entrypoint.sh
 const DEMO_AGENTS = [
