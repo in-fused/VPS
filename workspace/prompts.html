@@ -182,15 +182,20 @@
           </div>
           <button class="copy-btn" onclick="copyPrompt('starter1', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter1">First session. Explore your environment, confirm you can reach your team (CodeCraft, Scout, Scribe) via sessions_send, then delegate:
+        <div class="prompt-body collapsed" id="starter1">First session. Before anything else: log yourself as online to /workspace/agent-activity/log.json (read it, append a "system" event, write it back). Then confirm you can reach your team (CodeCraft, Scout, Scribe) via sessions_send. Delegate:
 
 1. YOU: Discover your tools, read /workspace/, report what you find.
-2. CODECRAFT: Audit /workspace/js/ (app.js, workflow.js, openclaw-client.js) for bugs or quick wins. Report to /workspace/staging/.
-3. SCOUT: Research OpenClaw cron tool and workspace file capabilities. Report to /workspace/staging/.
-4. SCRIBE: Write a system status doc — what's deployed, what works, what needs work. To /workspace/staging/.
+2. CODECRAFT: Audit /workspace/js/ (app.js, workflow.js, openclaw-client.js) for bugs or quick wins.
+3. SCOUT: Research OpenClaw cron tool and workspace file capabilities.
+4. SCRIBE: Write a system status doc — what's deployed, what works, what needs work.
 5. CRON: Set up a daily health-check job that logs to the activity log.
 
-All deliverables go to /workspace/staging/. Log activity. I'll close the browser — keep working autonomously. Governance scores are live.</div>
+MANDATORY for you and every agent you delegate to:
+- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
+- Every deliverable MUST be written to /workspace/staging/ with index.json updated (status: "pending")
+- I check these from my phone. No log entries = you did nothing.
+
+I'll close the browser — keep working autonomously. Governance scores are live.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -202,15 +207,20 @@ All deliverables go to /workspace/staging/. Log activity. I'll close the browser
           </div>
           <button class="copy-btn" onclick="copyPrompt('starter2', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter2">First session. Explore your environment, confirm you can reach your team (Builder, Sentinel, Chronicler) via sessions_send, then delegate:
+        <div class="prompt-body collapsed" id="starter2">First session. Before anything else: log yourself as online to /workspace/agent-activity/log.json (read it, append a "system" event, write it back). Then confirm you can reach your team (Builder, Sentinel, Chronicler) via sessions_send. Delegate:
 
 1. YOU: Discover your tools, read /workspace/, report what you find.
-2. SENTINEL: Security audit — exposed secrets, TLS config, container memory vs limits, API key exposure. Report to /workspace/staging/.
-3. BUILDER: Audit docker-compose.yml, deploy.sh, openclaw-entrypoint.sh — memory limits, restart policies, health checks. Report to /workspace/staging/.
-4. CHRONICLER: Write a deployment runbook with single-line commands (owner uses iPhone + SSM). To /workspace/staging/.
-5. CRON: Set up a 6-hour health-check job covering all services. Log to activity log, flag anything above 80% memory.
+2. SENTINEL: Security audit — exposed secrets, TLS config, container memory vs limits, API key exposure.
+3. BUILDER: Audit docker-compose.yml, deploy.sh, openclaw-entrypoint.sh — memory limits, restart policies, health checks.
+4. CHRONICLER: Write a deployment runbook with single-line commands (owner uses iPhone + SSM).
+5. CRON: Set up a 6-hour health-check job covering all services. Flag anything above 80% memory.
 
-All deliverables go to /workspace/staging/. Log activity. I'll close the browser — keep working autonomously. Governance scores are live.</div>
+MANDATORY for you and every agent you delegate to:
+- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
+- Every deliverable MUST be written to /workspace/staging/ with index.json updated (status: "pending")
+- I check these from my phone. No log entries = you did nothing.
+
+I'll close the browser — keep working autonomously. Governance scores are live.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -255,7 +265,7 @@ DELIVERABLES — write a full report to /workspace/staging/prompt-marketplace-re
 
 Use web_search and web_fetch extensively. I want current data, not training knowledge. Cite URLs.
 
-Log this task to the activity log when you start and when you finish.</div>
+MANDATORY: Log a "task-complete" event to /workspace/agent-activity/log.json when you start AND when you finish. Write the report to /workspace/staging/prompt-marketplace-research.html AND update /workspace/staging/index.json with status "pending". I check from my phone.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -291,8 +301,12 @@ DELEGATION PLAN:
 CONSTRAINTS:
 - This must be buildable by our agent team. Don't design something that needs a human dev team.
 - Start small — an MVP that proves the concept, not a full platform.
-- All deliverables to /workspace/staging/ for my review before any code gets committed.
-- Log all activity. I want to see the full build process when I check in.
+- All deliverables to /workspace/staging/ with index.json updated (status: "pending").
+
+MANDATORY for you and every agent you delegate to:
+- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
+- Every deliverable MUST update /workspace/staging/index.json
+- I check from my phone. No log entries = you did nothing.
 
 Confirm you've read Scout's research and get your team moving.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
