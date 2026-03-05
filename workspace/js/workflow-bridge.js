@@ -3,6 +3,9 @@
 // Agents write JSON to /workspace/agent-workflows/ on the shared volume.
 // Mission Control polls for new/updated workflows, imports them, and
 // sends execution results back via OpenClaw chat.
+//
+// Phase 2: Uses agents.files.set RPC for workspace writes (no chat pollution),
+//          chat.inject with labels for agent commands (filtered from chat UI).
 // in-fused.org
 // ============================================================================
 
@@ -114,12 +117,12 @@ class WorkflowBridge {
       }
     }
 
-    // Send results back to the Lead agent via OpenClaw
+    // Send results back to the Lead agent via OpenClaw (labeled, hidden from chat UI)
     if (window.openclawClient?.authenticated) {
       try {
-        await window.openclawClient.sendChat(
+        await window.openclawClient.injectChat(
           `WORKFLOW_RESULT:${workflowId}\n${JSON.stringify(results, null, 2)}`,
-          { sessionKey: 'agent:lead:main' }
+          { sessionKey: 'agent:lead:main', label: 'system-bridge' }
         );
       } catch {}
     }
@@ -169,6 +172,12 @@ class WorkflowBridge {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // SYNC: Mission Control → Agent workspace
+  // Uses chat.inject with labels (filtered from chat display) to tell agents
+  // to write files. These messages are hidden in _parseHistoryMessages.
+  // -------------------------------------------------------------------------
+
   // Sync a single workflow to the volume (called on every save)
   async syncWorkflow(wfId) {
     if (!window.openclawClient?.authenticated) return;
@@ -208,9 +217,9 @@ class WorkflowBridge {
     };
 
     try {
-      await window.openclawClient.sendChat(
+      await window.openclawClient.injectChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { sessionKey: 'agent:lead:main' }
+        { sessionKey: 'agent:lead:main', label: 'system-bridge' }
       );
     } catch {}
   }
@@ -254,15 +263,21 @@ class WorkflowBridge {
     };
 
     try {
-      await window.openclawClient.sendChat(
+      await window.openclawClient.injectChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { sessionKey: 'agent:lead:main' }
+        { sessionKey: 'agent:lead:main', label: 'system-bridge' }
       );
       Alpine.store('monitor')?.addLog('info', `Synced ${files.length} workflows to volume`);
     } catch {}
   }
 
-  // Sync governance state to the shared volume
+  // -------------------------------------------------------------------------
+  // GOVERNANCE SYNC — writes state to Lead's workspace file
+  // Uses agents.files.set RPC (zero chat pollution) so agents can read
+  // governance scores via their `read` tool from GOVERNANCE.md.
+  // Falls back to chat.inject if agents.files.set is unavailable.
+  // -------------------------------------------------------------------------
+
   async syncGovernance() {
     if (!window.openclawClient?.authenticated) return;
     const gov = Alpine?.store('governance');
@@ -280,6 +295,21 @@ class WorkflowBridge {
       if (score) state.agents[agent.id] = score;
     }
 
+    // Build a human-readable markdown for agent consumption
+    const md = this._buildGovernanceMd(state);
+
+    // Try writing directly to Lead's workspace via agents.files.set RPC
+    // This doesn't create any chat messages at all.
+    try {
+      await window.openclawClient.setAgentFile('lead', 'GOVERNANCE.md', md);
+      // Also write to Ops Lead
+      await window.openclawClient.setAgentFile('ops-lead', 'GOVERNANCE.md', md);
+      return; // success — no need for chat fallback
+    } catch {
+      // agents.files.set not available — fall back to chat.inject
+    }
+
+    // Fallback: inject as labeled system message (hidden from chat UI)
     const payload = {
       action: 'WRITE_FILES',
       files: [{
@@ -289,14 +319,43 @@ class WorkflowBridge {
     };
 
     try {
-      await window.openclawClient.sendChat(
+      await window.openclawClient.injectChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { sessionKey: 'agent:lead:main' }
+        { sessionKey: 'agent:lead:main', label: 'system-bridge' }
       );
     } catch {}
   }
 
-  // Check for agent activity logs written while the browser was closed
+  // Build human-readable governance markdown for agent workspace files
+  _buildGovernanceMd(state) {
+    const lines = ['# Governance State', '', `Updated: ${new Date(state.updatedAt).toISOString()}`, ''];
+
+    lines.push('## Agent Scores', '');
+    lines.push('| Agent | Score | Tier |');
+    lines.push('|-------|-------|------|');
+    for (const [id, score] of Object.entries(state.agents)) {
+      lines.push(`| ${id} | ${score} | — |`);
+    }
+    lines.push('');
+
+    if (state.teams?.length) {
+      lines.push('## Teams', '');
+      for (const team of state.teams) {
+        lines.push(`### ${team.name}`);
+        lines.push(`- Lead: ${team.lead}`);
+        lines.push(`- Members: ${(team.members || []).join(', ')}`);
+        if (team.project) lines.push(`- Project: ${team.project}`);
+        lines.push('');
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  // -------------------------------------------------------------------------
+  // ACTIVITY LOG — reads /workspace/agent-activity/log.json for away report
+  // -------------------------------------------------------------------------
+
   async _checkActivityLog() {
     try {
       const resp = await fetch('/workspace/agent-activity/log.json', {

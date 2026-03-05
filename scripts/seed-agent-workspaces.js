@@ -152,6 +152,33 @@ Use this instead of web_fetch for serious scraping — it handles anti-bot and p
 - Log significant events to /workspace/agent-activity/log.json
 - Workflows go to /workspace/agent-workflows/
 
+## Workflow Bridge Protocol (Agent ↔ Mission Control)
+Agents can create visual workflows visible in Mission Control's Workflow view.
+
+**Create a workflow:**
+1. Write LiteGraph JSON to \`/workspace/agent-workflows/{id}.json\`
+2. Update \`/workspace/agent-workflows/index.json\`:
+   \`{"workflows":[{"id":"wf-123","name":"My Workflow","file":"wf-123.json","createdBy":"lead","updatedAt":1709654321000,"status":"draft"}]}\`
+3. Mission Control polls every 15s and auto-imports new workflows.
+
+**LiteGraph node types (mission/* namespace):**
+- mission/trigger — starts workflow (properties: prompt, triggerType)
+- mission/agent — runs an agent (properties: agent id, context)
+- mission/task — formats a task with goal/constraints (properties: priority)
+- mission/condition — branches on Contains/Equals/Regex/Length/IsEmpty
+- mission/output — outputs result (properties: label, destination)
+- mission/loop — iterates over newline-separated items
+- mission/merge — combines inputs (Concatenate/JSON Merge)
+
+**Request background execution:**
+Set \`"requestExecution": true\` on the workflow entry in index.json.
+Mission Control will execute it and write results to \`/workspace/agent-workflows/results/\`.
+
+**Write execution results:**
+Write to \`/workspace/agent-workflows/results/{id}.json\` and update
+\`/workspace/agent-workflows/results/index.json\`:
+\`{"results":[{"id":"run-123","workflowId":"wf-123","name":"My Workflow","success":true,"completedAt":1709654321000,"file":"run-123.json"}]}\`
+
 ## Cron Jobs (Background Autonomy)
 - Schedule types: at (one-shot), every (interval in ms), cron (5-field expression)
 - Payload: systemEvent (inject into main session) or agentTurn (isolated execution)

@@ -609,6 +609,17 @@ class OpenClawClient {
     return `mc-${ts}-${rand}`;
   }
 
+  // Inject a message into a session without triggering an agent turn.
+  // Used for system/bridge messages (WRITE_FILES, STAGING, etc.) that
+  // should NOT appear as user chat messages.
+  // label: string tag so _parseHistoryMessages can filter these out.
+  async injectChat(text, { sessionKey, label } = {}) {
+    if (!sessionKey) throw new Error('sessionKey is required for chat.inject');
+    const params = { sessionKey, message: text };
+    if (label) params.label = label;
+    return this.request('chat.inject', params);
+  }
+
   async abortChat(sessionKey, runId) {
     const params = { sessionKey };
     if (runId) params.runId = runId;
@@ -629,6 +640,22 @@ class OpenClawClient {
 
   async getCronJobs() {
     return this.request('cron.status');
+  }
+
+  // ---------------------------------------------------------------------------
+  // HIGH-LEVEL API: AGENT FILES (workspace file operations)
+  // ---------------------------------------------------------------------------
+
+  async listAgentFiles(agentId) {
+    return this.request('agents.files.list', { agentId });
+  }
+
+  async getAgentFile(agentId, path) {
+    return this.request('agents.files.get', { agentId, path });
+  }
+
+  async setAgentFile(agentId, path, content) {
+    return this.request('agents.files.set', { agentId, path, content });
   }
 
   // ---------------------------------------------------------------------------

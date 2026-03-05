@@ -1974,10 +1974,22 @@ document.addEventListener('alpine:init', () => {
             /^Read HEARTBEAT/i.test(content) ||
             /^HEARTBEAT/i.test(content) ||
             /^EXECUTE_WORKFLOW:/i.test(content) ||
+            /^WRITE_FILES:/i.test(content) ||
+            /^WORKFLOW_RESULT:/i.test(content) ||
+            /^STAGING_APPROVED:/i.test(content) ||
+            /^STAGING_REJECTED:/i.test(content) ||
+            /^FILES_WRITTEN:/i.test(content) ||
             /^Current time:/i.test(content) ||
-            (m.label && /heartbeat|cron|system/i.test(m.label))
+            (m.label && /heartbeat|cron|system|bridge|staging/i.test(m.label))
           );
           if (isSystemInjection) role = 'system';
+          // Also hide agent replies to system bridge messages
+          const isSystemReply = role === 'agent' && (
+            /^FILES_WRITTEN:/i.test(content) ||
+            /^GOVERNANCE_ADJUST:/i.test(content) ||
+            (content.length < 60 && /^(ok|done|acknowledged|noted|understood)/i.test(content))
+          );
+          if (isSystemReply) role = 'system';
           return {
             id: m.id || generateId(),
             role,
@@ -3473,9 +3485,9 @@ document.addEventListener('alpine:init', () => {
 
       if (window.openclawClient?.authenticated) {
         const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
-        window.openclawClient.sendChat(
+        window.openclawClient.injectChat(
           `STAGING_APPROVED: ${item.name} (${item.path}) has been approved by the owner. Please update /workspace/staging/index.json to set status to "approved".`,
-          { sessionKey: 'agent:' + agentId + ':main' }
+          { sessionKey: 'agent:' + agentId + ':main', label: 'system-staging' }
         ).catch(() => {});
       }
 
@@ -3497,9 +3509,9 @@ document.addEventListener('alpine:init', () => {
 
       if (window.openclawClient?.authenticated) {
         const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
-        window.openclawClient.sendChat(
+        window.openclawClient.injectChat(
           `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise and update /workspace/staging/index.json.`,
-          { sessionKey: 'agent:' + agentId + ':main' }
+          { sessionKey: 'agent:' + agentId + ':main', label: 'system-staging' }
         ).catch(() => {});
       }
 
