@@ -481,20 +481,52 @@ function extractMessageText(raw) {
   if (raw == null) return '';
   if (typeof raw === 'string') return raw;
   if (Array.isArray(raw)) {
-    // Content blocks array — extract text from "text" type blocks only
+    // Content blocks array — extract text from all text-bearing blocks
     const texts = raw
-      .filter(b => b && (b.type === 'text' || !b.type))
-      .map(b => b.text || b.content || '')
+      .map(b => b && extractMessageText(b))
       .filter(t => t);
     return texts.join('\n');
   }
   if (typeof raw === 'object') {
-    // OpenClaw may nest content in various shapes
-    if (raw.text) return raw.text;
-    if (raw.content) return extractMessageText(raw.content);
-    if (raw.message) return extractMessageText(raw.message);
-    // Try role-based message objects (e.g. {role: 'assistant', content: '...'})
-    if (raw.role && raw.content !== undefined) return extractMessageText(raw.content);
+    // OpenClaw v3 sends various nested formats — check all known shapes:
+
+    // Direct text field (most common for simple text blocks)
+    if (typeof raw.text === 'string' && raw.text) return raw.text;
+
+    // content_block_delta: { type: "content_block_delta", delta: { type: "text_delta", text: "..." } }
+    // Also catches: { delta: { text: "..." } } or { delta: "..." }
+    if (raw.delta) {
+      const d = extractMessageText(raw.delta);
+      if (d) return d;
+    }
+
+    // Nested content (string, array, or object)
+    if (raw.content != null) {
+      const c = extractMessageText(raw.content);
+      if (c) return c;
+    }
+
+    // Nested message
+    if (raw.message != null) {
+      const m = extractMessageText(raw.message);
+      if (m) return m;
+    }
+
+    // OpenAI-style choices: { choices: [{ delta: { content: "..." } }] }
+    if (Array.isArray(raw.choices) && raw.choices.length > 0) {
+      const c = extractMessageText(raw.choices[0]?.delta || raw.choices[0]?.message);
+      if (c) return c;
+    }
+
+    // output field (some model formats)
+    if (typeof raw.output === 'string' && raw.output) return raw.output;
+
+    // parts array (Gemini-style): { parts: [{ text: "..." }] }
+    if (Array.isArray(raw.parts)) {
+      const p = raw.parts.map(b => extractMessageText(b)).filter(t => t).join('\n');
+      if (p) return p;
+    }
+
     return '';
   }
   return String(raw);
@@ -1112,10 +1144,26 @@ document.addEventListener('alpine:init', () => {
 
         // Debug: log payload structure for diagnosing empty responses
         if (state === 'delta' || state === 'final') {
-          const msgType = payload.message == null ? 'null' : typeof payload.message === 'string' ? 'string' : Array.isArray(payload.message) ? 'array' : 'object';
           const extracted = extractMessageText(payload.message);
           const preview = extracted ? extracted.slice(0, 80) : '(empty)';
-          Alpine.store('monitor').addLog('debug', `Chat ${state}: msgType=${msgType} extracted="${preview}" run=${payload.runId || 'n/a'}`);
+          // Log raw payload keys and message shape for first 5 events per run to diagnose format issues
+          if (!this._chatDebugCount) this._chatDebugCount = 0;
+          if (this._chatDebugCount < 5 || state === 'final') {
+            this._chatDebugCount++;
+            const payloadKeys = Object.keys(payload).join(',');
+            const msgShape = payload.message == null ? 'null'
+              : typeof payload.message === 'string' ? `str(${payload.message.length})`
+              : Array.isArray(payload.message) ? `arr(${payload.message.length})`
+              : `obj{${Object.keys(payload.message).join(',')}}`;
+            Alpine.store('monitor').addLog('debug', `Chat ${state}: shape=${msgShape} keys=[${payloadKeys}] extracted="${preview}" run=${payload.runId || 'n/a'}`);
+            // Deep log first 2 events to show exact structure
+            if (this._chatDebugCount <= 2) {
+              try {
+                const safePayload = JSON.stringify(payload, null, 0).slice(0, 500);
+                Alpine.store('monitor').addLog('debug', `Chat raw: ${safePayload}`);
+              } catch {}
+            }
+          }
         }
 
         // Bug #32579: Gateway broadcasts ALL chat events to ALL connected
@@ -1129,10 +1177,15 @@ document.addEventListener('alpine:init', () => {
         }
 
         if (state === 'delta') {
+          // Extract text from all possible payload locations
+          const delta = extractMessageText(payload.message)
+            || extractMessageText(payload.content)
+            || extractMessageText(payload.delta)
+            || extractMessageText(payload.text)
+            || '';
+
           // Streaming content delta
           if (sessions._streamingMsg) {
-            // Extract text from message — may be string, object, or content blocks array
-            const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
             // If content is a retry/processing indicator, clear it before appending real content
             const cur = sessions._streamingMsg.content;
             if (delta && (cur.startsWith('⏳ Rate limited') || cur.startsWith('⏳ Agent is processing'))) {
@@ -1141,24 +1194,22 @@ document.addEventListener('alpine:init', () => {
               sessions._streamingMsg.content += delta;
             }
             sessions._scrollToBottom();
-          } else if (sessions._sending === false && sessions.messages.length > 0) {
-            // Bug #28410: Model fallback UI freeze recovery.
-            // When the primary model errors, we set _streamingMsg=null and _sending=false.
-            // But LiteLLM may fallback to another provider, and OpenClaw sends new delta
-            // events from the fallback model. Recover by creating a new streaming message.
+          } else if (sessions.messages.length > 0) {
+            // Recovery: _streamingMsg was cleared (by error handler, timeout, or
+            // rate-limit retry) but new deltas are arriving (model fallback, late
+            // response, or retry run). Find or create a message to receive them.
             const lastMsg = sessions.messages[sessions.messages.length - 1];
             if (lastMsg?.role === 'agent') {
-              // Strip the error prefix if the fallback is now succeeding
-              if (lastMsg.content.startsWith('⚠️')) {
+              // Strip error/placeholder prefix if the fallback is now succeeding
+              if (lastMsg.content.startsWith('⚠️') || lastMsg.content.startsWith('⏳') || lastMsg.content.startsWith('[Agent completed')) {
                 lastMsg.content = '';
               }
               lastMsg.streaming = true;
               sessions._streamingMsg = lastMsg;
               sessions._sending = true;
-              const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
               lastMsg.content += delta;
               sessions._scrollToBottom();
-              Alpine.store('monitor').addLog('info', 'Model fallback detected — resuming stream from alternate provider');
+              Alpine.store('monitor').addLog('info', 'Recovered streaming on late delta event');
             }
           }
           return;
@@ -1166,28 +1217,86 @@ document.addEventListener('alpine:init', () => {
 
         if (state === 'final') {
           // Chat complete — handle both normal flow and late arrivals after timeout
-          const streamMsg = sessions._streamingMsg;
+          let streamMsg = sessions._streamingMsg;
+
+          // If _streamingMsg was cleared (e.g., by rate-limit retry or timeout), recover
+          // by finding the last agent message that's still marked as streaming.
+          if (!streamMsg) {
+            const lastAgent = [...sessions.messages].reverse().find(m => m.role === 'agent' && (m.streaming || !m.content?.trim()));
+            if (lastAgent) {
+              streamMsg = lastAgent;
+              Alpine.store('monitor').addLog('info', 'Recovered orphaned streaming message on final event');
+            }
+          }
+
           let producedContent = false;
           if (streamMsg) {
             // Strip processing/retry indicators if present
             if (streamMsg.content.startsWith('⏳ Agent is processing') || streamMsg.content.startsWith('⏳ Rate limited')) {
               streamMsg.content = '';
             }
-            // If final message has content, append it
-            if (payload.message) {
-              const finalContent = extractMessageText(payload.message);
-              if (finalContent && !streamMsg.content.endsWith(finalContent)) {
-                streamMsg.content += finalContent;
-              }
+
+            // Try extracting final content from ALL possible payload fields
+            const finalContent = extractMessageText(payload.message)
+              || extractMessageText(payload.content)
+              || extractMessageText(payload.result)
+              || extractMessageText(payload.text)
+              || '';
+            if (finalContent && !streamMsg.content.endsWith(finalContent)) {
+              streamMsg.content += finalContent;
             }
-            // If streaming produced no visible text (tool-use-only turn), show status instead of silently removing
-            if (!streamMsg.content.trim()) {
+
+            // If streaming produced no visible text, try fetching from chat history
+            // as a last resort — the server knows what the agent said even if we missed deltas
+            if (!streamMsg.content.trim() && payload.sessionKey && window.openclawClient?.authenticated) {
+              const _historyMsg = streamMsg; // capture for async
+              Alpine.store('monitor').addLog('info', 'No content captured from stream — fetching from chat history...');
+              _historyMsg.content = '⏳ Loading response...';
+              (async () => {
+                try {
+                  const history = await window.openclawClient.getHistory(payload.sessionKey);
+                  if (Array.isArray(history) && history.length > 0) {
+                    // Find the last assistant message in history
+                    const lastAssistant = [...history].reverse().find(m =>
+                      m.role === 'assistant' || m.role === 'agent'
+                    );
+                    if (lastAssistant) {
+                      const text = extractMessageText(lastAssistant.content) || extractMessageText(lastAssistant.message) || extractMessageText(lastAssistant.text);
+                      if (text) {
+                        _historyMsg.content = text;
+                        _historyMsg.streaming = false;
+                        _historyMsg.time = timeNow();
+                        sessions._persistMessages();
+                        Alpine.store('monitor').addLog('info', `Recovered ${text.length} chars from chat history`);
+                        return;
+                      }
+                    }
+                  }
+                  // History fetch found nothing — show system note
+                  const toolHint = payload.usage ? ` (${payload.usage.total_tokens || 0} tokens used)` : '';
+                  _historyMsg.content = `[Agent completed — no text response${toolHint}. Check Monitor for details.]`;
+                  _historyMsg._systemNote = true;
+                  _historyMsg.streaming = false;
+                  _historyMsg.time = timeNow();
+                  sessions._persistMessages();
+                } catch (e) {
+                  Alpine.store('monitor').addLog('warn', `History fetch failed: ${e.message}`);
+                  _historyMsg.content = '[Agent completed — response not captured. Try sending again.]';
+                  _historyMsg._systemNote = true;
+                  _historyMsg.streaming = false;
+                  _historyMsg.time = timeNow();
+                  sessions._persistMessages();
+                }
+              })();
+              // Don't block — async history fetch will update the message
+              producedContent = false;
+            } else if (!streamMsg.content.trim()) {
               const toolHint = payload.usage ? ` (${payload.usage.total_tokens || 0} tokens used)` : '';
               streamMsg.content = `[Agent completed — no text response${toolHint}. Check Monitor for details.]`;
               streamMsg.streaming = false;
               streamMsg.time = timeNow();
               streamMsg._systemNote = true;
-              producedContent = false; // Don't count as visible user-facing content
+              producedContent = false;
             } else {
               streamMsg.streaming = false;
               streamMsg.time = timeNow();
