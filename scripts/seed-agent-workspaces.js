@@ -49,15 +49,15 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 ## Core Team
 | Agent | Role | Model |
 |-------|------|-------|
-| Lead | Orchestrator — delegates, reviews, manages team | cerebras-qwen3-32b (free) |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-qwen3-32b (free) |
+| Lead | Orchestrator — delegates, reviews, manages team | groq-qwen3-32b (free) |
+| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | groq-qwen3-32b (free) |
 | Scout | Research — web search, analysis, fact-checking | gemini-flash (free) |
 | Scribe | Documentation — READMEs, guides, changelogs | gpt-4o-mini |
 
 ## Platform Team
 | Agent | Role | Model |
 |-------|------|-------|
-| Ops Lead | Orchestrator — infra, deploys, monitoring | cerebras-qwen3-32b (free) |
+| Ops Lead | Orchestrator — infra, deploys, monitoring | groq-qwen3-32b (free) |
 | Builder | Infrastructure — Docker, scripts, CI/CD | groq-qwen3-32b (free) |
 | Sentinel | Security & monitoring — audits, health checks | groq-qwen3-32b (free) |
 | Chronicler | Platform docs — runbooks, deploy guides | gpt-4o-mini |
@@ -81,7 +81,7 @@ const SHARED_MEMORY = `# Project Memory
 
 ## Models via LiteLLM (25+ models, 8 tiers across 6 free providers)
 - FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 2 accounts)
-- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-qwen3-32b, cerebras-llama-4-scout (1M TPD)
+- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout (1M TPD)
 - FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro
 - FREE Mistral: mistral-large, codestral (2 RPM, 1B tokens/month)
 - FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b

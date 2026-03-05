@@ -96,13 +96,8 @@ model_list:
     model_info:
       description: "FREE — Llama 3.3 70B on Cerebras. 1M TPD. Fastest inference."
 
-  - model_name: "cerebras-qwen3-32b"
-    litellm_params:
-      model: "cerebras/qwen3-32b"
-      api_key: "os.environ/CEREBRAS_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Qwen 3 32B on Cerebras. 1M TPD. Dual-mode reasoning."
+  # cerebras-qwen3-32b REMOVED — Cerebras dropped qwen3-32b (404 as of 2026-03-05).
+  # Use groq-qwen3-32b instead (load-balanced across 2 accounts).
 
   - model_name: "cerebras-llama-4-scout"
     litellm_params:
@@ -280,9 +275,9 @@ router_settings:
   # Gemini/Mistral → DeepSeek. This ensures agents never get stuck.
   fallbacks:
     - groq-llama-3.3-70b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
-    - groq-qwen3-32b: ["cerebras-qwen3-32b", "deepseek-chat"]
+    - groq-qwen3-32b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
     - cerebras-llama-3.3-70b: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-qwen3-32b: ["groq-qwen3-32b", "deepseek-chat"]
+    # cerebras-qwen3-32b removed — model no longer exists on Cerebras
     - cerebras-llama-4-scout: ["groq-llama-3.3-70b", "deepseek-chat"]
     - gemini-flash: ["deepseek-chat"]
     - gemini-flash-lite: ["deepseek-chat"]

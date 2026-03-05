@@ -67,7 +67,7 @@ config.models.providers.litellm = {
     { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
     // Free — Cerebras (1M tokens/day, fastest inference)
     { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
-    { id: 'cerebras-qwen3-32b', name: 'Qwen 3 32B on Cerebras (free)', contextWindow: 131072, maxTokens: 40960 },
+    // cerebras-qwen3-32b removed — Cerebras dropped this model (404 as of 2026-03-05)
     { id: 'cerebras-llama-4-scout', name: 'Llama 4 Scout on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
     // Free — Gemini
     { id: 'gemini-flash', name: 'Gemini 2.5 Flash (free)', contextWindow: 1048576, maxTokens: 65536 },
@@ -96,12 +96,12 @@ config.models.providers.litellm = {
 };
 
 // Default model — object format with primary key (flat strings break subagents)
-// Cerebras Qwen3-32b: FREE (1M TPD), reliable tool calling (dual-mode reasoning+tools).
-// Groq/Llama-3.3-70b was free but had unreliable tool calling via OpenAI format.
+// Groq Qwen3-32b: FREE (500K TPD × 2 accounts), reliable tool calling.
+// Cerebras dropped qwen3-32b (404 as of 2026-03-05).
 // DeepSeek ($0.28/1M) is the fallback-only safety net on 429 errors.
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-qwen3-32b' };
+config.agents.defaults.model = { primary: 'litellm/groq-qwen3-32b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -189,7 +189,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/cerebras-qwen3-32b' },
+      model: { primary: 'litellm/groq-qwen3-32b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
@@ -202,7 +202,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-qwen3-32b' },
+      model: { primary: 'litellm/groq-qwen3-32b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
@@ -238,7 +238,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/cerebras-qwen3-32b' },
+      model: { primary: 'litellm/groq-qwen3-32b' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
@@ -304,17 +304,25 @@ delete config.tools?.subagents?.runTimeoutSeconds;
 delete config.tools?.agentToAgent?.maxPingPongTurns;
 
 // Clean unrecognized agent keys from persisted agent list
+// Also migrate cerebras-qwen3-32b → groq-qwen3-32b (Cerebras dropped it 2026-03-05)
 if (Array.isArray(config.agents?.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
     if (agent.subagents) delete agent.subagents.maxDepth;
     delete agent.instructions; // not a valid OpenClaw agent key
+    // Migrate dead Cerebras model to Groq equivalent
+    if (agent.model && agent.model.primary === 'litellm/cerebras-qwen3-32b') {
+      agent.model.primary = 'litellm/groq-qwen3-32b';
+    }
+    if (agent.subagents && agent.subagents.model && agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b') {
+      agent.subagents.model.primary = 'litellm/groq-qwen3-32b';
+    }
   });
 }
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=cerebras-qwen3-32b, a2a=peer, agents=8 (2 teams), providers=cerebras+groq+gemini+mistral (free) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-qwen3-32b, a2a=peer, agents=8 (2 teams), providers=groq+cerebras+gemini+mistral (free) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

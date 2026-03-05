@@ -28,7 +28,7 @@ const FALLBACK_MODELS = [
   { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K RPD)' },
   { id: 'groq-qwen3-32b', name: 'Qwen 3 32B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Dual-mode reasoning, free tier (1K RPD)' },
   { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fastest inference, 1M TPD free' },
-  { id: 'cerebras-qwen3-32b', name: 'Qwen 3 32B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fast reasoning, 1M TPD free' },
+  // cerebras-qwen3-32b removed — Cerebras dropped this model 2026-03-05
   { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'Fast + capable, 250 RPD free' },
   { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 1000 RPD free' },
   { id: 'codestral', name: 'Codestral', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Best free code model, 2 RPM' },
@@ -47,7 +47,7 @@ const MODEL_META = {
   'groq-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
   // Free — Cerebras
   'cerebras-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
-  'cerebras-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  // cerebras-qwen3-32b removed — Cerebras dropped this model 2026-03-05
   'cerebras-llama-4-scout': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
   // Free — Gemini
   'gemini-flash': { tier: 'free', cost: '$0/1M', provider: 'Google' },
@@ -243,7 +243,7 @@ Platform Team: Ops Lead (orchestrator) · Builder (infra) · Sentinel (security)
 Teams compete on governance scores. Cross-team messaging allowed, prefer own team first.`;
 
 const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=Oracle ARM 24GB,full autonomy,weekly champion only.
-MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-qwen3-32b), Gemini (gemini-flash, gemini-pro), Mistral (codestral, mistral-large). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
+MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout), Gemini (gemini-flash, gemini-pro), Mistral (codestral, mistral-large). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
 WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite. Counters reset weekly.
 ELITE ORACLE: Winner gets Oracle ARM server (24GB). Can bring team, recruit from marketplace, or request new agents. Chooses own team composition.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
@@ -265,7 +265,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/cerebras-qwen3-32b', status: 'idle',
+    model: 'litellm/groq-qwen3-32b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -287,7 +287,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-qwen3-32b', status: 'idle',
+    model: 'litellm/groq-qwen3-32b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -355,7 +355,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/cerebras-qwen3-32b', status: 'idle',
+    model: 'litellm/groq-qwen3-32b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -924,7 +924,7 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'litellm/cerebras-qwen3-32b',
+            model: a.model?.primary || a.model || 'litellm/groq-qwen3-32b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -1390,7 +1390,7 @@ document.addEventListener('alpine:init', () => {
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'litellm/cerebras-qwen3-32b', systemPrompt: '', tools: [],
+      model: 'litellm/groq-qwen3-32b', systemPrompt: '', tools: [],
     },
 
     // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
@@ -1406,7 +1406,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'litellm/cerebras-qwen3-32b', systemPrompt: '', tools: [],
+        model: 'litellm/groq-qwen3-32b', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;
@@ -1788,7 +1788,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/cerebras-qwen3-32b';
+        const rawModel = agent?.model || 'litellm/groq-qwen3-32b';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');
