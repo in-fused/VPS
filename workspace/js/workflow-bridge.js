@@ -119,7 +119,7 @@ class WorkflowBridge {
       try {
         await window.openclawClient.sendChat(
           `WORKFLOW_RESULT:${workflowId}\n${JSON.stringify(results, null, 2)}`,
-          { agentId: 'lead' }
+          { sessionKey: 'agent:lead:main' }
         );
       } catch {}
     }
@@ -210,7 +210,7 @@ class WorkflowBridge {
     try {
       await window.openclawClient.sendChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { agentId: 'lead' }
+        { sessionKey: 'agent:lead:main' }
       );
     } catch {}
   }
@@ -256,7 +256,7 @@ class WorkflowBridge {
     try {
       await window.openclawClient.sendChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { agentId: 'lead' }
+        { sessionKey: 'agent:lead:main' }
       );
       Alpine.store('monitor')?.addLog('info', `Synced ${files.length} workflows to volume`);
     } catch {}
@@ -291,7 +291,7 @@ class WorkflowBridge {
     try {
       await window.openclawClient.sendChat(
         `WRITE_FILES:${JSON.stringify(payload)}`,
-        { agentId: 'lead' }
+        { sessionKey: 'agent:lead:main' }
       );
     } catch {}
   }

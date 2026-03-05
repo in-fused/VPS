@@ -291,12 +291,13 @@ function registerCustomNodes() {
     // Try OpenClaw first, then LiteLLM, then return error
     if (window.openclawClient?.authenticated) {
       try {
+        const agentId = agent?.id || 'lead';
         const result = await window.openclawClient.sendChat(fullPrompt, {
-          agentId: agent?.id,
+          sessionKey: 'agent:' + agentId + ':main',
         });
         // Correlate response events with this specific run's runId
         // to prevent cross-talk from concurrent workflow nodes or chat panel
-        const response = await this._waitForResponse(5000, result?.runId);
+        const response = await this._waitForResponse(120000, result?.runId);
         this._lastResponse = response;
         return { response };
       } catch (e) {
@@ -344,19 +345,36 @@ function registerCustomNodes() {
       }, timeoutMs);
 
       if (window.openclawClient) {
-        const offDelta = window.openclawClient.on('chat.delta', (p) => {
-          // Only collect deltas for this specific run
+        // OpenClaw emits a single 'chat' event with payload.state = 'delta' | 'final' | 'error'
+        // (not separate 'chat.delta' / 'chat.complete' events)
+        const offChat = window.openclawClient.on('chat', (p) => {
+          // Only process events for this specific run
           if (runId && p.runId && p.runId !== runId) return;
-          content += (p.content || p.delta || '');
+
+          if (p.state === 'delta') {
+            // Use extractMessageText (from app.js) for robust nested format handling
+            const delta = extractMessageText(p.message)
+              || extractMessageText(p.content)
+              || extractMessageText(p.delta)
+              || extractMessageText(p.text)
+              || '';
+            content += delta;
+          } else if (p.state === 'final') {
+            // Extract final content if present
+            if (p.message) {
+              const finalText = extractMessageText(p.message);
+              if (finalText && !content) content = finalText;
+            }
+            clearTimeout(timer);
+            cleanup.forEach(fn => fn());
+            resolve(content);
+          } else if (p.state === 'error') {
+            clearTimeout(timer);
+            cleanup.forEach(fn => fn());
+            resolve(content || `[Error: ${p.errorMessage || 'unknown'}]`);
+          }
         });
-        const offComplete = window.openclawClient.on('chat.complete', (p) => {
-          // Only resolve for this specific run
-          if (runId && p.runId && p.runId !== runId) return;
-          clearTimeout(timer);
-          cleanup.forEach(fn => fn());
-          resolve(content);
-        });
-        cleanup.push(offDelta, offComplete);
+        cleanup.push(offChat);
       }
     });
   };
@@ -443,8 +461,9 @@ function registerCustomNodes() {
 
     if (window.openclawClient?.authenticated) {
       try {
+        const toolAgentId = config.agentId || 'lead';
         const result = await window.openclawClient.sendChat(toolPrompt, {
-          agentId: config.agentId || undefined,
+          sessionKey: 'agent:' + toolAgentId + ':main',
         });
         const response = await AgentNode.prototype._waitForResponse.call(this, 15000, result?.runId);
         this._lastResult = response;
