@@ -188,34 +188,162 @@ fi
 echo ""
 
 ###############################################################################
-# Test 4: Groq (FREE tier)
+# Test 4: Groq (FREE tier) — test each account separately
 ###############################################################################
-echo -e "${BOLD}Groq${NC} (Llama 3.3 70B / Mixtral — FREE tier)"
-if [ -z "${GROQ_API_KEY:-}" ]; then
-    test_skip "GROQ_API_KEY" "not set in .env"
-    echo -e "        Get one at: ${CYAN}https://console.groq.com/keys${NC} (FREE)"
-else
-    echo -e "  Key:  $(mask_key "$GROQ_API_KEY")"
+echo -e "${BOLD}Groq${NC} (Llama 3.3 70B / Qwen3 32B — FREE tier)"
+GROQ_KEYS=("${GROQ_API_KEY:-}" "${GROQ_API_KEY_2:-}" "${GROQ_API_KEY_3:-}" "${GROQ_API_KEY_4:-}")
+GROQ_NAMES=("GROQ_API_KEY" "GROQ_API_KEY_2" "GROQ_API_KEY_3" "GROQ_API_KEY_4")
+GROQ_ANY_SET=false
+for i in 0 1 2 3; do
+    KEY="${GROQ_KEYS[$i]}"
+    NAME="${GROQ_NAMES[$i]}"
+    if [ -z "$KEY" ]; then
+        test_skip "$NAME" "not set in .env"
+        continue
+    fi
+    GROQ_ANY_SET=true
+    echo -e "  Key:  $NAME = $(mask_key "$KEY")"
+    # Test with llama-3.3-70b-versatile
     HTTP_CODE=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 15 \
         -X POST "https://api.groq.com/openai/v1/chat/completions" \
-        -H "Authorization: Bearer $GROQ_API_KEY" \
+        -H "Authorization: Bearer $KEY" \
         -H "Content-Type: application/json" \
         -d '{"model":"llama-3.3-70b-versatile","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
         2>/dev/null) || HTTP_CODE="000"
-
     if [ "$HTTP_CODE" = "200" ]; then
-        test_pass "Groq API key is valid (HTTP $HTTP_CODE)"
+        test_pass "$NAME — llama-3.3-70b works (HTTP $HTTP_CODE)"
     elif [ "$HTTP_CODE" = "000" ]; then
-        test_fail "Groq — connection failed (timeout or DNS error)"
+        test_fail "$NAME — connection failed (timeout or DNS error)"
+    elif [ "$HTTP_CODE" = "429" ]; then
+        test_fail "$NAME — rate limited (HTTP 429). Key valid but quota exhausted."
     else
         ERR=$(extract_error)
-        test_fail "Groq — HTTP $HTTP_CODE" "$ERR"
+        test_fail "$NAME — HTTP $HTTP_CODE" "$ERR"
+    fi
+    # Also test qwen3-32b
+    HTTP_CODE2=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 15 \
+        -X POST "https://api.groq.com/openai/v1/chat/completions" \
+        -H "Authorization: Bearer $KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"qwen/qwen3-32b","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+        2>/dev/null) || HTTP_CODE2="000"
+    if [ "$HTTP_CODE2" = "200" ]; then
+        test_pass "$NAME — qwen3-32b works (HTTP $HTTP_CODE2)"
+    elif [ "$HTTP_CODE2" = "429" ]; then
+        test_fail "$NAME — qwen3-32b rate limited (HTTP 429)"
+    elif [ "$HTTP_CODE2" != "000" ]; then
+        ERR=$(extract_error)
+        test_fail "$NAME — qwen3-32b HTTP $HTTP_CODE2" "$ERR"
+    fi
+done
+if [ "$GROQ_ANY_SET" = "false" ]; then
+    echo -e "        Get one at: ${CYAN}https://console.groq.com/keys${NC} (FREE)"
+fi
+echo ""
+
+###############################################################################
+# Test 5: Cerebras (FREE tier)
+###############################################################################
+echo -e "${BOLD}Cerebras${NC} (Llama 3.3 70B / Llama 4 Scout — FREE, 1M TPD)"
+if [ -z "${CEREBRAS_API_KEY:-}" ]; then
+    test_skip "CEREBRAS_API_KEY" "not set in .env"
+    echo -e "        Get one at: ${CYAN}https://cloud.cerebras.ai/${NC} (FREE)"
+else
+    echo -e "  Key:  $(mask_key "$CEREBRAS_API_KEY")"
+    # Test llama-3.3-70b (was 404 as of 2026-03-05)
+    HTTP_CODE=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 15 \
+        -X POST "https://api.cerebras.ai/v1/chat/completions" \
+        -H "Authorization: Bearer $CEREBRAS_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"llama-3.3-70b","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+        2>/dev/null) || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ]; then
+        test_pass "Cerebras llama-3.3-70b works (HTTP $HTTP_CODE)"
+    elif [ "$HTTP_CODE" = "404" ]; then
+        echo -e "  ${YELLOW}INFO${NC}  Cerebras llama-3.3-70b still returning 404 (model removed)"
+    elif [ "$HTTP_CODE" != "000" ]; then
+        ERR=$(extract_error)
+        test_fail "Cerebras llama-3.3-70b — HTTP $HTTP_CODE" "$ERR"
+    else
+        test_fail "Cerebras — connection failed"
+    fi
+    # Test llama-4-scout (should still work)
+    HTTP_CODE=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 15 \
+        -X POST "https://api.cerebras.ai/v1/chat/completions" \
+        -H "Authorization: Bearer $CEREBRAS_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"llama-4-scout-17b-16e-instruct","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+        2>/dev/null) || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ]; then
+        test_pass "Cerebras llama-4-scout works (HTTP $HTTP_CODE)"
+    elif [ "$HTTP_CODE" = "000" ]; then
+        test_fail "Cerebras llama-4-scout — connection failed"
+    else
+        ERR=$(extract_error)
+        test_fail "Cerebras llama-4-scout — HTTP $HTTP_CODE" "$ERR"
     fi
 fi
 echo ""
 
 ###############################################################################
-# Test 5: Ollama (remote server)
+# Test 6: Gemini (FREE tier)
+###############################################################################
+echo -e "${BOLD}Google Gemini${NC} (Flash / Flash-Lite / Pro — FREE)"
+if [ -z "${GEMINI_API_KEY:-}" ]; then
+    test_skip "GEMINI_API_KEY" "not set in .env"
+    echo -e "        Get one at: ${CYAN}https://aistudio.google.com/apikey${NC} (FREE)"
+else
+    echo -e "  Key:  $(mask_key "$GEMINI_API_KEY")"
+    for GMODEL in "gemini-2.5-flash" "gemini-2.5-flash-lite" "gemini-2.5-pro"; do
+        HTTP_CODE=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 30 \
+            -X POST "https://generativelanguage.googleapis.com/v1beta/models/${GMODEL}:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"contents":[{"parts":[{"text":"hi"}]}],"generationConfig":{"maxOutputTokens":1}}' \
+            2>/dev/null) || HTTP_CODE="000"
+        if [ "$HTTP_CODE" = "200" ]; then
+            test_pass "Gemini $GMODEL works (HTTP $HTTP_CODE)"
+        elif [ "$HTTP_CODE" = "000" ]; then
+            test_fail "Gemini $GMODEL — connection failed"
+        elif [ "$HTTP_CODE" = "429" ]; then
+            test_fail "Gemini $GMODEL — rate limited (HTTP 429)"
+        else
+            ERR=$(extract_error)
+            test_fail "Gemini $GMODEL — HTTP $HTTP_CODE" "$ERR"
+        fi
+    done
+fi
+echo ""
+
+###############################################################################
+# Test 7: Mistral (FREE tier — 2 RPM, 1B tokens/month)
+###############################################################################
+echo -e "${BOLD}Mistral${NC} (mistral-large / codestral — FREE, 2 RPM)"
+if [ -z "${MISTRAL_API_KEY:-}" ]; then
+    test_skip "MISTRAL_API_KEY" "not set in .env"
+    echo -e "        Get one at: ${CYAN}https://console.mistral.ai/api-keys${NC} (FREE)"
+else
+    echo -e "  Key:  $(mask_key "$MISTRAL_API_KEY")"
+    HTTP_CODE=$(curl -s -o "$RESP_FILE" -w "%{http_code}" --max-time 15 \
+        -X POST "https://api.mistral.ai/v1/chat/completions" \
+        -H "Authorization: Bearer $MISTRAL_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"mistral-large-latest","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
+        2>/dev/null) || HTTP_CODE="000"
+    if [ "$HTTP_CODE" = "200" ]; then
+        test_pass "Mistral large works (HTTP $HTTP_CODE)"
+    elif [ "$HTTP_CODE" = "000" ]; then
+        test_fail "Mistral — connection failed"
+    elif [ "$HTTP_CODE" = "429" ]; then
+        test_fail "Mistral — rate limited (HTTP 429, only 2 RPM)"
+    else
+        ERR=$(extract_error)
+        test_fail "Mistral — HTTP $HTTP_CODE" "$ERR"
+    fi
+fi
+echo ""
+
+###############################################################################
+# Test 8: Ollama (remote server)
 ###############################################################################
 echo -e "${BOLD}Ollama${NC} (remote/local — free models)"
 if [ -z "${OLLAMA_BASE_URL:-}" ]; then
@@ -247,7 +375,7 @@ fi
 echo ""
 
 ###############################################################################
-# Test 6: LiteLLM (internal — requires stack running)
+# Test 9: LiteLLM (internal — requires stack running)
 ###############################################################################
 echo -e "${BOLD}LiteLLM${NC} (internal API gateway)"
 if [ -z "${LITELLM_MASTER_KEY:-}" ]; then
@@ -294,7 +422,7 @@ fi
 echo ""
 
 ###############################################################################
-# Test 7: OpenClaw password
+# Test 10: OpenClaw password
 ###############################################################################
 echo -e "${BOLD}OpenClaw${NC} (agent gateway password)"
 if [ -z "${OPENCLAW_PASSWORD:-}" ]; then

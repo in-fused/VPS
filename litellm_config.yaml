@@ -306,16 +306,17 @@ router_settings:
   # Each free provider has ~1M TPD. Chain ensures agents never get stuck.
   # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
   fallbacks:
-    # Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — Groq is primary now
-    - groq-llama-3.3-70b: ["groq-qwen3-32b", "deepseek-chat"]
-    - groq-qwen3-32b: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-llama-3.3-70b: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-llama-4-scout: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-flash: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-flash-lite: ["gemini-flash", "deepseek-chat"]
-    - gemini-pro: ["gemini-flash", "deepseek-chat"]
-    - mistral-large: ["deepseek-chat"]
-    - codestral: ["deepseek-coder"]
+    # Gemini-first strategy. Gemini confirmed working, Groq has continuous errors.
+    # Primary agents on Gemini Flash → fallback to Groq → Mistral → DeepSeek (paid).
+    - gemini-flash: ["gemini-flash-lite", "groq-llama-3.3-70b", "deepseek-chat"]
+    - gemini-flash-lite: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
+    - gemini-pro: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
+    - groq-llama-3.3-70b: ["gemini-flash", "groq-qwen3-32b", "deepseek-chat"]
+    - groq-qwen3-32b: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
+    - cerebras-llama-3.3-70b: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["gemini-flash-lite", "groq-llama-3.3-70b", "deepseek-chat"]
+    - mistral-large: ["gemini-flash", "deepseek-chat"]
+    - codestral: ["gemini-flash", "deepseek-coder"]
   # Allow 1 retry per deployment, then cascade to fallback chain.
   # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
   num_retries: 1

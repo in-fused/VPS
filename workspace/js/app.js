@@ -269,7 +269,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/gemini-flash', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -291,7 +291,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/gemini-flash', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -312,7 +312,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'litellm/gemini-flash', status: 'idle',
+    model: 'litellm/gemini-pro', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -359,7 +359,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/gemini-flash', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -1677,7 +1677,7 @@ document.addEventListener('alpine:init', () => {
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'litellm/cerebras-llama-3.3-70b', systemPrompt: '', tools: [],
+      model: 'litellm/gemini-flash', systemPrompt: '', tools: [],
     },
 
     // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
@@ -1693,7 +1693,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'litellm/cerebras-llama-3.3-70b', systemPrompt: '', tools: [],
+        model: 'litellm/gemini-flash', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;
@@ -1833,12 +1833,13 @@ document.addEventListener('alpine:init', () => {
       const session = this.active;
       const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
       const primaryModel = (agent?.model || '').replace(/^litellm\//, '');
-      // Ordered by reliability: gemini-flash (proven, 250 RPD), groq (2 accounts, 1M TPD),
-      // cerebras (1M TPD, fastest), mistral (2 RPM), deepseek (cheap paid last resort)
+      // Ordered by reliability: gemini (confirmed working), cerebras scout,
+      // groq (has errors but worth trying), mistral, deepseek (cheap paid last resort)
       const fallbackModels = [
         'gemini-flash',
+        'gemini-flash-lite',
+        'cerebras-llama-4-scout',
         'groq-llama-3.3-70b',
-        'cerebras-llama-3.3-70b',
         'mistral-large',
         'deepseek-chat',
       ].filter(m => m !== primaryModel);

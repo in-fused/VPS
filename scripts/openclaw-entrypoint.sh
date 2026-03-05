@@ -96,13 +96,12 @@ config.models.providers.litellm = {
 };
 
 // Default model — object format with primary key (flat strings break subagents)
-// Groq Llama 3.3 70B: FREE (load-balanced across 4 accounts).
-// Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — switched to Groq.
-// Spread agents across Groq + Gemini to avoid single-provider exhaustion.
-// DeepSeek ($0.28/1M) is the fallback-only safety net on 429 errors.
+// Gemini Flash-Lite: FREE, 1000 RPD, confirmed working. Used as default/subagent model
+// because it has the highest free quota. Groq demoted to fallback — continuous API errors
+// even with 4 accounts. DeepSeek ($0.28/1M) is the paid last resort on 429 errors.
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/groq-llama-3.3-70b' };
+config.agents.defaults.model = { primary: 'litellm/gemini-flash-lite' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -187,39 +186,43 @@ config.agents.list = config.agents.list || [];
 // Only valid identity keys: name, emoji. Only valid subagents keys: allowAgents, model.
 if (config.agents.list.length === 0) {
   config.agents.list = [
-    // CORE TEAM — models spread across Groq + Gemini to avoid
-    // single-provider rate limit exhaustion. Groq load-balanced across 4 accounts.
-    // Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — switched to Groq.
+    // CORE TEAM — Gemini-first strategy. Gemini Flash is the only model
+    // confirmed working reliably. Groq demoted to fallback (continuous API errors).
+    // Lead/CodeCraft/OpsLead: Gemini Flash (250 RPD, 1M context)
+    // Scout: Gemini Pro (best reasoning, 100 RPD)
+    // Builder/Sentinel: Cerebras Scout (still working, separate from broken 70b)
+    // Scribe/Chronicler: Gemini Flash-Lite (1000 RPD, high volume)
+    // Subagents: Gemini Flash-Lite (highest free quota for burst spawns)
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/gemini-flash' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/gemini-flash' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
       id: 'scout',
       workspace: 'Scout',
-      model: { primary: 'litellm/gemini-flash' },
+      model: { primary: 'litellm/gemini-pro' },
       identity: {
         name: 'Scout',
         emoji: '🔍',
@@ -238,19 +241,19 @@ if (config.agents.list.length === 0) {
         emoji: '📝',
       },
     },
-    // PLATFORM TEAM — Groq for leads, Cerebras Scout for lightweight tasks
-    // Groq load-balanced across 4 accounts. Cerebras 404 on llama-3.3-70b but Scout still works.
+    // PLATFORM TEAM — Gemini for leads, Cerebras Scout for lightweight tasks.
+    // Cerebras 404 on llama-3.3-70b but Scout still works.
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/groq-llama-3.3-70b' },
+      model: { primary: 'litellm/gemini-flash' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
@@ -263,7 +266,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['sentinel', 'chronicler'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
@@ -276,7 +279,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['chronicler'],
-        model: { primary: 'litellm/groq-llama-3.3-70b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
@@ -310,20 +313,20 @@ delete config.tools?.agentToAgent?.maxPingPongTurns;
 
 // Clean unrecognized agent keys from persisted agent list.
 // Also spread models across providers to avoid single-provider rate limit exhaustion.
-// Model assignment: Lead/CodeCraft/OpsLead→Groq 70B (4 accounts), Builder/Sentinel→Cerebras Scout,
-// Scout→Gemini Flash, Scribe/Chronicler→Gemini Flash-Lite. Subagents→Groq 70B.
-// Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — all references switched to Groq.
+// Model assignment: Gemini-first strategy. Groq demoted to fallback (continuous API errors).
+// Lead/CodeCraft/OpsLead→Gemini Flash, Scout→Gemini Pro, Builder/Sentinel→Cerebras Scout,
+// Scribe/Chronicler→Gemini Flash-Lite. Subagents→Gemini Flash-Lite (highest free quota).
 var MODEL_MAP = {
-  'lead': 'litellm/groq-llama-3.3-70b',
-  'codecraft': 'litellm/groq-llama-3.3-70b',
-  'scout': 'litellm/gemini-flash',
+  'lead': 'litellm/gemini-flash',
+  'codecraft': 'litellm/gemini-flash',
+  'scout': 'litellm/gemini-pro',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/groq-llama-3.3-70b',
+  'ops-lead': 'litellm/gemini-flash',
   'builder': 'litellm/cerebras-llama-4-scout',
   'sentinel': 'litellm/cerebras-llama-4-scout',
   'chronicler': 'litellm/gemini-flash-lite',
 };
-var SUBAGENT_MODEL = 'litellm/groq-llama-3.3-70b';
+var SUBAGENT_MODEL = 'litellm/gemini-flash-lite';
 if (Array.isArray(config.agents?.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
@@ -337,15 +340,20 @@ if (Array.isArray(config.agents?.list)) {
     if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
       agent.model.primary = 'litellm/gemini-flash-lite';
     }
-    // Spread agents across providers — override if still on groq-qwen3-32b
-    if (MODEL_MAP[agent.id] && agent.model && agent.model.primary === 'litellm/groq-qwen3-32b') {
+    // Migrate agents off Groq primary — Groq has continuous API errors.
+    // groq-qwen3-32b and groq-llama-3.3-70b both get migrated to Gemini-first assignments.
+    if (MODEL_MAP[agent.id] && agent.model && (
+        agent.model.primary === 'litellm/groq-qwen3-32b' ||
+        agent.model.primary === 'litellm/groq-llama-3.3-70b'
+    )) {
       agent.model.primary = MODEL_MAP[agent.id];
     }
-    // Spread subagent models too — migrate dead Cerebras models
+    // Migrate subagent models to Gemini Flash-Lite (highest free quota)
     if (agent.subagents && agent.subagents.model) {
       if (agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b'
           || agent.subagents.model.primary === 'litellm/groq-qwen3-32b'
-          || agent.subagents.model.primary === 'litellm/cerebras-llama-3.3-70b') {
+          || agent.subagents.model.primary === 'litellm/cerebras-llama-3.3-70b'
+          || agent.subagents.model.primary === 'litellm/groq-llama-3.3-70b') {
         agent.subagents.model.primary = SUBAGENT_MODEL;
       }
     }
