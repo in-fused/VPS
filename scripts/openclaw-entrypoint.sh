@@ -52,7 +52,7 @@ delete config.gateway.trustProxy;
 config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'];
 
 // LLM provider — define custom 'litellm' provider pointing at our LiteLLM proxy.
-// Uses openai-completions wire format. This prevents subagents from falling back
+// Uses openai wire format (chat/completions). This prevents subagents from falling back
 // to the hardcoded DEFAULT_PROVIDER 'anthropic' (openclaw#3237).
 config.models = config.models || {};
 config.models.mode = 'merge';
@@ -60,7 +60,7 @@ config.models.providers = config.models.providers || {};
 config.models.providers.litellm = {
   baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
   apiKey: process.env.OPENAI_API_KEY || '',
-  api: 'openai-completions',
+  api: 'openai',
   models: [
     // Free — Groq (load-balanced across 2 accounts)
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },

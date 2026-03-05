@@ -201,7 +201,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Device auth: disabled (dangerouslyDisableDeviceAuth)
 - Allowed origins: `https://in-fused.org` + host-header fallback
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
-- Provider: custom "litellm" at http://litellm:4000/v1, openai-completions wire format
+- Provider: custom "litellm" at http://litellm:4000/v1, openai wire format (chat/completions)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
 - Default model: `groq-llama-3.3-70b` (object format `{ primary: '...' }`)
 - 19 models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled

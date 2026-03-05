@@ -1023,6 +1023,20 @@ document.addEventListener('alpine:init', () => {
       if (oc._mcEventsRegistered) return;
       oc._mcEventsRegistered = true;
 
+      // Wildcard listener — log ALL events from OpenClaw for diagnostics.
+      // This helps debug missing chat events by showing exactly what OpenClaw sends.
+      oc.on('*', (eventName, payload) => {
+        // Skip noisy periodic events
+        if (eventName === 'tick' || eventName === 'health') return;
+        const summary = typeof payload === 'object'
+          ? (payload.state ? `state=${payload.state}` : '') +
+            (payload.sessionKey ? ` session=${payload.sessionKey}` : '') +
+            (payload.errorMessage ? ` error=${payload.errorMessage}` : '') +
+            (payload.runId ? ` run=${payload.runId}` : '')
+          : '';
+        Alpine.store('monitor').addLog('info', `Event[${eventName}]: ${summary || JSON.stringify(payload).slice(0, 120)}`);
+      });
+
       // Chat streaming events — OpenClaw sends event name 'chat' with a 'state' field:
       // state: "delta" (streaming content), "final" (complete), "aborted", "error"
       // payload.message contains the content object, payload.errorMessage for errors
@@ -1036,6 +1050,7 @@ document.addEventListener('alpine:init', () => {
         // backward compatibility).
         if (payload.sessionKey && sessions._activeSessionKey
             && payload.sessionKey !== sessions._activeSessionKey) {
+          Alpine.store('monitor').addLog('info', `Chat event filtered: session=${payload.sessionKey} (active=${sessions._activeSessionKey})`);
           return; // Not for our active session — ignore
         }
 
