@@ -265,7 +265,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/groq-qwen3-32b', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -287,7 +287,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/groq-qwen3-32b', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -355,7 +355,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/groq-qwen3-32b', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -378,7 +378,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'litellm/groq-qwen3-32b', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -399,7 +399,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'litellm/groq-qwen3-32b', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
@@ -1001,7 +1001,7 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'litellm/groq-qwen3-32b',
+            model: a.model?.primary || a.model || 'litellm/cerebras-llama-3.3-70b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -1420,8 +1420,6 @@ document.addEventListener('alpine:init', () => {
             });
           }
 
-          mcAudio.chatComplete();
-
           // Check for governance self-tuning proposals from agents
           const lastMsgContent = sessions.messages[sessions.messages.length - 1]?.content || '';
           if (lastMsgContent.includes('GOVERNANCE_ADJUST:')) {
@@ -1475,18 +1473,18 @@ document.addEventListener('alpine:init', () => {
             if (sessions._rateLimitCount === 1 && !sessions._rateLimitRetried) {
               sessions._rateLimitRetried = true;
               sessions._streamingMsg.content = '⏳ Rate limited — waiting for server fallback...';
-              Alpine.store('monitor').addLog('info', 'Rate limit #1 — giving OpenClaw 8s to recover');
+              Alpine.store('monitor').addLog('info', 'Rate limit #1 — giving OpenClaw 3s to recover');
 
-              // Schedule Route 2 fallback if no content arrives within 8s
+              // Schedule Route 2 fallback if no content arrives within 3s
               sessions._rateLimitRecoveryTimer = setTimeout(() => {
                 if (sessions._streamingMsg && sessions._streamingMsg.content.startsWith('⏳')) {
                   const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
                   if (lastUserMsg) {
-                    Alpine.store('monitor').addLog('info', 'No recovery after 8s — triggering Route 2 fallback');
+                    Alpine.store('monitor').addLog('info', 'No recovery after 3s — triggering Route 2 fallback');
                     sessions._fallbackToRoute2(sessions._streamingMsg, lastUserMsg.content);
                   }
                 }
-              }, 8000);
+              }, 3000);
               return;
             }
 
@@ -1658,7 +1656,7 @@ document.addEventListener('alpine:init', () => {
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'litellm/groq-qwen3-32b', systemPrompt: '', tools: [],
+      model: 'litellm/cerebras-llama-3.3-70b', systemPrompt: '', tools: [],
     },
 
     // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
@@ -1674,7 +1672,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'litellm/groq-qwen3-32b', systemPrompt: '', tools: [],
+        model: 'litellm/cerebras-llama-3.3-70b', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;
@@ -1814,13 +1812,14 @@ document.addEventListener('alpine:init', () => {
       const session = this.active;
       const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
       const primaryModel = (agent?.model || '').replace(/^litellm\//, '');
+      // Ordered by reliability: gemini-flash (proven, 250 RPD), groq (2 accounts, 1M TPD),
+      // cerebras (1M TPD, fastest), mistral (2 RPM), deepseek (cheap paid last resort)
       const fallbackModels = [
         'gemini-flash',
-        'cerebras-llama-3.3-70b',
         'groq-llama-3.3-70b',
+        'cerebras-llama-3.3-70b',
         'mistral-large',
         'deepseek-chat',
-        'gpt-4o-mini',
       ].filter(m => m !== primaryModel);
 
       // Abort the stuck OpenClaw run
@@ -2341,7 +2340,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/groq-qwen3-32b';
+        const rawModel = agent?.model || 'litellm/cerebras-llama-3.3-70b';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');

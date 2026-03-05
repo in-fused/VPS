@@ -191,7 +191,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/groq-qwen3-32b' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
@@ -310,7 +310,7 @@ delete config.tools?.agentToAgent?.maxPingPongTurns;
 // Model assignment: Lead→Groq, CodeCraft/OpsLead→Cerebras 70B, Builder/Sentinel→Cerebras Scout,
 // Scout→Gemini Flash, Scribe/Chronicler→Gemini Flash-Lite. Subagents→Cerebras 70B.
 var MODEL_MAP = {
-  'lead': 'litellm/groq-qwen3-32b',
+  'lead': 'litellm/cerebras-llama-3.3-70b',
   'codecraft': 'litellm/cerebras-llama-3.3-70b',
   'scout': 'litellm/gemini-flash',
   'scribe': 'litellm/gemini-flash-lite',
@@ -332,8 +332,8 @@ if (Array.isArray(config.agents?.list)) {
     if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
       agent.model.primary = 'litellm/gemini-flash-lite';
     }
-    // Spread agents across providers — override if still all on groq-qwen3-32b
-    if (MODEL_MAP[agent.id] && agent.model && agent.model.primary === 'litellm/groq-qwen3-32b' && agent.id !== 'lead') {
+    // Spread agents across providers — override if still on groq-qwen3-32b
+    if (MODEL_MAP[agent.id] && agent.model && agent.model.primary === 'litellm/groq-qwen3-32b') {
       agent.model.primary = MODEL_MAP[agent.id];
     }
     // Spread subagent models too
