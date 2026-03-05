@@ -1216,6 +1216,7 @@ document.addEventListener('alpine:init', () => {
             // Terminal — fall through to surface the error and clean up
             Alpine.store('monitor').addLog('warn', 'Agent run ended during rate-limit recovery — surfacing error');
             sessions._rateLimitRetried = false;
+            sessions._route1Retried = false;
             sessions._rateLimitCount = 0;
             sessions._rateLimitRecoveryStart = 0;
             clearTimeout(sessions._rateLimitRecoveryTimer);
@@ -1298,7 +1299,7 @@ document.addEventListener('alpine:init', () => {
           if (sessions._streamingMsg) {
             // If content is a retry/processing indicator, clear it before appending real content
             const cur = sessions._streamingMsg.content;
-            if (delta && (cur.startsWith('⏳ Rate limited') || cur.startsWith('⏳ Agent is processing'))) {
+            if (delta && cur.startsWith('⏳')) {
               sessions._streamingMsg.content = delta;
             } else {
               sessions._streamingMsg.content += delta;
@@ -1343,7 +1344,7 @@ document.addEventListener('alpine:init', () => {
           let producedContent = false;
           if (streamMsg) {
             // Strip processing/retry indicators if present
-            if (streamMsg.content.startsWith('⏳ Agent is processing') || streamMsg.content.startsWith('⏳ Rate limited')) {
+            if (streamMsg.content.startsWith('⏳')) {
               streamMsg.content = '';
             }
 
@@ -1482,38 +1483,55 @@ document.addEventListener('alpine:init', () => {
           const isRateLimit = /rate.?limit|429|too many|quota/i.test(rawErr);
 
           // Rate limit handling: OpenClaw agent run failed because the LLM provider
-          // returned 429. Instead of waiting for OpenClaw to recover (which often
-          // loops forever), immediately fall back to Route 2 (direct LiteLLM SSE)
-          // with model rotation across different providers.
+          // returned 429. Strategy:
+          //   1st hit: Wait 8s for LiteLLM's server-side fallback chain (preserves tools)
+          //   2nd hit: Retry via OpenClaw (new chat.send — may hit different provider)
+          //   3rd hit: Fall back to Route 2 (direct LiteLLM, no tools)
           if (isRateLimit && sessions._streamingMsg) {
             sessions._rateLimitCount = (sessions._rateLimitCount || 0) + 1;
             Alpine.store('monitor').addLog('warn', `Rate limit #${sessions._rateLimitCount} from OpenClaw`);
-            Alpine.store('app').pushChatEvent('warn', '⚠️ API rate limit — switching to direct fallback');
+            Alpine.store('app').pushChatEvent('warn', '⚠️ API rate limit reached. Please try again');
 
-            // On first rate limit, give OpenClaw 8s to recover via its own fallback chain.
-            // On second rate limit (or if no content after 8s), switch to Route 2 immediately.
+            // 1st rate limit: give LiteLLM's server-side fallback chain time to cascade.
+            // Server-side fallbacks (e.g. cerebras-zai-glm → gemini-pro → cerebras-gpt-oss-120b
+            // → groq-llama-3.3-70b → deepseek-chat) preserve full tool access.
             if (sessions._rateLimitCount === 1 && !sessions._rateLimitRetried) {
               sessions._rateLimitRetried = true;
               sessions._streamingMsg.content = '⏳ Rate limited — waiting for server fallback...';
-              Alpine.store('monitor').addLog('info', 'Rate limit #1 — giving OpenClaw 3s to recover');
+              Alpine.store('monitor').addLog('info', 'Rate limit #1 — giving OpenClaw 8s to recover via LiteLLM fallback chain');
 
-              // Schedule Route 2 fallback if no content arrives within 3s
               sessions._rateLimitRecoveryTimer = setTimeout(() => {
                 if (sessions._streamingMsg && sessions._streamingMsg.content.startsWith('⏳')) {
                   const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
                   if (lastUserMsg) {
-                    Alpine.store('monitor').addLog('info', 'No recovery after 3s — triggering Route 2 fallback');
-                    sessions._fallbackToRoute2(sessions._streamingMsg, lastUserMsg.content);
+                    Alpine.store('monitor').addLog('info', 'No recovery after 8s — retrying via OpenClaw');
+                    // Retry via OpenClaw (Route 1 retry) — preserves tool access
+                    sessions._retryViaOpenclaw(sessions._streamingMsg, lastUserMsg.content);
                   }
                 }
-              }, 3000);
+              }, 8000);
               return;
             }
 
-            // Second+ rate limit: immediately fall back to Route 2
+            // 2nd rate limit: retry via OpenClaw one more time (new request may hit
+            // a different LiteLLM deployment). Still preserves tool access.
+            if (sessions._rateLimitCount === 2 && !sessions._route1Retried) {
+              sessions._route1Retried = true;
+              clearTimeout(sessions._rateLimitRecoveryTimer);
+              sessions._streamingMsg.content = '⏳ Retrying via OpenClaw...';
+              Alpine.store('monitor').addLog('info', 'Rate limit #2 — retrying via OpenClaw (Route 1)');
+              const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
+              if (lastUserMsg) {
+                sessions._retryViaOpenclaw(sessions._streamingMsg, lastUserMsg.content);
+              }
+              return;
+            }
+
+            // 3rd+ rate limit: fall back to Route 2 (direct LiteLLM, no tools)
             clearTimeout(sessions._rateLimitRecoveryTimer);
             const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
             if (lastUserMsg && !sessions._route2Active) {
+              Alpine.store('monitor').addLog('info', 'Rate limit #3+ — falling back to Route 2 (no tools)');
               sessions._fallbackToRoute2(sessions._streamingMsg, lastUserMsg.content);
               return;
             }
@@ -1812,6 +1830,7 @@ document.addEventListener('alpine:init', () => {
     _messageStore: {}, // sessionId -> messages[]
     _deletedKeys: new Set(), // sessionKeys deleted by user — prevents sync from re-adding them
     _route2Active: false, // true when Route 2 fallback is in progress
+    _route1Retried: false, // true when Route 1 retry (re-send via OpenClaw) has been attempted
 
     // Atomically reset all sending/streaming/rate-limit state.
     // Called from multiple completion paths (final, error, timeout, abort, fallback).
@@ -1825,8 +1844,49 @@ document.addEventListener('alpine:init', () => {
       this._rateLimitCount = 0;
       this._rateLimitRecoveryStart = 0;
       this._route2Active = false;
+      this._route1Retried = false;
       clearTimeout(this._rateLimitRecoveryTimer);
       this._stopResponsePolling();
+    },
+
+    // Route 1 retry: re-send via OpenClaw WebSocket. A new chat.send triggers a
+    // fresh LiteLLM request that may hit a different provider in the fallback chain.
+    // This preserves full tool access (write, read, exec, etc.) unlike Route 2.
+    async _retryViaOpenclaw(botMsg, originalText) {
+      if (!window.openclawClient?.authenticated || !this._activeSessionKey) {
+        // OpenClaw unavailable — skip to Route 2
+        Alpine.store('monitor').addLog('warn', 'OpenClaw unavailable for Route 1 retry — falling back to Route 2');
+        this._fallbackToRoute2(botMsg, originalText);
+        return;
+      }
+
+      try {
+        botMsg.content = '⏳ Retrying via OpenClaw (server-side fallback)...';
+        this._scrollToBottom();
+
+        // Re-attach streaming to the existing bot message
+        this._streamingMsg = botMsg;
+
+        // Send a new chat.send — OpenClaw will route to LiteLLM which picks
+        // the next available provider. The response arrives via the existing
+        // chat event handler (same sessionKey).
+        const retryResult = await window.openclawClient.sendChat(originalText, {
+          sessionKey: this._activeSessionKey,
+        });
+        this._retryRunId = retryResult?.runId || retryResult?.idempotencyKey || null;
+        Alpine.store('monitor').addLog('info', `Route 1 retry sent (runId: ${this._retryRunId || 'pending'})`);
+
+        // Give the retry 12s to produce content before falling back to Route 2
+        this._rateLimitRecoveryTimer = setTimeout(() => {
+          if (this._streamingMsg && this._streamingMsg.content.startsWith('⏳')) {
+            Alpine.store('monitor').addLog('info', 'Route 1 retry: no content after 12s — falling back to Route 2');
+            this._fallbackToRoute2(botMsg, originalText);
+          }
+        }, 12000);
+      } catch (e) {
+        Alpine.store('monitor').addLog('warn', `Route 1 retry failed: ${e.message} — falling back to Route 2`);
+        this._fallbackToRoute2(botMsg, originalText);
+      }
     },
 
     // Route 2 fallback: when OpenClaw agent runs fail with rate limits,
@@ -1861,15 +1921,22 @@ document.addEventListener('alpine:init', () => {
       // Clear OpenClaw streaming state (but keep _sending=true for Route 2)
       this._streamingMsg = null;
       this._rateLimitRetried = false;
+      this._route1Retried = false;
       this._rateLimitCount = 0;
       this._rateLimitRecoveryStart = 0;
       clearTimeout(this._rateLimitRecoveryTimer);
       this._stopResponsePolling();
 
-      // Build messages for Route 2
+      // Build messages for Route 2 (no tool access — plain text completion only)
       const apiMessages = [];
       if (agent?.systemPrompt) {
-        apiMessages.push({ role: 'system', content: agent.systemPrompt });
+        // Strip tool/file-writing instructions from the system prompt since Route 2
+        // is a raw LiteLLM chat completion with NO tools (write, read, exec, etc.).
+        // Without this, the model narrates "I wrote file X" instead of answering directly.
+        const route2Prefix = `[IMPORTANT: You are responding via a direct text fallback. You do NOT have access to any tools (write, read, exec, sessions_send, cron, etc.) in this mode. Do NOT describe writing files, updating JSON, or performing tool actions — just answer the user's question directly with your best response. Keep your answer helpful and concise.]
+
+`;
+        apiMessages.push({ role: 'system', content: route2Prefix + agent.systemPrompt });
       }
       for (const msg of this.messages) {
         if (msg === botMsg) continue; // skip the placeholder
@@ -2259,6 +2326,7 @@ document.addEventListener('alpine:init', () => {
 
       // Reset state for new message (clears any lingering rate-limit/fallback state)
       this._rateLimitRetried = false;
+      this._route1Retried = false;
       this._rateLimitCount = 0;
       this._route2Active = false;
       clearTimeout(this._rateLimitRecoveryTimer);
