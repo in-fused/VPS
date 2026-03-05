@@ -1072,6 +1072,7 @@ document.addEventListener('alpine:init', () => {
         if (state === 'final') {
           // Chat complete — handle both normal flow and late arrivals after timeout
           const streamMsg = sessions._streamingMsg;
+          let producedContent = false;
           if (streamMsg) {
             // Strip processing indicator if present
             if (streamMsg.content === '⏳ Agent is processing (using tools)...') {
@@ -1090,6 +1091,7 @@ document.addEventListener('alpine:init', () => {
             } else {
               streamMsg.streaming = false;
               streamMsg.time = timeNow();
+              producedContent = true;
             }
             sessions._streamingMsg = null;
           }
@@ -1104,15 +1106,15 @@ document.addEventListener('alpine:init', () => {
             session.updatedAt = Date.now();
           }
 
-          // Update agent stats + governance metrics — only count real content
+          // Update agent stats + governance metrics — only count if THIS turn
+          // produced visible content (not a previous message in the history).
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
-          const lastAgentMsg = sessions.messages.filter(m => m.role === 'agent' && m.content?.trim()).pop();
-          if (agent && lastAgentMsg?.content?.trim()) {
+          if (agent && producedContent) {
             agent.tasksCompleted++;
             agent.lastActive = 'Just now';
             Alpine.store('agents')._persist();
 
-            const tokens = Math.round(((lastAgentMsg.content || '').length) / 4);
+            const tokens = Math.round(((streamMsg?.content || '').length) / 4);
             Alpine.store('governance').recordTask(agent.id, {
               success: true, tokens, taskType: 'chat-openclaw',
             });
@@ -1481,6 +1483,14 @@ document.addEventListener('alpine:init', () => {
     async select(id) {
       this.activeId = id;
 
+      // Set _activeSessionKey so incoming chat events are routed to this session
+      // even before the user sends a message (e.g. late-arriving events from
+      // background cron runs or previous tool-use turns).
+      const sel = this.list.find(s => s.id === id);
+      if (sel?.sessionKey) {
+        this._activeSessionKey = sel.sessionKey;
+      }
+
       // Check in-memory cache first
       if (this._messageStore[id] && this._messageStore[id].length > 0) {
         this.messages = this._messageStore[id];
@@ -1495,14 +1505,29 @@ document.addEventListener('alpine:init', () => {
           const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
             this.messages = history
-              .map(m => ({
-                id: m.id || generateId(),
-                role: m.role === 'assistant' ? 'agent' : m.role,
-                content: extractMessageText(m.content),
-                time: m.time || m.timestamp || '',
-              }))
-              // Filter out empty messages (tool-use-only turns with no text)
-              .filter(m => m.role === 'user' || m.content.trim());
+              .map(m => {
+                const content = extractMessageText(m.content);
+                let role = m.role === 'assistant' ? 'agent' : m.role;
+                // Detect cron/heartbeat-injected messages that appear as "user"
+                // but are actually system injections (e.g. "Read HEARTBEAT.md",
+                // "EXECUTE_WORKFLOW:", systemEvent payloads from cron jobs).
+                const isSystemInjection = role === 'user' && (
+                  /^Read HEARTBEAT/i.test(content) ||
+                  /^HEARTBEAT/i.test(content) ||
+                  /^EXECUTE_WORKFLOW:/i.test(content) ||
+                  /^Current time:/i.test(content) ||
+                  (m.label && /heartbeat|cron|system/i.test(m.label))
+                );
+                if (isSystemInjection) role = 'system';
+                return {
+                  id: m.id || generateId(),
+                  role,
+                  content,
+                  time: m.time || m.timestamp || '',
+                };
+              })
+              // Filter out empty messages and system injections (heartbeat/cron)
+              .filter(m => m.role !== 'system' && (m.role === 'user' || m.content.trim()));
             this._messageStore[id] = this.messages;
             Alpine.store('monitor').addLog('info', `Loaded ${history.length} messages from OpenClaw`);
             return;
@@ -1679,7 +1704,8 @@ document.addEventListener('alpine:init', () => {
           // gateway broadcasts ALL chat events to ALL clients)
           this._activeSessionKey = sessionKey;
 
-          await window.openclawClient.sendChat(messageText, { sessionKey });
+          const sendResult = await window.openclawClient.sendChat(messageText, { sessionKey });
+          Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${sendResult?.runId || 'n/a'})`);
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store
 
@@ -1694,6 +1720,7 @@ document.addEventListener('alpine:init', () => {
           }, 15000);
           const _safetyTimer = setTimeout(() => {
             if (this._sending && this._streamingMsg === botMsg) {
+              const hadContent = botMsg.content.trim() && botMsg.content !== '⏳ Agent is processing (using tools)...';
               // Only give up after 120s — replace processing indicator with timeout
               botMsg.content = botMsg.content === '⏳ Agent is processing (using tools)...'
                 ? '(No response after 2 minutes — agent may be stuck. Try sending again or check Monitor.)'
@@ -1703,7 +1730,10 @@ document.addEventListener('alpine:init', () => {
               this._sending = false;
               this._sendingSessionId = null;
               this._persistMessages();
-              Alpine.store('monitor').addLog('warn', 'Chat response timed out after 120s');
+              Alpine.store('monitor').addLog('warn',
+                hadContent ? 'Chat response timed out after 120s (partial content received)'
+                  : 'Chat response timed out after 120s — no chat events received. Agent may be busy with a cron/heartbeat job or crashed during processing.'
+              );
             }
             clearTimeout(_processingTimer);
           }, 120000);
