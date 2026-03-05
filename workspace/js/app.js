@@ -1080,7 +1080,13 @@ document.addEventListener('alpine:init', () => {
           if (sessions._streamingMsg) {
             // Extract text from message — may be string, object, or content blocks array
             const delta = extractMessageText(payload.message) || extractMessageText(payload.content) || payload.delta || '';
-            sessions._streamingMsg.content += delta;
+            // If content is a retry/processing indicator, clear it before appending real content
+            const cur = sessions._streamingMsg.content;
+            if (delta && (cur.startsWith('⏳ Rate limited') || cur.startsWith('⏳ Agent is processing'))) {
+              sessions._streamingMsg.content = delta;
+            } else {
+              sessions._streamingMsg.content += delta;
+            }
             sessions._scrollToBottom();
           } else if (sessions._sending === false && sessions.messages.length > 0) {
             // Bug #28410: Model fallback UI freeze recovery.
@@ -1110,8 +1116,8 @@ document.addEventListener('alpine:init', () => {
           const streamMsg = sessions._streamingMsg;
           let producedContent = false;
           if (streamMsg) {
-            // Strip processing indicator if present
-            if (streamMsg.content === '⏳ Agent is processing (using tools)...') {
+            // Strip processing/retry indicators if present
+            if (streamMsg.content.startsWith('⏳ Agent is processing') || streamMsg.content.startsWith('⏳ Rate limited')) {
               streamMsg.content = '';
             }
             // If final message has content, append it
@@ -1213,8 +1219,10 @@ document.addEventListener('alpine:init', () => {
                   // Find the last user message to resend
                   const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
                   if (lastUserMsg) {
+                    // Keep streaming state active so delta events from retry populate the bubble
+                    sessions._sending = true;
                     await window.openclawClient.sendChat(lastUserMsg.content, { sessionKey: sk });
-                    // Response will arrive via streaming events
+                    // Response will arrive via streaming events — delta handler will clear the indicator
                     return;
                   }
                 }

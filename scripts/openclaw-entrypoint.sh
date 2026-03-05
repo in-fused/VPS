@@ -96,12 +96,12 @@ config.models.providers.litellm = {
 };
 
 // Default model — object format with primary key (flat strings break subagents)
-// Groq Qwen3-32b: FREE (500K TPD × 2 accounts), reliable tool calling.
-// Cerebras dropped qwen3-32b (404 as of 2026-03-05).
+// Cerebras Llama 3.3 70B: FREE (1M TPD), fastest inference.
+// Spread agents across Groq + Cerebras + Gemini to avoid single-provider exhaustion.
 // DeepSeek ($0.28/1M) is the fallback-only safety net on 429 errors.
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/groq-qwen3-32b' };
+config.agents.defaults.model = { primary: 'litellm/cerebras-llama-3.3-70b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -186,6 +186,8 @@ config.agents.list = config.agents.list || [];
 // Only valid identity keys: name, emoji. Only valid subagents keys: allowAgents, model.
 if (config.agents.list.length === 0) {
   config.agents.list = [
+    // CORE TEAM — models spread across Groq + Cerebras + Gemini to avoid
+    // single-provider rate limit exhaustion. Each free provider has ~1M TPD.
     {
       id: 'lead',
       workspace: 'Lead',
@@ -196,20 +198,20 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/groq-qwen3-32b' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       },
     },
     {
@@ -222,7 +224,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['scribe'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/gemini-flash-lite' },
       },
     },
     {
@@ -234,44 +236,44 @@ if (config.agents.list.length === 0) {
         emoji: '📝',
       },
     },
-    // Platform Team
+    // PLATFORM TEAM — use Cerebras (1M TPD) to keep Groq quota for Core Team
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/groq-qwen3-32b' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       },
     },
     {
       id: 'builder',
       workspace: 'Builder',
-      model: { primary: 'litellm/groq-qwen3-32b' },
+      model: { primary: 'litellm/cerebras-llama-4-scout' },
       identity: {
         name: 'Builder',
         emoji: '🔨',
       },
       subagents: {
         allowAgents: ['sentinel', 'chronicler'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       },
     },
     {
       id: 'sentinel',
       workspace: 'Sentinel',
-      model: { primary: 'litellm/groq-qwen3-32b' },
+      model: { primary: 'litellm/cerebras-llama-4-scout' },
       identity: {
         name: 'Sentinel',
         emoji: '🛡️',
       },
       subagents: {
         allowAgents: ['chronicler'],
-        model: { primary: 'litellm/groq-qwen3-32b' },
+        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       },
     },
     {
@@ -303,30 +305,49 @@ delete config.tools?.subagents?.maxChildrenPerAgent;
 delete config.tools?.subagents?.runTimeoutSeconds;
 delete config.tools?.agentToAgent?.maxPingPongTurns;
 
-// Clean unrecognized agent keys from persisted agent list
-// Also migrate cerebras-qwen3-32b → groq-qwen3-32b (Cerebras dropped it 2026-03-05)
+// Clean unrecognized agent keys from persisted agent list.
+// Also spread models across providers to avoid single-provider rate limit exhaustion.
+// Model assignment: Lead→Groq, CodeCraft/OpsLead→Cerebras 70B, Builder/Sentinel→Cerebras Scout,
+// Scout→Gemini Flash, Scribe/Chronicler→Gemini Flash-Lite. Subagents→Cerebras 70B.
+var MODEL_MAP = {
+  'lead': 'litellm/groq-qwen3-32b',
+  'codecraft': 'litellm/cerebras-llama-3.3-70b',
+  'scout': 'litellm/gemini-flash',
+  'scribe': 'litellm/gemini-flash-lite',
+  'ops-lead': 'litellm/cerebras-llama-3.3-70b',
+  'builder': 'litellm/cerebras-llama-4-scout',
+  'sentinel': 'litellm/cerebras-llama-4-scout',
+  'chronicler': 'litellm/gemini-flash-lite',
+};
 if (Array.isArray(config.agents?.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
     if (agent.subagents) delete agent.subagents.maxDepth;
     delete agent.instructions; // not a valid OpenClaw agent key
-    // Migrate dead Cerebras model to Groq equivalent
+    // Migrate dead Cerebras qwen3-32b model
     if (agent.model && agent.model.primary === 'litellm/cerebras-qwen3-32b') {
-      agent.model.primary = 'litellm/groq-qwen3-32b';
-    }
-    if (agent.subagents && agent.subagents.model && agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b') {
-      agent.subagents.model.primary = 'litellm/groq-qwen3-32b';
+      agent.model.primary = 'litellm/cerebras-llama-3.3-70b';
     }
     // Migrate paid gpt-4o-mini to free gemini-flash-lite
     if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
       agent.model.primary = 'litellm/gemini-flash-lite';
+    }
+    // Spread agents across providers — override if still all on groq-qwen3-32b
+    if (MODEL_MAP[agent.id] && agent.model && agent.model.primary === 'litellm/groq-qwen3-32b' && agent.id !== 'lead') {
+      agent.model.primary = MODEL_MAP[agent.id];
+    }
+    // Spread subagent models too
+    if (agent.subagents && agent.subagents.model) {
+      if (agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b' || agent.subagents.model.primary === 'litellm/groq-qwen3-32b') {
+        agent.subagents.model.primary = 'litellm/cerebras-llama-3.3-70b';
+      }
     }
   });
 }
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=groq-qwen3-32b, a2a=peer, agents=8 (2 teams), providers=groq+cerebras+gemini+mistral (free) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-3.3-70b, a2a=peer, agents=8 (2 teams), models spread across groq+cerebras+gemini (free) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

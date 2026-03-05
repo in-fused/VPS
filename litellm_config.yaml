@@ -270,25 +270,28 @@ litellm_settings:
   num_retries: 2
 
 router_settings:
-  # When a free-tier model hits rate limits (429), fall back through the chain:
-  # Groq → Cerebras → DeepSeek (cheap paid). Cerebras → DeepSeek.
-  # Gemini/Mistral → DeepSeek. This ensures agents never get stuck.
+  # When a free-tier model hits rate limits (429), fall back through the chain.
+  # Each free provider has ~1M TPD. Chain ensures agents never get stuck.
+  # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
   fallbacks:
     - groq-llama-3.3-70b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
     - groq-qwen3-32b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
     - cerebras-llama-3.3-70b: ["groq-llama-3.3-70b", "deepseek-chat"]
-    # cerebras-qwen3-32b removed — model no longer exists on Cerebras
-    - cerebras-llama-4-scout: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-flash: ["deepseek-chat"]
-    - gemini-flash-lite: ["deepseek-chat"]
-    - gemini-pro: ["deepseek-chat"]
+    - cerebras-llama-4-scout: ["cerebras-llama-3.3-70b", "groq-llama-3.3-70b", "deepseek-chat"]
+    - gemini-flash: ["cerebras-llama-3.3-70b", "deepseek-chat"]
+    - gemini-flash-lite: ["gemini-flash", "deepseek-chat"]
+    - gemini-pro: ["gemini-flash", "deepseek-chat"]
     - mistral-large: ["deepseek-chat"]
     - codestral: ["deepseek-coder"]
-  # Retry failed requests within the same model group before falling back
-  num_retries: 1
-  retry_after: 2
+  # Retry once per deployment before falling back (don't waste time on exhausted providers)
+  num_retries: 0
+  retry_after: 1
+  # After 2 failures, temporarily remove a deployment from the pool (60s cooldown)
+  allowed_fails: 2
+  cooldown_time: 60
   # Use lowest-latency model when multiple are available (load balancing)
   routing_strategy: "latency-based-routing"
-  # Allow 429s to trigger fallback (default only triggers on 5xx)
+  # Allow 429s to trigger fallback immediately (default only triggers on 5xx)
   retry_policy:
-    RateLimitErrorRetries: 2
+    RateLimitErrorRetries: 0
+    ContentPolicyViolationErrorRetries: 0
