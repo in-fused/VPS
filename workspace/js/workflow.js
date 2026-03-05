@@ -431,8 +431,78 @@ function registerCustomNodes() {
   LiteGraph.registerNodeType('mission/task', TaskNode);
 
   // ------------------------------------------
-  // TOOL NODE
+  // TOOL NODE — Real tool execution via OpenClaw agents
   // ------------------------------------------
+
+  // Tool-specific prompt builders and timeout values
+  const TOOL_DEFS = {
+    'Web Search': {
+      timeout: 30000,
+      prompt: (input, config) =>
+        `Search the web for: ${input}\n` +
+        (config.maxResults ? `Return up to ${config.maxResults} results.\n` : '') +
+        `Return a concise summary of the most relevant findings.`,
+    },
+    'Web Scrape': {
+      timeout: 30000,
+      prompt: (input, config) => {
+        const url = config.url || input;
+        const selector = config.selector ? ` --data-urlencode "selector=${config.selector}"` : '';
+        return `Use the exec tool to run this command:\nwget -qO- 'http://scrapling:8000/scrape?url=${encodeURIComponent(url)}${selector}'\n\nReturn the scraped content. If it fails, report the error.`;
+      },
+    },
+    'Code Execution': {
+      timeout: 60000,
+      prompt: (input, config) => {
+        const lang = config.language || 'javascript';
+        if (lang === 'javascript' || lang === 'node') {
+          return `Use the exec tool to run this Node.js code:\nnode -e ${JSON.stringify(input)}\n\nReturn the output.`;
+        }
+        return `Use the exec tool to execute the following code.\nLanguage: ${lang}\n\`\`\`\n${input}\n\`\`\`\nReturn the output.`;
+      },
+    },
+    'File Read': {
+      timeout: 15000,
+      prompt: (input, config) => {
+        const path = config.path || input;
+        return `Use the read tool to read the file at: ${path}\nReturn the file contents.`;
+      },
+    },
+    'File Write': {
+      timeout: 15000,
+      prompt: (input, config) => {
+        const path = config.path || '/workspace/staging/tool-output-' + Date.now().toString(36) + '.txt';
+        return `Use the write tool to write the following content to ${path}:\n${input}\nConfirm when done.`;
+      },
+    },
+    'Shell Access': {
+      timeout: 60000,
+      prompt: (input, config) => {
+        const cmd = config.command || input;
+        return `Use the exec tool to run this shell command:\n${cmd}\n\nReturn the complete output. If the command fails, return the error message.`;
+      },
+    },
+    'API Call': {
+      timeout: 30000,
+      prompt: (input, config) => {
+        const method = config.method || 'GET';
+        const url = config.url || input;
+        const headers = config.headers ? Object.entries(config.headers).map(([k, v]) => `--header '${k}: ${v}'`).join(' ') : '';
+        const body = config.body ? `--post-data '${typeof config.body === 'string' ? config.body : JSON.stringify(config.body)}'` : '';
+        return `Use the exec tool to make an HTTP request:\nwget -qO- ${headers} ${body} '${url}'\n\nReturn the response body.`;
+      },
+    },
+    'Web Browser': {
+      timeout: 60000,
+      prompt: (input, config) => {
+        const url = config.url || input;
+        return `Use the browser tool to navigate to ${url}.\n` +
+          (config.action || 'Take a screenshot and describe what you see.') +
+          `\nReturn the results.`;
+      },
+    },
+  };
+
   function ToolNode() {
     this.addInput('input', 'string');
     this.addInput('execute', LiteGraph.ACTION);
@@ -440,18 +510,21 @@ function registerCustomNodes() {
     this.addOutput('done', LiteGraph.EVENT);
     this.addWidget('combo', 'Tool', 'Web Search', (v) => {
       this.properties.tool = v;
-    }, { values: ['Web Search', 'Code Execution', 'File Operations', 'Web Browser', 'Shell Access', 'API Call'] });
+    }, { values: Object.keys(TOOL_DEFS) });
     this.addWidget('text', 'Config', '{}', (v) => {
       this.properties.config = v;
     });
+    this.addWidget('combo', 'Agent', 'lead', (v) => {
+      this.properties.agentId = v;
+    }, { values: ['lead', 'codecraft', 'scout', 'ops-lead', 'builder', 'sentinel'] });
 
-    this.properties = { tool: 'Web Search', config: '{}' };
-    this.size = [260, 120];
+    this.properties = { tool: 'Web Search', config: '{}', agentId: 'lead' };
+    this.size = [280, 140];
     this.color = '#6b4d1a';
     this.bgcolor = '#2e1f0a';
   }
   ToolNode.title = 'Tool';
-  ToolNode.desc = 'Executes a tool (search, code, files, browser, shell, API)';
+  ToolNode.desc = 'Executes a real tool via OpenClaw agent (search, scrape, code, files, shell, API, browser)';
   ToolNode.prototype.onExecute = function () {
     const input = this.getInputData(0);
     if (input) {
@@ -464,16 +537,18 @@ function registerCustomNodes() {
     let config = {};
     try { config = JSON.parse(this.properties.config || '{}'); } catch {}
 
-    const toolPrompt = `TOOL_INVOCATION:\nTool: ${toolName}\nInput: ${input}\nConfig: ${JSON.stringify(config)}\n\nExecute the "${toolName}" tool with the given input and return the result.`;
+    const toolDef = TOOL_DEFS[toolName] || TOOL_DEFS['Shell Access'];
+    const toolPrompt = toolDef.prompt(input, config);
+    const timeout = toolDef.timeout;
 
     if (window.openclawClient?.authenticated) {
       try {
-        const toolAgentId = config.agentId || 'lead';
+        const agentId = this.properties.agentId || config.agentId || 'lead';
         const result = await window.openclawClient.sendChat(toolPrompt, {
-          sessionKey: 'agent:' + toolAgentId + ':main',
+          sessionKey: 'agent:' + agentId + ':main',
         });
         const toolRunId = result?.runId || result?._idempotencyKey;
-        const response = await AgentNode.prototype._waitForResponse.call(this, 15000, toolRunId);
+        const response = await AgentNode.prototype._waitForResponse.call(this, timeout, toolRunId);
         this._lastResult = response;
         return { result: response };
       } catch (e) {
@@ -482,7 +557,22 @@ function registerCustomNodes() {
       }
     }
 
-    this._lastResult = `[${toolName}] Executed: ${input.slice(0, 100)}`;
+    // Fallback: direct LiteLLM for search-like tools
+    if (window.litellmApi && (toolName === 'Web Search' || toolName === 'Code Execution')) {
+      try {
+        const response = await litellmApi.chat('groq-llama-3.3-70b', [
+          { role: 'system', content: `You are a tool execution assistant. Execute the requested tool operation and return the result.` },
+          { role: 'user', content: toolPrompt },
+        ]);
+        this._lastResult = response;
+        return { result: response };
+      } catch (e) {
+        this._lastResult = `[${toolName} Error]: ${e.message}`;
+        return { result: this._lastResult };
+      }
+    }
+
+    this._lastResult = `[${toolName}] (demo) Input: ${input.slice(0, 100)}`;
     return { result: this._lastResult };
   };
   LiteGraph.registerNodeType('mission/tool', ToolNode);
@@ -600,35 +690,68 @@ function registerCustomNodes() {
   LiteGraph.registerNodeType('mission/output', OutputNode);
 
   // ------------------------------------------
-  // LOOP NODE
+  // LOOP NODE — iterates downstream subgraph per item
   // ------------------------------------------
   function LoopNode() {
     this.addInput('items', 'string');
     this.addOutput('item', 'string');
     this.addOutput('index', 'number');
     this.addOutput('done', LiteGraph.EVENT);
+    this.addOutput('results', 'string');
     this.addWidget('number', 'Max Iterations', 10, (v) => {
       this.properties.maxIter = v;
     }, { min: 1, max: 100, step: 1 });
+    this.addWidget('combo', 'Separator', 'Newline', (v) => {
+      this.properties.separator = v;
+    }, { values: ['Newline', 'Double Newline', 'JSON Array', 'Comma'] });
+    this.addWidget('combo', 'Split By', 'Newline', (v) => {
+      this.properties.splitBy = v;
+    }, { values: ['Newline', 'Double Newline', 'Comma', 'JSON Array'] });
 
-    this.properties = { maxIter: 10 };
-    this.size = [220, 100];
+    this.properties = { maxIter: 10, separator: 'Newline', splitBy: 'Newline' };
+    this.size = [240, 140];
     this.color = '#1a3d5c';
     this.bgcolor = '#0a1f2e';
   }
   LoopNode.title = 'Loop';
-  LoopNode.desc = 'Iterates over items';
+  LoopNode.desc = 'Iterates over items, runs downstream per item, collects results';
   LoopNode.prototype.onExecute = function () {};
+  LoopNode.prototype._splitItems = function (raw) {
+    switch (this.properties.splitBy) {
+      case 'JSON Array':
+        try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr.map(String) : [raw]; } catch { return [raw]; }
+      case 'Comma':
+        return raw.split(',').map(s => s.trim()).filter(Boolean);
+      case 'Double Newline':
+        return raw.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+      default: // Newline
+        return raw.split('\n').filter(Boolean);
+    }
+  };
+  LoopNode.prototype._joinResults = function (results) {
+    switch (this.properties.separator) {
+      case 'JSON Array':
+        return JSON.stringify(results);
+      case 'Comma':
+        return results.join(', ');
+      case 'Double Newline':
+        return results.join('\n\n');
+      default: // Newline
+        return results.join('\n');
+    }
+  };
   LoopNode.prototype.runAsync = async function (inputs) {
     const items = inputs.items || '';
-    const parts = items.split('\n').filter(Boolean).slice(0, this.properties.maxIter);
+    const parts = this._splitItems(items).slice(0, this.properties.maxIter);
     // Return _loop marker for the executor to handle iteration
     return {
       _loop: true,
       _items: parts,
+      _joinResults: this._joinResults.bind(this),
       item: parts[0] || '',
       index: 0,
       done: parts.length === 0,
+      results: '',
     };
   };
   LiteGraph.registerNodeType('mission/loop', LoopNode);
@@ -770,9 +893,17 @@ class WorkflowExecutor {
 
             monitor?.addLog('info', `Loop "${node.title}": iterating ${output._items.length} items`);
 
+            // Accumulate results from the last downstream node per iteration
+            const accumulatedResults = [];
+
             for (let i = 0; i < output._items.length; i++) {
-              const iterOutput = { item: output._items[i], index: i, done: i === output._items.length - 1 };
+              if (!this.running) break;
+              monitor?.addLog('debug', `Loop "${node.title}": item ${i + 1}/${output._items.length}`);
+
+              const iterOutput = { item: output._items[i], index: i, done: i === output._items.length - 1, results: '' };
               this.results.set(node.id, iterOutput);
+
+              let lastDnOutput = null;
 
               for (const dn of downstreamSorted) {
                 if (!this.running) break;
@@ -790,6 +921,7 @@ class WorkflowExecutor {
                   if (typeof dn.runAsync === 'function') {
                     const dnOutput = await dn.runAsync(dnInputs);
                     this.results.set(dn.id, dnOutput);
+                    lastDnOutput = dnOutput;
                     dn.boxcolor = '#10b981';
 
                     // Governance: record Agent node tasks during loop
@@ -801,22 +933,36 @@ class WorkflowExecutor {
                   monitor?.addLog('error', `Loop iteration ${i}: Node "${dn.title}" failed: ${dnErr.message}`);
                   dn.boxcolor = '#ef4444';
                   this.results.set(dn.id, { error: dnErr.message });
+                  lastDnOutput = { error: dnErr.message };
                 }
                 this.graph.setDirtyCanvas(true);
+              }
+
+              // Collect the primary text result from this iteration
+              if (lastDnOutput) {
+                const iterResult = lastDnOutput.response || lastDnOutput.result || lastDnOutput.merged || lastDnOutput.output
+                  || (lastDnOutput.error ? `[Error: ${lastDnOutput.error}]` : '');
+                if (iterResult) accumulatedResults.push(iterResult);
               }
             }
 
             // Mark downstream as already executed so main loop skips them
             for (const did of downstreamIds) loopExecuted.add(did);
 
-            // Set final loop output
+            // Join accumulated results using the loop node's configured separator
+            const joinFn = output._joinResults || ((arr) => arr.join('\n'));
+            const joinedResults = joinFn(accumulatedResults);
+
+            // Set final loop output with accumulated results
             this.results.set(node.id, {
               item: output._items[output._items.length - 1],
               index: output._items.length - 1,
               done: true,
+              results: joinedResults,
             });
             node.boxcolor = '#10b981';
             this.graph.setDirtyCanvas(true);
+            monitor?.addLog('info', `Loop "${node.title}": completed ${output._items.length} iterations, ${accumulatedResults.length} results collected`);
             continue;
           }
 
