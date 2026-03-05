@@ -178,32 +178,19 @@
         <div class="prompt-header">
           <div class="prompt-meta">
             <div class="prompt-title"><span class="emoji">🧠</span>Core Team Kickoff</div>
-            <div class="prompt-subtitle"><span class="tag">Lead</span> delegation + self-discovery + cron</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> explore + delegate + cron</div>
           </div>
           <button class="copy-btn" onclick="copyPrompt('starter1', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter1">The system is live. All 8 agents deployed across two teams, LiteLLM routing 20 models, OpenClaw running 24/7. This is your first real session — everything starts now.
+        <div class="prompt-body collapsed" id="starter1">First session. Explore your environment, confirm you can reach your team (CodeCraft, Scout, Scribe) via sessions_send, then delegate:
 
-IMMEDIATE TASKS — delegate these to your team:
+1. YOU: Discover your tools, read /workspace/, report what you find.
+2. CODECRAFT: Audit /workspace/js/ (app.js, workflow.js, openclaw-client.js) for bugs or quick wins. Report to /workspace/staging/.
+3. SCOUT: Research OpenClaw cron tool and workspace file capabilities. Report to /workspace/staging/.
+4. SCRIBE: Write a system status doc — what's deployed, what works, what needs work. To /workspace/staging/.
+5. CRON: Set up a daily health-check job that logs to the activity log.
 
-1. SELF-DISCOVERY (you): Run exec to explore your environment. Check what tools you have, read /workspace/ to see the shared volume structure, and verify you can reach CodeCraft, Scout, and Scribe via sessions_send. Report what you find.
-
-2. CODECRAFT: Have them audit the Mission Control codebase at /workspace/js/ — specifically app.js, workflow.js, and openclaw-client.js. Look for bugs, dead code, security issues, or quick performance wins. Write findings to /workspace/staging/ for my review.
-
-3. SCOUT: Research OpenClaw's cron tool capabilities and server-side agent workspace files (SOUL.md, AGENTS.md, IDENTITY.md, MEMORY.md). We currently inject system prompts client-side — I want to know if migrating to server-side workspace files would be better. Also research the OpenClaw provider docs at docs.openclaw.ai/providers/openai for any transport or compaction settings we should configure. Full report to /workspace/staging/.
-
-4. SCRIBE: Create a "System Status" document covering: what's deployed, what's working, what needs work (reference the WORKFLOW SYSTEM section from your instructions). Put it in /workspace/staging/.
-
-5. CRON SETUP: Create a daily cron job — check system health, summarize what happened in the last 24h, log to the activity log. This proves background autonomy works.
-
-RULES OF ENGAGEMENT:
-- I will close this browser and come back later. Keep working autonomously.
-- Log ALL significant events to the activity log.
-- Put ALL deliverables in /workspace/staging/ for my review.
-- Start building a team rhythm: daily health checks, proactive improvements, honest competition with Platform Team.
-- You're competing against Ops Lead's team. Governance scores are live. Prove Core Team delivers.
-
-Confirm you can reach your team and tools, then get to work.</div>
+All deliverables go to /workspace/staging/. Log activity. I'll close the browser — keep working autonomously. Governance scores are live.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -211,32 +198,19 @@ Confirm you can reach your team and tools, then get to work.</div>
         <div class="prompt-header">
           <div class="prompt-meta">
             <div class="prompt-title"><span class="emoji">🎯</span>Platform Team Kickoff</div>
-            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> security audit + monitoring + cron</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> security + infra + monitoring</div>
           </div>
           <button class="copy-btn" onclick="copyPrompt('starter2', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter2">The system is live. All 8 agents deployed, both teams competing on governance scores. You lead Platform Team. This is your first real session — establish your team's value from minute one.
+        <div class="prompt-body collapsed" id="starter2">First session. Explore your environment, confirm you can reach your team (Builder, Sentinel, Chronicler) via sessions_send, then delegate:
 
-IMMEDIATE TASKS — delegate these to your team:
+1. YOU: Discover your tools, read /workspace/, report what you find.
+2. SENTINEL: Security audit — exposed secrets, TLS config, container memory vs limits, API key exposure. Report to /workspace/staging/.
+3. BUILDER: Audit docker-compose.yml, deploy.sh, openclaw-entrypoint.sh — memory limits, restart policies, health checks. Report to /workspace/staging/.
+4. CHRONICLER: Write a deployment runbook with single-line commands (owner uses iPhone + SSM). To /workspace/staging/.
+5. CRON: Set up a 6-hour health-check job covering all services. Log to activity log, flag anything above 80% memory.
 
-1. SELF-DISCOVERY (you): Run exec to explore your environment. Verify tool access, read /workspace/, confirm you can reach Builder, Sentinel, and Chronicler via sessions_send. Report findings.
-
-2. SENTINEL: Full security and health audit. Check for exposed secrets in Docker logs, verify Caddy TLS config, review container memory usage vs limits (OpenClaw has OOM history at 1536M), scan for CVEs in our images, check API key exposure. Write a security report to /workspace/staging/.
-
-3. BUILDER: Audit docker-compose.yml, deploy.sh, and openclaw-entrypoint.sh. Check memory limits, restart policies, health check coverage, volume management. We just enabled OpenClaw auto-update (stable channel) — verify the config looks correct. Propose any infrastructure improvements to /workspace/staging/.
-
-4. CHRONICLER: Create a deployment runbook — exact commands for full deploy, single-service restart, volume reset, log checking. All commands must be single-line (owner uses iPhone + SSM). Put it in /workspace/staging/.
-
-5. CRON SETUP: Create a cron job that runs every 6 hours — health-check all services (LiteLLM /health/liveliness, OpenClaw gateway status, container memory), log results to the activity log. Flag anything above 80% memory usage as a warning.
-
-RULES OF ENGAGEMENT:
-- I will close the browser. You keep working.
-- Proactive monitoring is your team's reason to exist. Don't wait for me to notice problems — find and fix them.
-- ALL proposals go to /workspace/staging/ for my review. No direct changes without approval.
-- Log everything to the activity log. When I return, I want to see exactly what you did.
-- Core Team (Lead, CodeCraft, Scout, Scribe) is your competition. Governance scores are live. Outperform them.
-
-Confirm team connectivity and begin.</div>
+All deliverables go to /workspace/staging/. Log activity. I'll close the browser — keep working autonomously. Governance scores are live.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
