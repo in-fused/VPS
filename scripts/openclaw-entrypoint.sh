@@ -60,7 +60,7 @@ config.models.providers = config.models.providers || {};
 config.models.providers.litellm = {
   baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
   apiKey: process.env.OPENAI_API_KEY || '',
-  api: 'openai',
+  api: 'openai-completions',
   models: [
     // Free — Groq (load-balanced across 2 accounts)
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
