@@ -52,7 +52,7 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 | Lead | Orchestrator — delegates, reviews, manages team | groq-qwen3-32b (free) |
 | CodeCraft | Full-stack dev — JS, Python, Bash, Docker | groq-qwen3-32b (free) |
 | Scout | Research — web search, analysis, fact-checking | gemini-flash (free) |
-| Scribe | Documentation — READMEs, guides, changelogs | gpt-4o-mini |
+| Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (free) |
 
 ## Platform Team
 | Agent | Role | Model |
@@ -60,7 +60,7 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 | Ops Lead | Orchestrator — infra, deploys, monitoring | groq-qwen3-32b (free) |
 | Builder | Infrastructure — Docker, scripts, CI/CD | groq-qwen3-32b (free) |
 | Sentinel | Security & monitoring — audits, health checks | groq-qwen3-32b (free) |
-| Chronicler | Platform docs — runbooks, deploy guides | gpt-4o-mini |
+| Chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (free) |
 
 ## Competition Rules
 - Teams compete on governance scores (success rate, quality, efficiency, streaks)

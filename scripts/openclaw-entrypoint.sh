@@ -228,7 +228,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'scribe',
       workspace: 'Scribe',
-      model: { primary: 'litellm/gpt-4o-mini' },
+      model: { primary: 'litellm/gemini-flash-lite' },
       identity: {
         name: 'Scribe',
         emoji: '📝',
@@ -277,7 +277,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'chronicler',
       workspace: 'Chronicler',
-      model: { primary: 'litellm/gpt-4o-mini' },
+      model: { primary: 'litellm/gemini-flash-lite' },
       identity: {
         name: 'Chronicler',
         emoji: '📋',
@@ -316,6 +316,10 @@ if (Array.isArray(config.agents?.list)) {
     }
     if (agent.subagents && agent.subagents.model && agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b') {
       agent.subagents.model.primary = 'litellm/groq-qwen3-32b';
+    }
+    // Migrate paid gpt-4o-mini to free gemini-flash-lite
+    if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
+      agent.model.primary = 'litellm/gemini-flash-lite';
     }
   });
 }
