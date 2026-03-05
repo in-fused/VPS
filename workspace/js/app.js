@@ -28,10 +28,12 @@ const FALLBACK_MODELS = [
   { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K RPD)' },
   { id: 'groq-qwen3-32b', name: 'Qwen 3 32B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Dual-mode reasoning, free tier (1K RPD)' },
   { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fastest inference, 1M TPD free' },
-  // cerebras-qwen3-32b removed — Cerebras dropped this model 2026-03-05
-  { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'Fast + capable, 250 RPD free' },
-  { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 1000 RPD free' },
+  { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Reasoning model, 128K context' },
+  { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Reasoning model, 2096 t/s' },
+  { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'Fast + capable, 750 RPD (3 keys)' },
+  { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 3000 RPD (3 keys)' },
   { id: 'codestral', name: 'Codestral', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Best free code model, 2 RPM' },
+  { id: 'mistral-small', name: 'Mistral Small 3.1', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Fast 24B, great for agents' },
   { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.28/1M', desc: 'Excellent reasoning, very affordable' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'cheap', cost: '$0.15/1M', desc: 'Fast and cheap general purpose' },
   { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic', tier: 'mid', cost: '$1/1M', desc: 'Fast, capable, great for agents' },
@@ -47,15 +49,20 @@ const MODEL_META = {
   'groq-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
   // Free — Cerebras
   'cerebras-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
-  // cerebras-qwen3-32b removed — Cerebras dropped this model 2026-03-05
   'cerebras-llama-4-scout': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
-  // Free — Gemini
+  'cerebras-llama-3.1-8b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-qwen3-235b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-zai-glm': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-gpt-oss-120b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  // Free — Gemini (3 keys, 3x quota)
   'gemini-flash': { tier: 'free', cost: '$0/1M', provider: 'Google' },
   'gemini-flash-lite': { tier: 'free', cost: '$0/1M', provider: 'Google' },
   'gemini-pro': { tier: 'free', cost: '$0/1M', provider: 'Google' },
   // Free — Mistral
   'mistral-large': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   'codestral': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
+  'mistral-small': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
+  'mistral-nemo': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   // Free — Ollama
   'qwen2.5-coder:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
   'deepseek-coder-v2:16b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
@@ -243,7 +250,7 @@ Platform Team: Ops Lead (orchestrator) · Builder (infra) · Sentinel (security)
 Teams compete on governance scores. Cross-team messaging allowed, prefer own team first.`;
 
 const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=Oracle ARM 24GB,full autonomy,weekly champion only.
-MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout), Gemini (gemini-flash, gemini-pro), Mistral (codestral, mistral-large). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
+MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-qwen3-235b, cerebras-zai-glm, cerebras-gpt-oss-120b), Gemini (gemini-flash, gemini-flash-lite, gemini-pro — 3x keys), Mistral (codestral, mistral-large, mistral-small, mistral-nemo). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
 WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite. Counters reset weekly.
 ELITE ORACLE: Winner gets Oracle ARM server (24GB). Can bring team, recruit from marketplace, or request new agents. Chooses own team composition.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
@@ -1839,7 +1846,9 @@ document.addEventListener('alpine:init', () => {
         'gemini-flash',
         'gemini-flash-lite',
         'cerebras-llama-4-scout',
+        'cerebras-zai-glm',
         'groq-llama-3.3-70b',
+        'mistral-small',
         'mistral-large',
         'deepseek-chat',
       ].filter(m => m !== primaryModel);

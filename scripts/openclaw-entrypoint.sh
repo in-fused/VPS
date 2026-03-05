@@ -67,15 +67,20 @@ config.models.providers.litellm = {
     { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
     // Free — Cerebras (1M tokens/day, fastest inference)
     { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
-    // cerebras-qwen3-32b removed — Cerebras dropped this model (404 as of 2026-03-05)
     { id: 'cerebras-llama-4-scout', name: 'Llama 4 Scout on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-llama-3.1-8b', name: 'Llama 3.1 8B on Cerebras (free, fastest)', contextWindow: 8192, maxTokens: 8192 },
+    { id: 'cerebras-qwen3-235b', name: 'Qwen 3 235B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7 on Cerebras (free, reasoning)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B on Cerebras (free, reasoning)', contextWindow: 8192, maxTokens: 8192 },
     // Free — Gemini
     { id: 'gemini-flash', name: 'Gemini 2.5 Flash (free)', contextWindow: 1048576, maxTokens: 65536 },
     { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite (free)', contextWindow: 1048576, maxTokens: 65536 },
     { id: 'gemini-pro', name: 'Gemini 2.5 Pro (free)', contextWindow: 1048576, maxTokens: 65536 },
-    // Free — Mistral (2 RPM, 1B tokens/month)
+    // Free — Mistral (load-balanced across 2 keys, 4 RPM total)
     { id: 'mistral-large', name: 'Mistral Large (free)', contextWindow: 131072, maxTokens: 8192 },
     { id: 'codestral', name: 'Codestral (free/code)', contextWindow: 262144, maxTokens: 8192 },
+    { id: 'mistral-small', name: 'Mistral Small 3.1 (free, fast)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'mistral-nemo', name: 'Mistral Nemo (free, lightweight)', contextWindow: 131072, maxTokens: 8192 },
     // Cheap — DeepSeek + OpenAI
     { id: 'deepseek-chat', name: 'DeepSeek Chat (cheap)', contextWindow: 128000, maxTokens: 8192 },
     { id: 'deepseek-coder', name: 'DeepSeek Coder (cheap)', contextWindow: 128000, maxTokens: 8192 },
