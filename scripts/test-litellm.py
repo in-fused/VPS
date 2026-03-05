@@ -1,22 +1,37 @@
 #!/usr/bin/env python3
-"""Quick LiteLLM connectivity test. Run inside the litellm container."""
+"""Quick LiteLLM connectivity test. Run inside the litellm container.
+
+Usage:
+  docker compose exec litellm python3 /tmp/test.py [model-name]
+  Default model: gemini-flash
+"""
 import urllib.request, json, os, sys
 
 KEY = os.environ.get('LITELLM_MASTER_KEY', '')
 BASE = 'http://localhost:4000'
+AUTH = {'Authorization': f'Bearer {KEY}'} if KEY else {}
 
-# 1. Health check
+if not KEY:
+    print('[WARN] LITELLM_MASTER_KEY not found in env — auth will fail')
+
+# 1. Health check (newer LiteLLM requires auth on /health)
 try:
-    r = urllib.request.urlopen(f'{BASE}/health', timeout=5)
+    req = urllib.request.Request(f'{BASE}/health/liveliness', headers=AUTH)
+    r = urllib.request.urlopen(req, timeout=5)
     print(f'[OK] Health: {r.status}')
 except Exception as e:
-    print(f'[FAIL] Health: {e}')
-    sys.exit(1)
+    # Try alternate endpoint
+    try:
+        req = urllib.request.Request(f'{BASE}/health', headers=AUTH)
+        r = urllib.request.urlopen(req, timeout=5)
+        print(f'[OK] Health: {r.status}')
+    except Exception as e2:
+        print(f'[FAIL] Health: {e2}')
+        sys.exit(1)
 
 # 2. List models
 try:
-    req = urllib.request.Request(f'{BASE}/v1/models',
-        headers={'Authorization': f'Bearer {KEY}'})
+    req = urllib.request.Request(f'{BASE}/v1/models', headers=AUTH)
     r = urllib.request.urlopen(req, timeout=10)
     models = json.loads(r.read())
     names = [m['id'] for m in models.get('data', [])]
@@ -34,8 +49,7 @@ try:
     }).encode()
     req = urllib.request.Request(f'{BASE}/v1/chat/completions',
         data=body,
-        headers={'Content-Type': 'application/json',
-                 'Authorization': f'Bearer {KEY}'})
+        headers={**AUTH, 'Content-Type': 'application/json'})
     r = urllib.request.urlopen(req, timeout=30)
     resp = json.loads(r.read())
     msg = resp['choices'][0]['message']['content']
