@@ -1046,6 +1046,9 @@ document.addEventListener('alpine:init', () => {
         if (payload.state === 'error' || payload.error || payload.errorMessage) {
           const errMsg = payload.errorMessage || payload.error?.message || payload.error || 'Agent turn failed (no details)';
           Alpine.store('monitor').addLog('error', `Agent turn error: ${errMsg}`);
+          // Don't clear streaming state if a rate-limit retry is pending —
+          // these agent errors are from the OLD failed run, not the retry.
+          if (sessions._rateLimitRetried) return;
           // Surface the error in the chat UI if we're waiting for a response
           if (sessions._sending && sessions._streamingMsg) {
             sessions._streamingMsg.content = `Error: ${errMsg}`;
@@ -1137,6 +1140,7 @@ document.addEventListener('alpine:init', () => {
             }
             sessions._streamingMsg = null;
           }
+          sessions._rateLimitRetried = false;
           sessions._sending = false;
           sessions._sendingSessionId = null;
 
@@ -1219,6 +1223,15 @@ document.addEventListener('alpine:init', () => {
                   // Find the last user message to resend
                   const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
                   if (lastUserMsg) {
+                    // Restore streaming state if it was cleared by stale agent events
+                    if (!sessions._streamingMsg) {
+                      const lastAgentMsg = [...sessions.messages].reverse().find(m => m.role === 'agent');
+                      if (lastAgentMsg) {
+                        lastAgentMsg.content = '⏳ Rate limited — auto-retrying with fallback provider...';
+                        lastAgentMsg.streaming = true;
+                        sessions._streamingMsg = lastAgentMsg;
+                      }
+                    }
                     // Keep streaming state active so delta events from retry populate the bubble
                     sessions._sending = true;
                     await window.openclawClient.sendChat(lastUserMsg.content, { sessionKey: sk });
@@ -1235,6 +1248,7 @@ document.addEventListener('alpine:init', () => {
                 sessions._streamingMsg.streaming = false;
                 sessions._streamingMsg = null;
               }
+              sessions._rateLimitRetried = false;
               sessions._sending = false;
               sessions._sendingSessionId = null;
               sessions._persistMessages();
