@@ -154,30 +154,7 @@ Use this instead of web_fetch for serious scraping — it handles anti-bot and p
 
 ## Workflow Bridge Protocol (Agent ↔ Mission Control)
 Agents can create visual workflows visible in Mission Control's Workflow view.
-
-**Create a workflow:**
-1. Write LiteGraph JSON to \`/workspace/agent-workflows/{id}.json\`
-2. Update \`/workspace/agent-workflows/index.json\`:
-   \`{"workflows":[{"id":"wf-123","name":"My Workflow","file":"wf-123.json","createdBy":"lead","updatedAt":1709654321000,"status":"draft"}]}\`
-3. Mission Control polls every 15s and auto-imports new workflows.
-
-**LiteGraph node types (mission/* namespace):**
-- mission/trigger — starts workflow (properties: prompt, triggerType)
-- mission/agent — runs an agent (properties: agent id, context)
-- mission/task — formats a task with goal/constraints (properties: priority)
-- mission/condition — branches on Contains/Equals/Regex/Length/IsEmpty
-- mission/output — outputs result (properties: label, destination)
-- mission/loop — iterates over newline-separated items
-- mission/merge — combines inputs (Concatenate/JSON Merge)
-
-**Request background execution:**
-Set \`"requestExecution": true\` on the workflow entry in index.json.
-Mission Control will execute it and write results to \`/workspace/agent-workflows/results/\`.
-
-**Write execution results:**
-Write to \`/workspace/agent-workflows/results/{id}.json\` and update
-\`/workspace/agent-workflows/results/index.json\`:
-\`{"results":[{"id":"run-123","workflowId":"wf-123","name":"My Workflow","success":true,"completedAt":1709654321000,"file":"run-123.json"}]}\`
+See WORKFLOWS.md for full reference with examples and node schema.
 
 ## Cron Jobs (Background Autonomy)
 - Schedule types: at (one-shot), every (interval in ms), cron (5-field expression)
@@ -344,6 +321,179 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 };
 
 // ============================================================================
+// WORKFLOWS.md — Full workflow creation reference (leads + codecraft)
+// ============================================================================
+
+const SHARED_WORKFLOWS = `# Workflow Creation Guide
+
+You can create visual workflows that appear in Mission Control's Workflow view.
+The owner sees these on their phone — well-built workflows prove competence.
+
+## How It Works
+1. Write a LiteGraph JSON file to \`/workspace/agent-workflows/{id}.json\`
+2. Update \`/workspace/agent-workflows/index.json\` with an entry for your workflow
+3. Mission Control polls every 15s and auto-imports new/updated workflows
+4. The owner can run your workflow from the UI, or you can request background execution
+
+## Index Format
+\`\`\`json
+{
+  "updatedAt": 1709654321000,
+  "workflows": [
+    {
+      "id": "wf-healthcheck-1",
+      "name": "Daily Health Check",
+      "file": "wf-healthcheck-1.json",
+      "createdBy": "lead",
+      "updatedAt": 1709654321000,
+      "status": "draft"
+    }
+  ]
+}
+\`\`\`
+Status: "draft" | "ready" | "running" | "completed" | "failed"
+Set \`"requestExecution": true\` to ask Mission Control to run it.
+
+## LiteGraph JSON Format
+\`\`\`json
+{
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "mission/trigger",
+      "pos": [100, 200],
+      "size": [280, 120],
+      "properties": {
+        "prompt": "Check all service health endpoints",
+        "trigger": "Manual"
+      },
+      "outputs": [
+        {"name": "prompt", "type": "string", "links": [1]},
+        {"name": "trigger", "type": -1, "links": null}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "mission/agent",
+      "pos": [450, 180],
+      "size": [300, 160],
+      "properties": {
+        "agent": "Scout",
+        "systemPrompt": "You are a health check specialist.",
+        "maxTokens": 2048
+      },
+      "inputs": [
+        {"name": "prompt", "type": "string", "link": 1},
+        {"name": "context", "type": "string", "link": null}
+      ],
+      "outputs": [
+        {"name": "response", "type": "string", "links": [2]},
+        {"name": "done", "type": -1, "links": null}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "mission/condition",
+      "pos": [800, 180],
+      "size": [240, 110],
+      "properties": {
+        "condition": "error",
+        "type": "Contains"
+      },
+      "inputs": [{"name": "input", "type": "string", "link": 2}],
+      "outputs": [
+        {"name": "true", "type": "string", "links": [3]},
+        {"name": "false", "type": "string", "links": null}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "mission/output",
+      "pos": [1100, 140],
+      "size": [240, 100],
+      "properties": {
+        "destination": "Log",
+        "label": "Health Report"
+      },
+      "inputs": [
+        {"name": "result", "type": "string", "link": 3},
+        {"name": "done", "type": -1, "link": null}
+      ]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "string"],
+    [2, 2, 0, 3, 0, "string"],
+    [3, 3, 0, 4, 0, "string"]
+  ]
+}
+\`\`\`
+
+Link format: [linkId, originNodeId, originSlot, targetNodeId, targetSlot, type]
+
+## Node Types Reference
+
+### mission/trigger
+Start point. Properties: prompt (string), trigger ("Manual"|"Scheduled"|"Webhook"|"On Event")
+Outputs: prompt (string), trigger (event)
+
+### mission/agent
+Sends prompt to an AI agent. Properties: agent (agent name or "(Auto)"), systemPrompt (string), maxTokens (number)
+Inputs: prompt (string), context (string)
+Outputs: response (string), done (event)
+
+### mission/task
+Formats input with goal/constraints. Properties: goal (string), constraints (string), priority ("Low"|"Normal"|"High"|"Critical")
+Inputs: input (string), execute (event)
+Outputs: result (string), done (event)
+
+### mission/tool
+Executes a real tool via OpenClaw agent. Properties: tool (see below), config (JSON string), agentId (string)
+Tools: "Web Search", "Web Scrape", "Code Execution", "File Read", "File Write", "Shell Access", "API Call", "Web Browser"
+Inputs: input (string), execute (event)
+Outputs: result (string), done (event)
+
+### mission/condition
+Routes based on condition. Properties: condition (string), type ("Contains"|"Equals"|"Regex"|"Length >"|"Is Empty")
+Inputs: input (string)
+Outputs: true (string), false (string)
+
+### mission/output
+Delivers results. Properties: destination ("Log"|"Chat Response"|"File"|"Webhook"), label (string)
+Inputs: result (string), done (event)
+
+### mission/loop
+Iterates over items. Properties: maxIter (number), separator/splitBy ("Newline"|"Double Newline"|"Comma"|"JSON Array")
+Inputs: items (string)
+Outputs: item (string), index (number), done (event), results (string)
+
+### mission/merge
+Combines inputs. Properties: mode ("Concatenate"|"JSON Merge"|"Pick Best"|"Summary")
+Inputs: input_1 (string), input_2 (string)
+Outputs: merged (string)
+
+## Background Execution Results
+Write results to \`/workspace/agent-workflows/results/{id}.json\`:
+\`\`\`json
+{"workflowId": "wf-123", "success": true, "completedAt": 1709654321000, "outputs": {"Health Report": "All systems OK"}}
+\`\`\`
+Update \`/workspace/agent-workflows/results/index.json\`:
+\`\`\`json
+{"results": [{"id": "run-1", "workflowId": "wf-123", "name": "Daily Health Check", "success": true, "completedAt": 1709654321000, "file": "run-1.json"}]}
+\`\`\`
+
+## Tips
+- Keep node positions spaced 300-400px apart horizontally for readability
+- Use descriptive labels on Output nodes — they show in the UI
+- Chain: Trigger → Agent → Condition → Output is the most common pattern
+- For multi-step: Trigger → Agent1 → Agent2 → Merge → Output
+- Tool nodes are powerful — Web Scrape + Agent analysis is a strong pattern
+- Set status to "ready" when the workflow is tested and reliable
+`;
+
+// ============================================================================
 // HEARTBEAT.md — brief checklist for periodic heartbeat runs (leads only)
 // ============================================================================
 
@@ -378,8 +528,9 @@ for (const agent of agents) {
 
   fs.mkdirSync(wsDir, { recursive: true });
 
-  // Determine if this agent is a lead (gets extra files)
+  // Determine if this agent is a lead or workflow-capable
   const isLead = ['lead', 'ops-lead'].includes(agent.id);
+  const canCreateWorkflows = ['lead', 'ops-lead', 'codecraft'].includes(agent.id);
 
   const files = {
     'SOUL.md': AGENT_SOULS[agent.id] || `You are ${agent.identity?.name || agent.id}, an AI agent on in-fused.org. Run 24/7 via OpenClaw.`,
@@ -389,6 +540,11 @@ for (const agent of agents) {
     'TOOLS.md': SHARED_TOOLS,
     'HEARTBEAT.md': isLead ? HEARTBEAT_LEAD : HEARTBEAT_SPECIALIST,
   };
+
+  // Leads and CodeCraft get the full workflow creation reference
+  if (canCreateWorkflows) {
+    files['WORKFLOWS.md'] = SHARED_WORKFLOWS;
+  }
 
   for (const [filename, content] of Object.entries(files)) {
     const filepath = path.join(wsDir, filename);

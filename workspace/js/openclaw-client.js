@@ -683,6 +683,41 @@ class OpenClawClient {
     const result = await this.request('cron.runs', { id: jobId });
     return result.runs || result || [];
   }
+
+  // ---------------------------------------------------------------------------
+  // HIGH-LEVEL API: WORKFLOW BRIDGE (Agent↔Mission Control sync)
+  // ---------------------------------------------------------------------------
+  // Writes workflow data to the Lead agent's workspace as files that agents
+  // can read via their `read` tool. Uses agents.files.set RPC — no chat
+  // pollution, no WRITE_FILES commands.
+
+  // Sync a workflow's graph JSON to the Lead agent's workspace
+  async syncWorkflowToAgent(wfId, meta, graphJson) {
+    const payload = JSON.stringify({ meta, graph: graphJson }, null, 2);
+    await this.setAgentFile('lead', `workflows/${wfId}.json`, payload);
+  }
+
+  // Sync the workflow index (list of all workflows) to Lead's workspace
+  async syncWorkflowIndex(entries) {
+    const index = JSON.stringify({ updatedAt: Date.now(), workflows: entries }, null, 2);
+    await this.setAgentFile('lead', 'workflows/index.json', index);
+  }
+
+  // Read workflow data that an agent has written to their workspace
+  async readAgentWorkflow(agentId, wfId) {
+    const result = await this.getAgentFile(agentId, `workflows/${wfId}.json`);
+    const content = result?.content || result;
+    if (typeof content === 'string') return JSON.parse(content);
+    return content;
+  }
+
+  // Read agent's workflow index
+  async readAgentWorkflowIndex(agentId) {
+    const result = await this.getAgentFile(agentId, 'workflows/index.json');
+    const content = result?.content || result;
+    if (typeof content === 'string') return JSON.parse(content);
+    return content;
+  }
 }
 
 // Singleton instance

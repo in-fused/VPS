@@ -1,11 +1,18 @@
 // ============================================================================
-// Workflow Bridge — Agent <-> Mission Control workflow sync
-// Agents write JSON to /workspace/agent-workflows/ on the shared volume.
-// Mission Control polls for new/updated workflows, imports them, and
-// sends execution results back via OpenClaw chat.
+// Workflow Bridge — Agent <-> Mission Control bidirectional workflow sync
 //
-// Phase 2: Uses agents.files.set RPC for workspace writes (no chat pollution),
-//          chat.inject with labels for agent commands (filtered from chat UI).
+// IMPORT (Agent → MC):
+//   Primary: Polls /workspace/agent-workflows/index.json (agents write via
+//            their `write` tool to the shared Docker volume).
+//   Secondary: Polls each agent's workspace via agents.files.get RPC
+//              (catches workflows agents wrote to their own workspace).
+//
+// EXPORT (MC → Agent):
+//   Uses agents.files.set RPC to write workflow JSON + index directly to
+//   Lead and Ops Lead's workspace directories — zero chat pollution.
+//   Agents can read these with their `read` tool.
+//
+// Phase 4: Full bidirectional bridge with RPC-based sync.
 // in-fused.org
 // ============================================================================
 
@@ -14,6 +21,8 @@ class WorkflowBridge {
     this._pollTimer = null;
     this._knownFiles = new Set();
     this._basePath = '/workspace/agent-workflows';
+    this._syncTimers = {};
+    this._lastAgentPoll = 0;
   }
 
   startPolling(intervalMs = 15000) {
@@ -29,75 +38,145 @@ class WorkflowBridge {
     }
   }
 
+  // =========================================================================
+  // MAIN POLL LOOP
+  // =========================================================================
+
   async _poll() {
     try {
-      const resp = await fetch(this._basePath + '/index.json', {
-        signal: AbortSignal.timeout(5000),
-        cache: 'no-store',
-      });
-      if (!resp.ok) return; // no index yet
+      // 1. Poll the shared volume (primary import path)
+      await this._pollVolume();
 
-      const index = await resp.json();
-
-      for (const entry of (index.workflows || [])) {
-        const key = entry.id + ':' + entry.updatedAt;
-        if (this._knownFiles.has(key)) continue;
-
-        // Fetch the workflow definition
-        const wfResp = await fetch(this._basePath + '/' + entry.file, {
-          cache: 'no-store',
-        });
-        if (!wfResp.ok) continue;
-
-        const wfData = await wfResp.json();
-        const wfStore = Alpine?.store('workflows');
-        if (wfStore) {
-          wfStore.importJSON({
-            meta: {
-              id: entry.id,
-              name: entry.name || 'Agent Workflow',
-              nodes: wfData.nodes?.length || 0,
-              lastRun: 'Never',
-              status: entry.status || 'draft',
-              createdAt: entry.createdAt || Date.now(),
-              updatedAt: entry.updatedAt || Date.now(),
-              createdBy: entry.createdBy || 'agent',
-            },
-            graph: wfData,
-          });
-
-          this._knownFiles.add(key);
-          Alpine.store('monitor')?.addLog('info',
-            `Imported agent workflow: ${entry.name} (by ${entry.createdBy || 'agent'})`
-          );
-
-          // Record workflow creation in governance
-          if (entry.createdBy && entry.createdBy !== 'user') {
-            Alpine.store('governance')?.recordTask(entry.createdBy, {
-              success: true,
-              taskType: 'workflow-create',
-              tokens: 0,
-            });
-          }
-        }
+      // 2. Poll agent workspaces via RPC (every 60s, secondary import path)
+      const now = Date.now();
+      if (window.openclawClient?.authenticated && now - this._lastAgentPoll > 60000) {
+        this._lastAgentPoll = now;
+        await this._pollAgentWorkspaces();
       }
 
-      // Check for execution requests
-      for (const entry of (index.workflows || [])) {
-        if (entry.requestExecution && entry.status !== 'running') {
-          this._executeAgentWorkflow(entry.id);
-        }
-      }
+      // 3. Check for background execution results
+      await this._checkExecutionResults();
 
-      // Check for background execution results
-      this._checkExecutionResults();
-
-      // Also check for activity logs
-      this._checkActivityLog();
+      // 4. Check for activity logs
+      await this._checkActivityLog();
     } catch {
-      // Silently fail — directory may not exist yet
+      // Silently fail — services may not be up yet
     }
   }
+
+  // =========================================================================
+  // IMPORT: Shared volume → Mission Control
+  // =========================================================================
+
+  async _pollVolume() {
+    const resp = await fetch(this._basePath + '/index.json', {
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+    if (!resp.ok) return;
+
+    const index = await resp.json();
+
+    for (const entry of (index.workflows || [])) {
+      const key = entry.id + ':' + entry.updatedAt;
+      if (this._knownFiles.has(key)) continue;
+
+      const wfResp = await fetch(this._basePath + '/' + entry.file, {
+        cache: 'no-store',
+      });
+      if (!wfResp.ok) continue;
+
+      const wfData = await wfResp.json();
+      this._importWorkflow(entry, wfData);
+    }
+
+    // Check for execution requests
+    for (const entry of (index.workflows || [])) {
+      if (entry.requestExecution && entry.status !== 'running') {
+        this._executeAgentWorkflow(entry.id);
+      }
+    }
+  }
+
+  // =========================================================================
+  // IMPORT: Agent workspace files → Mission Control (via RPC)
+  // =========================================================================
+
+  async _pollAgentWorkspaces() {
+    if (!window.openclawClient?.authenticated) return;
+
+    // Check Lead and Ops Lead workspace for agent-created workflows
+    for (const agentId of ['lead', 'ops-lead']) {
+      try {
+        const index = await window.openclawClient.readAgentWorkflowIndex(agentId);
+        if (!index?.workflows) continue;
+
+        for (const entry of index.workflows) {
+          const key = `rpc:${agentId}:${entry.id}:${entry.updatedAt}`;
+          if (this._knownFiles.has(key)) continue;
+
+          try {
+            const wfData = await window.openclawClient.readAgentWorkflow(agentId, entry.id);
+            if (wfData) {
+              this._importWorkflow(entry, wfData.graph || wfData);
+              this._knownFiles.add(key);
+            }
+          } catch {
+            // Individual workflow read failed — skip
+          }
+        }
+      } catch {
+        // Agent doesn't have a workflows/ directory yet — normal
+      }
+    }
+  }
+
+  // =========================================================================
+  // SHARED: Import a workflow into the Mission Control store
+  // =========================================================================
+
+  _importWorkflow(entry, graphData) {
+    const wfStore = Alpine?.store('workflows');
+    if (!wfStore) return;
+
+    const key = entry.id + ':' + entry.updatedAt;
+    wfStore.importJSON({
+      meta: {
+        id: entry.id,
+        name: entry.name || 'Agent Workflow',
+        nodes: graphData.nodes?.length || 0,
+        lastRun: 'Never',
+        status: entry.status || 'draft',
+        createdAt: entry.createdAt || Date.now(),
+        updatedAt: entry.updatedAt || Date.now(),
+        createdBy: entry.createdBy || 'agent',
+      },
+      graph: graphData,
+    });
+
+    this._knownFiles.add(key);
+    Alpine.store('monitor')?.addLog('info',
+      `Imported agent workflow: ${entry.name} (by ${entry.createdBy || 'agent'})`
+    );
+
+    // Play notification sound for agent-created workflows
+    if (entry.createdBy && entry.createdBy !== 'user' && window.mcAudio) {
+      mcAudio.notification();
+    }
+
+    // Record workflow creation in governance
+    if (entry.createdBy && entry.createdBy !== 'user') {
+      Alpine.store('governance')?.recordTask(entry.createdBy, {
+        success: true,
+        taskType: 'workflow-create',
+        tokens: 0,
+      });
+    }
+  }
+
+  // =========================================================================
+  // EXECUTE: Run an agent-requested workflow on Mission Control
+  // =========================================================================
 
   async _executeAgentWorkflow(workflowId) {
     const wfStore = Alpine?.store('workflows');
@@ -117,18 +196,32 @@ class WorkflowBridge {
       }
     }
 
-    // Send results back to the Lead agent via OpenClaw (labeled, hidden from chat UI)
+    // Write results back via RPC (no chat pollution)
     if (window.openclawClient?.authenticated) {
       try {
-        await window.openclawClient.injectChat(
-          `WORKFLOW_RESULT:${workflowId}\n${JSON.stringify(results, null, 2)}`,
-          { sessionKey: 'agent:lead:main', label: 'system-bridge' }
-        );
-      } catch {}
+        const resultJson = JSON.stringify({
+          workflowId,
+          completedAt: Date.now(),
+          success: true,
+          outputs: results,
+        }, null, 2);
+        await window.openclawClient.setAgentFile('lead', `workflows/results/${workflowId}.json`, resultJson);
+      } catch {
+        // Fallback: inject as labeled message
+        try {
+          await window.openclawClient.injectChat(
+            `WORKFLOW_RESULT:${workflowId}\n${JSON.stringify(results, null, 2)}`,
+            { sessionKey: 'agent:lead:main', label: 'system-bridge' }
+          );
+        } catch {}
+      }
     }
   }
 
-  // Check for background execution results from /workspace/agent-workflows/results/
+  // =========================================================================
+  // IMPORT: Background execution results from volume
+  // =========================================================================
+
   async _checkExecutionResults() {
     try {
       const resp = await fetch(this._basePath + '/results/index.json', {
@@ -145,7 +238,6 @@ class WorkflowBridge {
         const key = 'bg-result:' + result.id + ':' + result.completedAt;
         if (this._knownFiles.has(key)) continue;
 
-        // Fetch the full result
         const resResp = await fetch(this._basePath + '/results/' + result.file, {
           cache: 'no-store',
         });
@@ -154,7 +246,6 @@ class WorkflowBridge {
         const resData = await resResp.json();
         this._knownFiles.add(key);
 
-        // Update workflow status in store
         const wf = wfStore.list.find(w => w.id === result.workflowId);
         if (wf) {
           wf.lastRun = new Date(result.completedAt).toLocaleString();
@@ -172,13 +263,11 @@ class WorkflowBridge {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // SYNC: Mission Control → Agent workspace
-  // Uses chat.inject with labels (filtered from chat display) to tell agents
-  // to write files. These messages are hidden in _parseHistoryMessages.
-  // -------------------------------------------------------------------------
+  // =========================================================================
+  // EXPORT: Mission Control → Agent workspaces (via RPC)
+  // =========================================================================
 
-  // Sync a single workflow to the volume (called on every save)
+  // Sync a single workflow to agent workspaces (called on every save)
   async syncWorkflow(wfId) {
     if (!window.openclawClient?.authenticated) return;
     const wfStore = Alpine?.store('workflows');
@@ -190,93 +279,87 @@ class WorkflowBridge {
 
     // Debounce: don't sync more than once per 10s per workflow
     const now = Date.now();
-    this._syncTimers = this._syncTimers || {};
     if (this._syncTimers[wfId] && now - this._syncTimers[wfId] < 10000) return;
     this._syncTimers[wfId] = now;
 
-    const payload = {
-      action: 'WRITE_FILES',
-      files: [
-        {
-          path: `/workspace/agent-workflows/${wfId}.json`,
-          content: graphData,
-        },
-      ],
-      updateIndex: {
-        path: '/workspace/agent-workflows/index.json',
-        entry: {
-          id: wf.id,
-          name: wf.name,
-          file: wf.id + '.json',
-          createdBy: wf.createdBy || 'user',
-          createdAt: wf.createdAt,
-          updatedAt: wf.updatedAt,
-          status: wf.status || 'draft',
-        },
-      },
+    const meta = {
+      id: wf.id,
+      name: wf.name,
+      nodes: wf.nodes,
+      createdBy: wf.createdBy || 'user',
+      createdAt: wf.createdAt,
+      updatedAt: wf.updatedAt,
+      status: wf.status || 'draft',
     };
 
     try {
-      await window.openclawClient.injectChat(
-        `WRITE_FILES:${JSON.stringify(payload)}`,
-        { sessionKey: 'agent:lead:main', label: 'system-bridge' }
-      );
-    } catch {}
+      // Write via RPC to both team leads' workspaces
+      const graphJson = JSON.parse(graphData);
+      await window.openclawClient.syncWorkflowToAgent(wfId, meta, graphJson);
+
+      // Also update the index
+      await this._syncIndex();
+    } catch {
+      // RPC failed — agents can still find workflows via the volume poll
+    }
   }
 
-  // Export all Mission Control workflows to the shared volume (full sync)
+  // Export all Mission Control workflows to agent workspaces (full sync)
   async syncToVolume() {
     if (!window.openclawClient?.authenticated) return;
-
     const wfStore = Alpine?.store('workflows');
     if (!wfStore) return;
 
-    const files = [];
-    const indexEntries = [];
-
+    let synced = 0;
     for (const wf of wfStore.list) {
       const graphData = localStorage.getItem('mc-workflow-' + wf.id);
-      if (graphData) {
-        files.push({
-          path: `/workspace/agent-workflows/${wf.id}.json`,
-          content: graphData,
-        });
-        indexEntries.push({
+      if (!graphData) continue;
+
+      try {
+        const meta = {
           id: wf.id,
           name: wf.name,
-          file: wf.id + '.json',
+          nodes: wf.nodes,
           createdBy: wf.createdBy || 'user',
           createdAt: wf.createdAt,
           updatedAt: wf.updatedAt,
           status: wf.status || 'draft',
-        });
+        };
+        await window.openclawClient.syncWorkflowToAgent(wf.id, meta, JSON.parse(graphData));
+        synced++;
+      } catch {
+        // Individual workflow sync failed — continue with others
       }
     }
 
-    const payload = {
-      action: 'WRITE_FILES',
-      files,
-      replaceIndex: {
-        path: '/workspace/agent-workflows/index.json',
-        content: JSON.stringify({ updatedAt: Date.now(), workflows: indexEntries }),
-      },
-    };
+    await this._syncIndex();
+    Alpine.store('monitor')?.addLog('info', `Synced ${synced} workflows to agent workspaces`);
+  }
+
+  // Sync the workflow index to Lead's workspace
+  async _syncIndex() {
+    if (!window.openclawClient?.authenticated) return;
+    const wfStore = Alpine?.store('workflows');
+    if (!wfStore) return;
+
+    const entries = wfStore.list.map(wf => ({
+      id: wf.id,
+      name: wf.name,
+      file: wf.id + '.json',
+      createdBy: wf.createdBy || 'user',
+      createdAt: wf.createdAt,
+      updatedAt: wf.updatedAt,
+      status: wf.status || 'draft',
+    }));
 
     try {
-      await window.openclawClient.injectChat(
-        `WRITE_FILES:${JSON.stringify(payload)}`,
-        { sessionKey: 'agent:lead:main', label: 'system-bridge' }
-      );
-      Alpine.store('monitor')?.addLog('info', `Synced ${files.length} workflows to volume`);
+      await window.openclawClient.syncWorkflowIndex(entries);
     } catch {}
   }
 
-  // -------------------------------------------------------------------------
-  // GOVERNANCE SYNC — writes state to Lead's workspace file
-  // Uses agents.files.set RPC (zero chat pollution) so agents can read
-  // governance scores via their `read` tool from GOVERNANCE.md.
-  // Falls back to chat.inject if agents.files.set is unavailable.
-  // -------------------------------------------------------------------------
+  // =========================================================================
+  // GOVERNANCE SYNC — writes state to team leads' workspace files
+  // =========================================================================
 
   async syncGovernance() {
     if (!window.openclawClient?.authenticated) return;
@@ -289,27 +372,21 @@ class WorkflowBridge {
       updatedAt: Date.now(),
     };
 
-    // Extract per-agent scores
     for (const agent of (Alpine.store('agents')?.list || [])) {
       const score = gov.getScore(agent.id);
       if (score) state.agents[agent.id] = score;
     }
 
-    // Build a human-readable markdown for agent consumption
     const md = this._buildGovernanceMd(state);
 
-    // Try writing directly to Lead's workspace via agents.files.set RPC
-    // This doesn't create any chat messages at all.
     try {
       await window.openclawClient.setAgentFile('lead', 'GOVERNANCE.md', md);
-      // Also write to Ops Lead
       await window.openclawClient.setAgentFile('ops-lead', 'GOVERNANCE.md', md);
-      return; // success — no need for chat fallback
+      return;
     } catch {
       // agents.files.set not available — fall back to chat.inject
     }
 
-    // Fallback: inject as labeled system message (hidden from chat UI)
     const payload = {
       action: 'WRITE_FILES',
       files: [{
@@ -326,7 +403,6 @@ class WorkflowBridge {
     } catch {}
   }
 
-  // Build human-readable governance markdown for agent workspace files
   _buildGovernanceMd(state) {
     const lines = ['# Governance State', '', `Updated: ${new Date(state.updatedAt).toISOString()}`, ''];
 
@@ -352,9 +428,9 @@ class WorkflowBridge {
     return lines.join('\n');
   }
 
-  // -------------------------------------------------------------------------
+  // =========================================================================
   // ACTIVITY LOG — reads /workspace/agent-activity/log.json for away report
-  // -------------------------------------------------------------------------
+  // =========================================================================
 
   async _checkActivityLog() {
     try {
@@ -365,8 +441,6 @@ class WorkflowBridge {
       if (!resp.ok) return;
 
       const data = await resp.json();
-      // Use localStorage (not sessionStorage) so timestamp persists across browser sessions.
-      // On first-ever visit, initialize to now so we don't show stale events as "new".
       if (!localStorage.getItem('mc-last-activity-seen')) {
         localStorage.setItem('mc-last-activity-seen', Date.now().toString());
       }
@@ -376,7 +450,6 @@ class WorkflowBridge {
       if (newEvents.length > 0) {
         const appStore = Alpine.store('app');
 
-        // Build away report for dashboard (only on first check after returning)
         if (!appStore.awayReport && newEvents.length > 3) {
           const duration = this._formatDuration(Date.now() - lastSeen);
           appStore.awayReport = {
