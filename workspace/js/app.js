@@ -953,6 +953,32 @@ document.addEventListener('alpine:init', () => {
         localStorage.setItem('mc-last-active', Date.now().toString());
       }, 60000);
 
+      // Visibility change: sync active chat history when user returns to tab.
+      // This is the PRIMARY recovery mechanism for iOS PWA (tab gets suspended,
+      // WS dies, agent finishes work) — when the user taps back into the app,
+      // we immediately fetch the latest state from the server.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          const sessions = Alpine.store('sessions');
+          if (sessions._activeSessionKey) {
+            // Small delay to let WS reconnect first (OpenClawClient handles its own reconnect)
+            setTimeout(() => {
+              sessions._syncActiveSessionHistory('visibility');
+            }, 1500);
+          }
+        }
+      });
+
+      // Also on focus (catches iOS cases where visibilitychange doesn't fire)
+      window.addEventListener('focus', () => {
+        const sessions = Alpine.store('sessions');
+        if (sessions._activeSessionKey) {
+          setTimeout(() => {
+            sessions._syncActiveSessionHistory('focus');
+          }, 2000);
+        }
+      });
+
       // Start adaptive health polling: faster when disconnected (15s), slower when stable (45s)
       const pollInterval = (this.connected && this.ocConnected) ? 45000 : 15000;
       healthChecker.startPolling(h => {
@@ -1146,6 +1172,7 @@ document.addEventListener('alpine:init', () => {
                         sessions._rateLimitRetried = false;
                         sessions._rateLimitCount = 0;
                         clearTimeout(sessions._rateLimitRecoveryTimer);
+                        sessions._stopResponsePolling();
                         sessions._persistMessages();
                         Alpine.store('monitor').addLog('info', 'Recovered response from history after agent run completed');
                         Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
@@ -1173,6 +1200,7 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg = null;
             sessions._sending = false;
             sessions._sendingSessionId = null;
+            sessions._stopResponsePolling();
             sessions._persistMessages();
           }
         }
@@ -1249,10 +1277,12 @@ document.addEventListener('alpine:init', () => {
               sessions._streamingMsg.content += delta;
             }
             sessions._scrollToBottom();
-          } else if (sessions.messages.length > 0) {
+          } else if (sessions.messages.length > 0 && sessions._sending) {
             // Recovery: _streamingMsg was cleared (by error handler, timeout, or
             // rate-limit retry) but new deltas are arriving (model fallback, late
             // response, or retry run). Find or create a message to receive them.
+            // Guard: only recover if _sending is still true — prevents zombie
+            // deltas from reviving _streamingMsg after the safety timer cleared it.
             const lastMsg = sessions.messages[sessions.messages.length - 1];
             if (lastMsg?.role === 'agent') {
               // Strip error/placeholder prefix if the fallback is now succeeding
@@ -1261,7 +1291,6 @@ document.addEventListener('alpine:init', () => {
               }
               lastMsg.streaming = true;
               sessions._streamingMsg = lastMsg;
-              sessions._sending = true;
               lastMsg.content += delta;
               sessions._scrollToBottom();
               Alpine.store('monitor').addLog('info', 'Recovered streaming on late delta event');
@@ -1360,10 +1389,16 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg = null;
           }
           sessions._rateLimitRetried = false;
+          sessions._rateLimitCount = 0;
+          clearTimeout(sessions._rateLimitRecoveryTimer);
           sessions._sending = false;
           sessions._sendingSessionId = null;
           sessions._activeRunId = null;
           sessions._retryRunId = null;
+          sessions._stopResponsePolling();
+
+          // Notify user that response arrived (important for iOS PWA in background)
+          if (producedContent) mcAudio.chatComplete();
 
           // Update session metadata
           const session = sessions.active;
@@ -1481,6 +1516,8 @@ document.addEventListener('alpine:init', () => {
                           sessions._sendingSessionId = null;
                           sessions._rateLimitRetried = false;
                           sessions._rateLimitCount = 0;
+                          clearTimeout(sessions._rateLimitRecoveryTimer);
+                          sessions._stopResponsePolling();
                           sessions._persistMessages();
                           Alpine.store('monitor').addLog('info', 'Recovered agent response from chat history after rate limit');
                           Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
@@ -1537,6 +1574,7 @@ document.addEventListener('alpine:init', () => {
                 sessions._rateLimitCount = 0;
                 sessions._sending = false;
                 sessions._sendingSessionId = null;
+                sessions._stopResponsePolling();
                 sessions._persistMessages();
               }, 3000);
               return;
@@ -1565,6 +1603,7 @@ document.addEventListener('alpine:init', () => {
           sessions._sendingSessionId = null;
           sessions._activeRunId = null;
           sessions._retryRunId = null;
+          sessions._stopResponsePolling();
           sessions._persistMessages();
 
           const session = sessions.active;
@@ -1604,6 +1643,9 @@ document.addEventListener('alpine:init', () => {
         this._syncAgentsFromOpenClaw();
         this._syncSessionsFromOpenClaw();
         Alpine.store('cron').fetch();
+        // Resume active chat: fetch latest messages from server.
+        // This catches responses the agent sent while we were disconnected.
+        Alpine.store('sessions')._syncActiveSessionHistory('reconnect');
       });
     },
 
@@ -1848,55 +1890,213 @@ document.addEventListener('alpine:init', () => {
         this._activeSessionKey = sel.sessionKey;
       }
 
-      // Check in-memory cache first
-      if (this._messageStore[id] && this._messageStore[id].length > 0) {
-        this.messages = this._messageStore[id];
-        return;
-      }
-
-      // Try loading from OpenClaw server
+      // ALWAYS try loading from OpenClaw server first when connected.
+      // Server is the source of truth — in-memory cache may be stale
+      // (e.g., agent responded while tab was backgrounded).
       if (ocMode === 'connected' && window.openclawClient?.authenticated) {
         try {
           const session = this.list.find(s => s.id === id);
           const historyKey = session?.sessionKey || id;
           const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
-            this.messages = history
-              .map(m => {
-                const content = extractMessageText(m.content);
-                let role = m.role === 'assistant' ? 'agent' : m.role;
-                // Detect cron/heartbeat-injected messages that appear as "user"
-                // but are actually system injections (e.g. "Read HEARTBEAT.md",
-                // "EXECUTE_WORKFLOW:", systemEvent payloads from cron jobs).
-                const isSystemInjection = role === 'user' && (
-                  /^Read HEARTBEAT/i.test(content) ||
-                  /^HEARTBEAT/i.test(content) ||
-                  /^EXECUTE_WORKFLOW:/i.test(content) ||
-                  /^Current time:/i.test(content) ||
-                  (m.label && /heartbeat|cron|system/i.test(m.label))
-                );
-                if (isSystemInjection) role = 'system';
-                return {
-                  id: m.id || generateId(),
-                  role,
-                  content,
-                  time: m.time || m.timestamp || '',
-                };
-              })
-              // Filter out empty messages and system injections (heartbeat/cron)
-              .filter(m => m.role !== 'system' && (m.role === 'user' || m.content.trim()));
+            this.messages = this._parseHistoryMessages(history);
             this._messageStore[id] = this.messages;
-            Alpine.store('monitor').addLog('info', `Loaded ${history.length} messages from OpenClaw`);
+            Alpine.store('monitor').addLog('info', `Loaded ${this.messages.length} messages from OpenClaw`);
+            this._scrollToBottom();
             return;
           }
         } catch (err) {
           console.warn('[Sessions] OpenClaw history load failed:', err.message);
+          // Fall through to cache/localStorage
         }
+      }
+
+      // Fallback: check in-memory cache
+      if (this._messageStore[id] && this._messageStore[id].length > 0) {
+        this.messages = this._messageStore[id];
+        return;
       }
 
       // Fallback: load from localStorage
       this.messages = this._loadMessages(id);
       this._messageStore[id] = this.messages;
+    },
+
+    // -----------------------------------------------------------------------
+    // SERVER HISTORY SYNC — the core of reliable chat
+    // -----------------------------------------------------------------------
+    // Instead of depending solely on live WebSocket streaming events,
+    // we periodically reconcile with the server's chat history. This makes
+    // the chat work like iMessage: always shows the latest server state.
+
+    // Convert server history messages to our local format
+    _parseHistoryMessages(history) {
+      return history
+        .map(m => {
+          const content = extractMessageText(m.content);
+          let role = m.role === 'assistant' ? 'agent' : m.role;
+          const isSystemInjection = role === 'user' && (
+            /^Read HEARTBEAT/i.test(content) ||
+            /^HEARTBEAT/i.test(content) ||
+            /^EXECUTE_WORKFLOW:/i.test(content) ||
+            /^Current time:/i.test(content) ||
+            (m.label && /heartbeat|cron|system/i.test(m.label))
+          );
+          if (isSystemInjection) role = 'system';
+          return {
+            id: m.id || generateId(),
+            role,
+            content,
+            time: m.time || m.timestamp || '',
+          };
+        })
+        .filter(m => m.role !== 'system' && (m.role === 'user' || m.content.trim()));
+    },
+
+    // Sync the active session's messages from the server.
+    // Called on: reconnect, visibility resume, polling timer, manual refresh.
+    // Debounced: prevents concurrent calls from clobbering each other.
+    _syncInFlight: false,
+    async _syncActiveSessionHistory(trigger) {
+      const sk = this._activeSessionKey;
+      if (!sk || !window.openclawClient?.authenticated) return;
+      // Prevent concurrent sync calls (polling + visibility can overlap)
+      if (this._syncInFlight) return;
+      this._syncInFlight = true;
+
+      try {
+        const history = await window.openclawClient.getHistory(sk);
+        if (!Array.isArray(history) || history.length === 0) return;
+
+        const serverMessages = this._parseHistoryMessages(history);
+        if (serverMessages.length === 0) return;
+
+        // Find the last agent message from the server
+        const lastServerAgent = [...serverMessages].reverse().find(m => m.role === 'agent');
+        const lastServerUser = [...serverMessages].reverse().find(m => m.role === 'user');
+
+        // If we're currently streaming and have REAL content (not a placeholder),
+        // don't clobber it — live deltas take priority over history polling.
+        if (this._streamingMsg && this._streamingMsg.content
+            && !this._streamingMsg.content.startsWith('⏳')
+            && this._streamingMsg.content.length > 0) {
+          return;
+        }
+
+        // If we're waiting for a response (_sending=true) and server has an agent reply
+        // after our last user message, we got the response — populate it.
+        if (this._sending && this._streamingMsg && lastServerAgent) {
+          const serverAgentContent = lastServerAgent.content.trim();
+          // Server has a real response (not empty, not an error placeholder)
+          if (serverAgentContent.length > 10) {
+            // Verify this is a response to our message (appears after last user msg in history)
+            const agentIdx = serverMessages.lastIndexOf(lastServerAgent);
+            const userIdx = lastServerUser ? serverMessages.lastIndexOf(lastServerUser) : -1;
+            if (agentIdx > userIdx) {
+              Alpine.store('monitor').addLog('info', `History sync (${trigger}): recovered agent response (${serverAgentContent.length} chars)`);
+              this._streamingMsg.content = serverAgentContent;
+              this._streamingMsg.streaming = false;
+              this._streamingMsg = null;
+              this._sending = false;
+              this._sendingSessionId = null;
+              this._rateLimitRetried = false;
+              this._rateLimitCount = 0;
+              clearTimeout(this._rateLimitRecoveryTimer);
+              this._stopResponsePolling();
+              this._persistMessages();
+              Alpine.store('app').pushChatEvent('ok', 'Response received');
+              mcAudio.chatComplete();
+              return;
+            }
+          }
+        }
+
+        // Not waiting for a response — just refresh messages from server
+        // if the server has more messages than we do (agent worked in background).
+        if (!this._sending && serverMessages.length > this.messages.length) {
+          Alpine.store('monitor').addLog('info', `History sync (${trigger}): updating ${this.messages.length} → ${serverMessages.length} messages`);
+          this.messages = serverMessages;
+          this._messageStore[this.activeId] = this.messages;
+          this._persistMessages();
+          this._scrollToBottom();
+        }
+      } catch (err) {
+        // Don't spam errors for routine sync failures (e.g. during reconnect race)
+        if (trigger !== 'poll') {
+          Alpine.store('monitor').addLog('warn', `History sync (${trigger}) failed: ${err.message}`);
+        }
+      } finally {
+        this._syncInFlight = false;
+      }
+    },
+
+    // Start polling for the active session while waiting for a response.
+    // Polls every 5s — catches responses missed due to WS issues, rate limits,
+    // iOS background suspension, etc.
+    _startResponsePolling() {
+      this._stopResponsePolling();
+      this._responsePollTimer = setInterval(() => {
+        if (this._sending && this._activeSessionKey) {
+          this._syncActiveSessionHistory('poll');
+        } else {
+          // No longer waiting — stop polling
+          this._stopResponsePolling();
+        }
+      }, 5000);
+    },
+
+    _stopResponsePolling() {
+      if (this._responsePollTimer) {
+        clearInterval(this._responsePollTimer);
+        this._responsePollTimer = null;
+      }
+    },
+
+    // Last-resort history fetch for the safety timer — tries to recover
+    // the agent's response from server history before giving up.
+    async _fetchHistoryRecovery(botMsg) {
+      try {
+        const sk = this._activeSessionKey;
+        if (!sk || !window.openclawClient?.authenticated) return;
+        const history = await window.openclawClient.getHistory(sk);
+        if (Array.isArray(history) && history.length > 0) {
+          const lastAssistant = [...history].reverse().find(m =>
+            m.role === 'assistant' || m.role === 'agent'
+          );
+          if (lastAssistant) {
+            const recovered = extractMessageText(lastAssistant.content);
+            if (recovered && recovered.length > 10) {
+              botMsg.content = recovered;
+              botMsg.streaming = false;
+              this._streamingMsg = null;
+              this._sending = false;
+              this._sendingSessionId = null;
+              this._rateLimitRetried = false;
+              this._rateLimitCount = 0;
+              clearTimeout(this._rateLimitRecoveryTimer);
+              this._stopResponsePolling();
+              this._persistMessages();
+              Alpine.store('monitor').addLog('info', 'Recovered response from history (safety timer)');
+              Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
+              mcAudio.chatComplete();
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        Alpine.store('monitor').addLog('warn', `History recovery failed: ${e.message}`);
+      }
+      // If we get here, no recovery was possible — let the caller handle timeout
+      botMsg.content = '(No response after timeout — agent may be stuck. Try sending again or check Monitor.)';
+      botMsg.streaming = false;
+      this._streamingMsg = null;
+      this._sending = false;
+      this._sendingSessionId = null;
+      this._rateLimitRetried = false;
+      this._rateLimitCount = 0;
+      this._stopResponsePolling();
+      this._persistMessages();
+      Alpine.store('monitor').addLog('warn', 'Chat response timed out — no recovery possible');
     },
 
     createSession(agentId, forceNew) {
@@ -2071,7 +2271,10 @@ document.addEventListener('alpine:init', () => {
           Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${sendResult?.runId || 'n/a'})`);
           Alpine.store('app').pushChatEvent('info', `Message sent to ${session?.agentName || 'agent'}`);
           // Response will arrive via events (chat.delta, chat.complete)
-          // handled by _setupOpenClawEvents in the app store
+          // handled by _setupOpenClawEvents in the app store.
+          // ALSO start polling server history as a safety net — catches responses
+          // missed due to WS disconnects, rate limits, or iOS background suspension.
+          this._startResponsePolling();
 
           // Safety timeout: agents using tools (exec, web_fetch, etc.) can take
           // 2+ minutes. Show a "still processing" indicator after 15s, but keep
@@ -2125,6 +2328,7 @@ document.addEventListener('alpine:init', () => {
                         this._rateLimitRetried = false;
                         this._rateLimitCount = 0;
                         clearTimeout(this._rateLimitRecoveryTimer);
+                        this._stopResponsePolling();
                         this._persistMessages();
                         Alpine.store('monitor').addLog('info', 'Recovered response from history on safety timeout');
                         Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
@@ -2149,6 +2353,7 @@ document.addEventListener('alpine:init', () => {
               this._rateLimitRetried = false;
               this._rateLimitCount = 0;
               clearTimeout(this._rateLimitRecoveryTimer);
+              this._stopResponsePolling();
               this._persistMessages();
               Alpine.store('monitor').addLog('warn',
                 hadContent ? 'Chat response timed out after 120s (partial content received)'
@@ -2165,6 +2370,7 @@ document.addEventListener('alpine:init', () => {
           this._sendingSessionId = null;
           this._activeRunId = null;
           this._retryRunId = null;
+          this._stopResponsePolling();
           Alpine.store('monitor').addLog('error', `OpenClaw chat error: ${e.message}`);
         }
         return;
