@@ -175,9 +175,15 @@ function initWorkflowCanvas() {
   // Load the active workflow from store, or default if none active
   const wfStore = Alpine?.store('workflows');
   if (wfStore?.activeId) {
-    const data = localStorage.getItem('mc-workflow-' + wfStore.activeId);
-    if (data) {
-      try { graph.configure(JSON.parse(data)); } catch {}
+    // Validate the persisted activeId still exists in the list
+    const exists = wfStore.list.some(w => w.id === wfStore.activeId);
+    if (exists) {
+      const data = localStorage.getItem('mc-workflow-' + wfStore.activeId);
+      if (data) {
+        try { graph.configure(JSON.parse(data)); } catch {}
+      }
+    } else {
+      wfStore.activeId = null;
     }
   }
   if (graph._nodes.length === 0) {
@@ -295,9 +301,10 @@ function registerCustomNodes() {
         const result = await window.openclawClient.sendChat(fullPrompt, {
           sessionKey: 'agent:' + agentId + ':main',
         });
-        // Correlate response events with this specific run's runId
+        // Correlate response events with this specific run's runId/idempotencyKey
         // to prevent cross-talk from concurrent workflow nodes or chat panel
-        const response = await this._waitForResponse(120000, result?.runId);
+        const runId = result?.runId || result?._idempotencyKey;
+        const response = await this._waitForResponse(120000, runId);
         this._lastResponse = response;
         return { response };
       } catch (e) {
@@ -465,7 +472,8 @@ function registerCustomNodes() {
         const result = await window.openclawClient.sendChat(toolPrompt, {
           sessionKey: 'agent:' + toolAgentId + ':main',
         });
-        const response = await AgentNode.prototype._waitForResponse.call(this, 15000, result?.runId);
+        const toolRunId = result?.runId || result?._idempotencyKey;
+        const response = await AgentNode.prototype._waitForResponse.call(this, 15000, toolRunId);
         this._lastResult = response;
         return { result: response };
       } catch (e) {
@@ -548,9 +556,45 @@ function registerCustomNodes() {
   OutputNode.prototype.runAsync = async function (inputs) {
     const result = inputs.result || '';
     const monitor = Alpine?.store('monitor');
+    const dest = this.properties.destination;
+    const label = this.properties.label || 'Output';
+
+    // Always log
     if (monitor) {
-      monitor.addLog('info', `[Workflow] ${this.properties.label}: ${result.slice(0, 200)}`);
+      monitor.addLog('info', `[Workflow] ${label}: ${result.slice(0, 200)}`);
     }
+
+    // Route to destination
+    if (dest === 'Chat Response') {
+      // Push workflow result into the active chat session as a system message
+      const sessions = Alpine?.store('sessions');
+      if (sessions?.activeId) {
+        sessions.messages.push({
+          role: 'agent',
+          content: `**[Workflow: ${label}]**\n\n${result}`,
+          time: new Date().toTimeString().slice(0, 5),
+        });
+      }
+    } else if (dest === 'File') {
+      // Write result to staging via workflow bridge
+      if (window.workflowBridge && window.openclawClient?.authenticated) {
+        try {
+          const fileId = 'wf-output-' + Date.now().toString(36);
+          await window.openclawClient.sendChat(
+            `WRITE_FILES:${JSON.stringify({
+              action: 'WRITE_FILES',
+              files: [{ path: `/workspace/staging/${fileId}.txt`, content: result }],
+              updateIndex: {
+                path: '/workspace/staging/index.json',
+                entry: { id: fileId, name: label, path: fileId + '.txt', type: 'text', createdBy: 'workflow', description: 'Workflow output: ' + label, status: 'pending' },
+              },
+            })}`,
+            { sessionKey: 'agent:lead:main' }
+          );
+        } catch {}
+      }
+    }
+
     return { output: result };
   };
   LiteGraph.registerNodeType('mission/output', OutputNode);

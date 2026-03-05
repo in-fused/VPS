@@ -586,14 +586,19 @@ class OpenClawClient {
   // ===========================================================================
   async sendChat(text, { sessionKey, timeoutMs } = {}) {
     if (!sessionKey) throw new Error('sessionKey is required for chat.send');
+    const idempotencyKey = this._generateId();
     const params = {
       sessionKey,
       message: text,
-      idempotencyKey: this._generateId(),
+      idempotencyKey,
       deliver: false,
     };
     if (timeoutMs !== undefined) params.timeoutMs = timeoutMs;
     const result = await this.request('chat.send', params);
+    // Attach the idempotency key so callers can correlate chat events by runId
+    if (result && typeof result === 'object') {
+      result._idempotencyKey = idempotencyKey;
+    }
     return result;
   }
 

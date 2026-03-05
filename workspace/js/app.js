@@ -937,6 +937,12 @@ document.addEventListener('alpine:init', () => {
         window.workflowBridge.startPolling(15000);
       }
 
+      // Resume workflow auto-save if a workflow was active before reload
+      const wfStore = Alpine.store('workflows');
+      if (wfStore.activeId) {
+        wfStore.setupAutoSave();
+      }
+
       // Start activity polling (server-side agent events)
       if (Alpine.store('activity')) {
         Alpine.store('activity').startPolling(15000);
@@ -2267,11 +2273,12 @@ document.addEventListener('alpine:init', () => {
           this._activeSessionKey = sessionKey;
 
           const sendResult = await window.openclawClient.sendChat(messageText, { sessionKey });
-          // Track the active runId so we can filter chat events from competing/stale runs
-          this._activeRunId = sendResult?.runId || null;
+          // Track the active runId so we can filter chat events from competing/stale runs.
+          // Server may return runId in response, or we use our idempotencyKey (attached by sendChat).
+          this._activeRunId = sendResult?.runId || sendResult?._idempotencyKey || null;
           this._retryRunId = null;
           this._lastAgentEventTime = 0;
-          Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${sendResult?.runId || 'n/a'})`);
+          Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${this._activeRunId || 'n/a'})`);
           Alpine.store('app').pushChatEvent('info', `Message sent to ${session?.agentName || 'agent'}`);
           // Response will arrive via events (chat.delta, chat.complete)
           // handled by _setupOpenClawEvents in the app store.
@@ -2461,7 +2468,7 @@ document.addEventListener('alpine:init', () => {
 
   Alpine.store('workflows', {
     list: storage.load('workflows', []),
-    activeId: null,
+    activeId: storage.load('workflows-activeId', null),
     running: false,
     _autoSaveTimer: null,
     _lastSerialized: null,
@@ -2510,6 +2517,7 @@ document.addEventListener('alpine:init', () => {
 
       // Clear current graph and load default template
       this.activeId = wf.id;
+      storage.save('workflows-activeId', wf.id);
       if (window.workflowGraph) {
         window.workflowGraph.clear();
         if (window.addDefaultWorkflow) addDefaultWorkflow(window.workflowGraph);
@@ -2544,6 +2552,7 @@ document.addEventListener('alpine:init', () => {
       if (this.activeId && this.activeId !== id) this._autoSave();
 
       this.activeId = id;
+      storage.save('workflows-activeId', id);
       const data = localStorage.getItem('mc-workflow-' + id);
       if (data && window.workflowGraph) {
         try {
@@ -2574,6 +2583,7 @@ document.addEventListener('alpine:init', () => {
       localStorage.removeItem('mc-workflow-' + id);
       if (this.activeId === id) {
         this.activeId = null;
+        storage.save('workflows-activeId', null);
         this._lastSerialized = null;
         if (window.workflowGraph) window.workflowGraph.clear();
       }
