@@ -1211,7 +1211,13 @@
                      @keydown.enter="$store.sessions.sendMessage()"
                      placeholder="Type your message..."
                      class="flex-1 bg-mc-bg border border-mc-border rounded-lg px-3 md:px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus min-w-0">
-              <button @click="$store.sessions.sendMessage()"
+              <button x-show="$store.sessions._sending"
+                      @click="$store.sessions.abortCurrentRun()"
+                      class="px-3 md:px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:brightness-110 transition-all flex-shrink-0 min-w-[52px]">
+                Stop
+              </button>
+              <button x-show="!$store.sessions._sending"
+                      @click="$store.sessions.sendMessage()"
                       :disabled="!$store.sessions.input.trim()"
                       class="px-3 md:px-4 py-2.5 bg-cyan-500 text-mc-bg rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0">
                 Send
