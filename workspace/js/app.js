@@ -1190,9 +1190,19 @@ document.addEventListener('alpine:init', () => {
         if (payload.state === 'error' || payload.error || payload.errorMessage) {
           const errMsg = payload.errorMessage || payload.error?.message || payload.error || 'Agent turn failed (no details)';
           Alpine.store('monitor').addLog('error', `Agent turn error: ${errMsg}`);
-          // Don't clear streaming state if rate-limit recovery is in progress —
-          // these agent errors are from intermediate model calls, not the final result.
-          if (sessions._rateLimitRetried) return;
+          // During rate-limit recovery, agent errors from intermediate model calls
+          // are expected — but if the run is ENDING (state explicitly says so), surface it.
+          if (sessions._rateLimitRetried) {
+            // Check if this is a terminal agent error (run finished with failure)
+            const isTerminal = payload.state === 'error' || payload.state === 'failed' || payload.state === 'done';
+            if (!isTerminal) return;
+            // Terminal — fall through to surface the error and clean up
+            Alpine.store('monitor').addLog('warn', 'Agent run ended during rate-limit recovery — surfacing error');
+            sessions._rateLimitRetried = false;
+            sessions._rateLimitCount = 0;
+            sessions._rateLimitRecoveryStart = 0;
+            clearTimeout(sessions._rateLimitRecoveryTimer);
+          }
           // Surface the error in the chat UI if we're waiting for a response
           if (sessions._sending && sessions._streamingMsg) {
             sessions._streamingMsg.content = `Error: ${errMsg}`;
@@ -1471,83 +1481,102 @@ document.addEventListener('alpine:init', () => {
             const runStillActive = sessions._lastAgentEventTime
               && (Date.now() - sessions._lastAgentEventTime) < 15000; // agent event within last 15s
 
+            // Bump rate limit count
+            sessions._rateLimitCount = (sessions._rateLimitCount || 0) + 1;
+
+            // Give up after 5 consecutive rate limits — all providers are exhausted
+            const maxRateLimits = 5;
+            if (sessions._rateLimitCount >= maxRateLimits) {
+              Alpine.store('monitor').addLog('warn', `${maxRateLimits} consecutive rate limits — all providers exhausted, giving up`);
+              sessions._streamingMsg.content = '⚠️ All providers rate-limited. Try again in a minute.';
+              sessions._streamingMsg.streaming = false;
+              sessions._streamingMsg = null;
+              sessions._rateLimitRetried = false;
+              sessions._rateLimitCount = 0;
+              sessions._rateLimitRecoveryStart = 0;
+              clearTimeout(sessions._rateLimitRecoveryTimer);
+              sessions._sending = false;
+              sessions._sendingSessionId = null;
+              sessions._stopResponsePolling();
+              sessions._persistMessages();
+              Alpine.store('app').pushChatEvent('error', '⚠️ All providers rate-limited. Try again in a minute.');
+              return;
+            }
+
             if (runStillActive) {
               // Original run is still alive — don't terminate or create a competing run.
-              // This handles BOTH first and subsequent rate limit errors while the agent
-              // is still active. Previously, only the first error was caught and the second
-              // would kill the streaming state.
               if (!sessions._rateLimitRetried) {
                 sessions._streamingMsg.content = '⏳ Rate limited — agent still working, waiting for fallback...';
                 sessions._rateLimitRetried = true;
               }
-              // Bump rate limit count for logging, but don't kill the stream
-              sessions._rateLimitCount = (sessions._rateLimitCount || 0) + 1;
               Alpine.store('monitor').addLog('info', `Rate limit #${sessions._rateLimitCount} but agent run still active — waiting for recovery`);
               Alpine.store('app').pushChatEvent('warn', '⚠️ API rate limit reached. Please try again later.');
 
-              // Set up a repeating history fetch: polls every 15s until either
-              // real content arrives, the agent finishes, or 3 min timeout.
-              clearTimeout(sessions._rateLimitRecoveryTimer);
-              sessions._rateLimitRecoveryStart = sessions._rateLimitRecoveryStart || Date.now();
-              const scheduleRecoveryPoll = () => {
-                sessions._rateLimitRecoveryTimer = setTimeout(async () => {
-                  // Bail if resolved or timed out (3 min max)
-                  if (!sessions._streamingMsg) return;
-                  const content = sessions._streamingMsg.content;
-                  if (content && !content.startsWith('⏳')) return;
-                  if (Date.now() - sessions._rateLimitRecoveryStart > 180000) {
-                    Alpine.store('monitor').addLog('warn', 'Rate limit recovery: 3 min timeout — giving up');
-                    sessions._streamingMsg.content = '⚠️ Agent stuck on rate limits. Tap Stop and try again.';
-                    sessions._streamingMsg.streaming = false;
-                    sessions._streamingMsg = null;
-                    sessions._sending = false;
-                    sessions._sendingSessionId = null;
-                    sessions._rateLimitRetried = false;
-                    sessions._rateLimitCount = 0;
-                    sessions._rateLimitRecoveryStart = 0;
-                    sessions._stopResponsePolling();
-                    sessions._persistMessages();
-                    return;
-                  }
+              // Start recovery polling ONCE — don't restart timer on each error.
+              // Each new error was clearing the timer, preventing polls from firing.
+              if (!sessions._rateLimitRecoveryStart) {
+                sessions._rateLimitRecoveryStart = Date.now();
+                const scheduleRecoveryPoll = () => {
+                  sessions._rateLimitRecoveryTimer = setTimeout(async () => {
+                    // Bail if resolved
+                    if (!sessions._streamingMsg) return;
+                    const content = sessions._streamingMsg.content;
+                    if (content && !content.startsWith('⏳')) return;
+                    // 90s timeout (was 3 min — too long on mobile)
+                    if (Date.now() - sessions._rateLimitRecoveryStart > 90000) {
+                      Alpine.store('monitor').addLog('warn', 'Rate limit recovery: 90s timeout — giving up');
+                      sessions._streamingMsg.content = '⚠️ Agent stuck on rate limits. Tap Stop and try again.';
+                      sessions._streamingMsg.streaming = false;
+                      sessions._streamingMsg = null;
+                      sessions._sending = false;
+                      sessions._sendingSessionId = null;
+                      sessions._rateLimitRetried = false;
+                      sessions._rateLimitCount = 0;
+                      sessions._rateLimitRecoveryStart = 0;
+                      sessions._stopResponsePolling();
+                      sessions._persistMessages();
+                      return;
+                    }
 
-                  Alpine.store('monitor').addLog('info', 'Rate limit recovery: polling chat history...');
-                  try {
-                    const sk = sessions._activeSessionKey;
-                    if (sk && window.openclawClient?.authenticated) {
-                      const history = await window.openclawClient.getHistory(sk);
-                      if (Array.isArray(history) && history.length > 0) {
-                        const lastAssistant = [...history].reverse().find(m =>
-                          m.role === 'assistant' || m.role === 'agent'
-                        );
-                        if (lastAssistant) {
-                          const recovered = extractMessageText(lastAssistant.content);
-                          if (recovered && recovered.length > 10) {
-                            sessions._streamingMsg.content = recovered;
-                            sessions._streamingMsg.streaming = false;
-                            sessions._streamingMsg = null;
-                            sessions._sending = false;
-                            sessions._sendingSessionId = null;
-                            sessions._rateLimitRetried = false;
-                            sessions._rateLimitCount = 0;
-                            sessions._rateLimitRecoveryStart = 0;
-                            clearTimeout(sessions._rateLimitRecoveryTimer);
-                            sessions._stopResponsePolling();
-                            sessions._persistMessages();
-                            Alpine.store('monitor').addLog('info', 'Recovered agent response from chat history after rate limit');
-                            Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
-                            return;
+                    Alpine.store('monitor').addLog('info', 'Rate limit recovery: polling chat history...');
+                    try {
+                      const sk = sessions._activeSessionKey;
+                      if (sk && window.openclawClient?.authenticated) {
+                        const history = await window.openclawClient.getHistory(sk);
+                        if (Array.isArray(history) && history.length > 0) {
+                          const lastAssistant = [...history].reverse().find(m =>
+                            m.role === 'assistant' || m.role === 'agent'
+                          );
+                          if (lastAssistant) {
+                            const recovered = extractMessageText(lastAssistant.content);
+                            if (recovered && recovered.length > 10) {
+                              sessions._streamingMsg.content = recovered;
+                              sessions._streamingMsg.streaming = false;
+                              sessions._streamingMsg = null;
+                              sessions._sending = false;
+                              sessions._sendingSessionId = null;
+                              sessions._rateLimitRetried = false;
+                              sessions._rateLimitCount = 0;
+                              sessions._rateLimitRecoveryStart = 0;
+                              clearTimeout(sessions._rateLimitRecoveryTimer);
+                              sessions._stopResponsePolling();
+                              sessions._persistMessages();
+                              Alpine.store('monitor').addLog('info', 'Recovered agent response from chat history after rate limit');
+                              Alpine.store('app').pushChatEvent('ok', 'Response recovered from server');
+                              return;
+                            }
                           }
                         }
                       }
+                    } catch (e) {
+                      Alpine.store('monitor').addLog('warn', `History fetch failed: ${e.message}`);
                     }
-                  } catch (e) {
-                    Alpine.store('monitor').addLog('warn', `History fetch failed: ${e.message}`);
-                  }
-                  // Not recovered yet — schedule another poll
-                  scheduleRecoveryPoll();
-                }, 15000);
-              };
-              scheduleRecoveryPoll();
+                    // Not recovered yet — schedule another poll
+                    scheduleRecoveryPoll();
+                  }, 15000);
+                };
+                scheduleRecoveryPoll();
+              }
 
               return; // Don't mark as failed — run continues
             }
