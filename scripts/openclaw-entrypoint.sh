@@ -96,12 +96,13 @@ config.models.providers.litellm = {
 };
 
 // Default model — object format with primary key (flat strings break subagents)
-// Cerebras Llama 3.3 70B: FREE (1M TPD), fastest inference.
-// Spread agents across Groq + Cerebras + Gemini to avoid single-provider exhaustion.
+// Groq Llama 3.3 70B: FREE (load-balanced across 4 accounts).
+// Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — switched to Groq.
+// Spread agents across Groq + Gemini to avoid single-provider exhaustion.
 // DeepSeek ($0.28/1M) is the fallback-only safety net on 429 errors.
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-llama-3.3-70b' };
+config.agents.defaults.model = { primary: 'litellm/groq-llama-3.3-70b' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -186,32 +187,33 @@ config.agents.list = config.agents.list || [];
 // Only valid identity keys: name, emoji. Only valid subagents keys: allowAgents, model.
 if (config.agents.list.length === 0) {
   config.agents.list = [
-    // CORE TEAM — models spread across Groq + Cerebras + Gemini to avoid
-    // single-provider rate limit exhaustion. Each free provider has ~1M TPD.
+    // CORE TEAM — models spread across Groq + Gemini to avoid
+    // single-provider rate limit exhaustion. Groq load-balanced across 4 accounts.
+    // Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — switched to Groq.
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
@@ -236,18 +238,19 @@ if (config.agents.list.length === 0) {
         emoji: '📝',
       },
     },
-    // PLATFORM TEAM — use Cerebras (1M TPD) to keep Groq quota for Core Team
+    // PLATFORM TEAM — Groq for leads, Cerebras Scout for lightweight tasks
+    // Groq load-balanced across 4 accounts. Cerebras 404 on llama-3.3-70b but Scout still works.
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
@@ -260,7 +263,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['sentinel', 'chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
@@ -273,7 +276,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+        model: { primary: 'litellm/groq-llama-3.3-70b' },
       },
     },
     {
@@ -307,26 +310,28 @@ delete config.tools?.agentToAgent?.maxPingPongTurns;
 
 // Clean unrecognized agent keys from persisted agent list.
 // Also spread models across providers to avoid single-provider rate limit exhaustion.
-// Model assignment: Lead→Groq, CodeCraft/OpsLead→Cerebras 70B, Builder/Sentinel→Cerebras Scout,
-// Scout→Gemini Flash, Scribe/Chronicler→Gemini Flash-Lite. Subagents→Cerebras 70B.
+// Model assignment: Lead/CodeCraft/OpsLead→Groq 70B (4 accounts), Builder/Sentinel→Cerebras Scout,
+// Scout→Gemini Flash, Scribe/Chronicler→Gemini Flash-Lite. Subagents→Groq 70B.
+// Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — all references switched to Groq.
 var MODEL_MAP = {
-  'lead': 'litellm/cerebras-llama-3.3-70b',
-  'codecraft': 'litellm/cerebras-llama-3.3-70b',
+  'lead': 'litellm/groq-llama-3.3-70b',
+  'codecraft': 'litellm/groq-llama-3.3-70b',
   'scout': 'litellm/gemini-flash',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-llama-3.3-70b',
+  'ops-lead': 'litellm/groq-llama-3.3-70b',
   'builder': 'litellm/cerebras-llama-4-scout',
   'sentinel': 'litellm/cerebras-llama-4-scout',
   'chronicler': 'litellm/gemini-flash-lite',
 };
+var SUBAGENT_MODEL = 'litellm/groq-llama-3.3-70b';
 if (Array.isArray(config.agents?.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
     if (agent.subagents) delete agent.subagents.maxDepth;
     delete agent.instructions; // not a valid OpenClaw agent key
-    // Migrate dead Cerebras qwen3-32b model
-    if (agent.model && agent.model.primary === 'litellm/cerebras-qwen3-32b') {
-      agent.model.primary = 'litellm/cerebras-llama-3.3-70b';
+    // Migrate dead Cerebras models (qwen3-32b dropped, llama-3.3-70b 404 as of 2026-03-05)
+    if (agent.model && (agent.model.primary === 'litellm/cerebras-qwen3-32b' || agent.model.primary === 'litellm/cerebras-llama-3.3-70b')) {
+      agent.model.primary = MODEL_MAP[agent.id] || SUBAGENT_MODEL;
     }
     // Migrate paid gpt-4o-mini to free gemini-flash-lite
     if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
@@ -336,10 +341,12 @@ if (Array.isArray(config.agents?.list)) {
     if (MODEL_MAP[agent.id] && agent.model && agent.model.primary === 'litellm/groq-qwen3-32b') {
       agent.model.primary = MODEL_MAP[agent.id];
     }
-    // Spread subagent models too
+    // Spread subagent models too — migrate dead Cerebras models
     if (agent.subagents && agent.subagents.model) {
-      if (agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b' || agent.subagents.model.primary === 'litellm/groq-qwen3-32b') {
-        agent.subagents.model.primary = 'litellm/cerebras-llama-3.3-70b';
+      if (agent.subagents.model.primary === 'litellm/cerebras-qwen3-32b'
+          || agent.subagents.model.primary === 'litellm/groq-qwen3-32b'
+          || agent.subagents.model.primary === 'litellm/cerebras-llama-3.3-70b') {
+        agent.subagents.model.primary = SUBAGENT_MODEL;
       }
     }
   });
@@ -347,7 +354,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-3.3-70b, a2a=peer, agents=8 (2 teams), models spread across groq+cerebras+gemini (free) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=groq-llama-3.3-70b, a2a=peer, agents=8 (2 teams), models spread across groq(4 accts)+cerebras-scout+gemini (free) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

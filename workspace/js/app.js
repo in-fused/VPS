@@ -485,13 +485,18 @@ function extractMessageText(raw) {
   if (raw == null) return '';
   if (typeof raw === 'string') return raw;
   if (Array.isArray(raw)) {
-    // Content blocks array — extract text from all text-bearing blocks
+    // Content blocks array — extract text from text-bearing blocks only.
+    // Skip tool_use and tool_result blocks (they're internal tool execution, not chat text).
     const texts = raw
-      .map(b => b && extractMessageText(b))
+      .filter(b => b && b.type !== 'tool_use' && b.type !== 'tool_result')
+      .map(b => extractMessageText(b))
       .filter(t => t);
     return texts.join('\n');
   }
   if (typeof raw === 'object') {
+    // Skip tool_use and tool_result blocks entirely — these are tool execution details
+    if (raw.type === 'tool_use' || raw.type === 'tool_result') return '';
+
     // OpenClaw v3 sends various nested formats — check all known shapes:
 
     // Direct text field (most common for simple text blocks)
@@ -1514,10 +1519,16 @@ document.addEventListener('alpine:init', () => {
             if (isRateLimit) {
               errText = 'Rate limit reached on all providers. Please try again in a minute.';
             }
+            // Clean up verbose LiteLLM error messages for display
+            if (/litellm\.(NotFound|BadRequest)Error/i.test(errText)) {
+              const match = errText.match(/(?:Model|Provider)\s+\S+\s+(?:does not exist|not found)/i);
+              errText = match ? match[0] + ' — falling back to next provider' : errText.slice(0, 200);
+            }
             let prior = sessions._streamingMsg.content.trim();
             if (prior.startsWith('⏳')) prior = '';
             const prefix = prior ? '\n\n' : '';
             sessions._streamingMsg.content = prior + prefix + '⚠️ ' + errText;
+            sessions._streamingMsg._systemNote = true;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
@@ -1971,6 +1982,11 @@ document.addEventListener('alpine:init', () => {
     // Convert server history messages to our local format
     _parseHistoryMessages(history) {
       return history
+        .filter(m => {
+          // Skip tool_result messages entirely — they're internal tool execution
+          if (m.role === 'tool') return false;
+          return true;
+        })
         .map(m => {
           const content = extractMessageText(m.content);
           let role = m.role === 'assistant' ? 'agent' : m.role;

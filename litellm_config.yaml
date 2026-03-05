@@ -306,11 +306,12 @@ router_settings:
   # Each free provider has ~1M TPD. Chain ensures agents never get stuck.
   # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
   fallbacks:
-    - groq-llama-3.3-70b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
-    - groq-qwen3-32b: ["cerebras-llama-3.3-70b", "deepseek-chat"]
+    # Cerebras llama-3.3-70b returning 404 as of 2026-03-05 — Groq is primary now
+    - groq-llama-3.3-70b: ["groq-qwen3-32b", "deepseek-chat"]
+    - groq-qwen3-32b: ["groq-llama-3.3-70b", "deepseek-chat"]
     - cerebras-llama-3.3-70b: ["groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-llama-4-scout: ["cerebras-llama-3.3-70b", "groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-flash: ["cerebras-llama-3.3-70b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["groq-llama-3.3-70b", "deepseek-chat"]
+    - gemini-flash: ["groq-llama-3.3-70b", "deepseek-chat"]
     - gemini-flash-lite: ["gemini-flash", "deepseek-chat"]
     - gemini-pro: ["gemini-flash", "deepseek-chat"]
     - mistral-large: ["deepseek-chat"]
