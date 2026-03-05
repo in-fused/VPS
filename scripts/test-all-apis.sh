@@ -82,6 +82,91 @@ mask_key() {
   echo "${key:0:8}..."
 }
 
+# Run HTTP requests inside the Docker network (services don't expose ports to host)
+# Usage: docker_curl [-X method] [-H header]... [-d body] [-o outfile] [-w format] [--max-time N] <url>
+# Returns: writes response to $RESP (or -o file), prints http_code if -w used
+docker_curl() {
+  # Build curl args, routing through the litellm container (has python3)
+  # We use python3 urllib since curl may not be in the container
+  local method="GET" url="" body="" max_time=30 outfile="$RESP" write_format="" headers=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -X) method="$2"; shift 2 ;;
+      -H) headers+=("$2"); shift 2 ;;
+      -d) body="$2"; shift 2 ;;
+      -o) outfile="$2"; shift 2 ;;
+      -w) write_format="$2"; shift 2 ;;
+      -s) shift ;;  # silently ignore -s
+      --max-time) max_time="$2"; shift 2 ;;
+      *) url="$1"; shift ;;
+    esac
+  done
+
+  # Build python3 script for the HTTP request
+  local header_code=""
+  for h in "${headers[@]}"; do
+    local hname="${h%%:*}"
+    local hval="${h#*: }"
+    # Escape single quotes in header values for python string safety
+    hval=$(printf '%s' "$hval" | sed "s/'/\\\\'/g")
+    header_code="${header_code}req.add_header('${hname}', '${hval}');"
+  done
+
+  local py_script="
+import urllib.request, urllib.error, json, sys, socket
+socket.setdefaulttimeout(${max_time})
+try:
+    req = urllib.request.Request('${url}', method='${method}')
+    ${header_code}
+"
+  if [ -n "$body" ]; then
+    # Escape single quotes in body for python
+    local escaped_body
+    escaped_body=$(printf '%s' "$body" | sed "s/'/\\\\'/g")
+    py_script="${py_script}    req.data = '${escaped_body}'.encode()
+    req.add_header('Content-Type', 'application/json')
+"
+  fi
+
+  py_script="${py_script}    resp = urllib.request.urlopen(req)
+    data = resp.read().decode()
+    code = resp.getcode()
+    print(str(code) + '|||' + data)
+except urllib.error.HTTPError as e:
+    data = e.read().decode() if e.fp else ''
+    print(str(e.code) + '|||' + data)
+except Exception as e:
+    print('000|||' + str(e))
+"
+
+  local result
+  result=$(docker exec litellm python3 -c "$py_script" 2>/dev/null) || result="000|||connection failed"
+
+  local http_code="${result%%|||*}"
+  local response_body="${result#*|||}"
+
+  printf '%s' "$response_body" > "$outfile"
+
+  if [ -n "$write_format" ]; then
+    printf '%s' "$http_code"
+  fi
+}
+
+# Shorthand: run a LiteLLM API call, return http_code, body in $RESP
+litellm_api() {
+  local endpoint="$1"; shift
+  docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 30 \
+    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+    "$@" "http://localhost:4000${endpoint}"
+}
+
+# Shorthand: OpenClaw wget from inside its container
+openclaw_wget() {
+  local url="$1"
+  docker exec openclaw wget -qO- --timeout=10 "$url" 2>/dev/null
+}
+
 pass() { echo -e "  ${GREEN}PASS${NC}  $1"; PASS=$((PASS + 1)); }
 fail() {
   echo -e "  ${RED}FAIL${NC}  $1"
@@ -137,12 +222,12 @@ test_model() {
   start_ms=$(date +%s%N 2>/dev/null || python3 -c "import time; print(int(time.time()*1000000000))" 2>/dev/null || echo 0)
 
   local http_code
-  http_code=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 30 \
-    -X POST "http://localhost:4000/v1/chat/completions" \
+  http_code=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 30 \
+    -X POST \
     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
     -d "{\"model\":\"$alias\",\"max_tokens\":5,\"messages\":[{\"role\":\"user\",\"content\":\"Say OK\"}]}" \
-    2>/dev/null) || http_code="000"
+    "http://localhost:4000/v1/chat/completions" \
+    ) || http_code="000"
 
   end_ms=$(date +%s%N 2>/dev/null || python3 -c "import time; print(int(time.time()*1000000000))" 2>/dev/null || echo 0)
 
@@ -271,8 +356,8 @@ done
 
 subsection "LiteLLM Health Endpoint"
 if [ -n "${LITELLM_MASTER_KEY:-}" ]; then
-  HTTP=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
-    "http://localhost:4000/health/liveliness" 2>/dev/null) || HTTP="000"
+  HTTP=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
+    "http://localhost:4000/health/liveliness") || HTTP="000"
   if [ "$HTTP" = "200" ]; then
     pass "LiteLLM /health/liveliness (HTTP $HTTP)"
   else
@@ -280,9 +365,9 @@ if [ -n "${LITELLM_MASTER_KEY:-}" ]; then
   fi
 
   # Model count
-  HTTP=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
+  HTTP=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    "http://localhost:4000/v1/models" 2>/dev/null) || HTTP="000"
+    "http://localhost:4000/v1/models") || HTTP="000"
   if [ "$HTTP" = "200" ]; then
     count=$(python3 -c "import json; print(len(json.load(open('$RESP')).get('data',[])))" 2>/dev/null || echo "?")
     pass "LiteLLM /v1/models — $count models registered"
@@ -294,21 +379,19 @@ else
 fi
 
 subsection "OpenClaw Health Endpoint"
-HTTP=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
-  "http://localhost:18789/healthz" 2>/dev/null) || HTTP="000"
-if [ "$HTTP" = "200" ]; then
-  pass "OpenClaw /healthz (HTTP $HTTP)"
+OC_HEALTH=$(docker exec openclaw wget -qO- --timeout=10 "http://localhost:18789/healthz" 2>/dev/null)
+if [ -n "$OC_HEALTH" ]; then
+  pass "OpenClaw /healthz (via docker exec)"
 else
-  fail "OpenClaw /healthz" "HTTP $HTTP — container may be starting"
+  fail "OpenClaw /healthz" "not reachable inside container — may be starting"
 fi
 
 # OpenClaw gateway base
-HTTP=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
-  "http://localhost:18789/openclaw/" 2>/dev/null) || HTTP="000"
-if [ "$HTTP" = "200" ]; then
+OC_GW=$(docker exec openclaw wget -qO- --timeout=10 "http://localhost:18789/openclaw/" 2>&1)
+if [ $? -eq 0 ]; then
   pass "OpenClaw /openclaw/ gateway UI accessible"
 else
-  warn "OpenClaw /openclaw/ — HTTP $HTTP (may require auth)"
+  warn "OpenClaw /openclaw/ — not reachable (may require auth)"
 fi
 
 subsection "Scrapling Health"
@@ -504,9 +587,9 @@ section "3. LITELLM MODEL ROUTING — ALL 22 MODELS"
 echo -e "${DIM}  Testing each model alias via LiteLLM proxy (localhost:4000)${NC}"
 echo -e "${DIM}  Measures: HTTP status, response latency, actual model used, token count${NC}"
 
-# Check LiteLLM is running
-LLM_UP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
-  "http://localhost:4000/health/liveliness" 2>/dev/null) || LLM_UP="000"
+# Check LiteLLM is running (from inside the container)
+LLM_UP=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 5 \
+  "http://localhost:4000/health/liveliness") || LLM_UP="000"
 
 if [ "$LLM_UP" != "200" ]; then
   fail "LiteLLM not reachable — skipping model tests"
@@ -568,11 +651,12 @@ echo -e "${DIM}    cerebras-* -> groq-* -> deepseek-chat${NC}"
 echo -e "${DIM}    gemini-*/mistral-* -> deepseek-chat/deepseek-coder${NC}"
 
 # Verify fallback config is loaded
-FALLBACK_CONFIG=$(curl -s --max-time 10 \
+docker_curl -s -o "$RESP" --max-time 10 \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  "http://localhost:4000/v1/models" 2>/dev/null)
+  "http://localhost:4000/v1/models" > /dev/null
+FALLBACK_CONFIG=$(cat "$RESP")
 
-if [ -n "$FALLBACK_CONFIG" ]; then
+if [ -n "$FALLBACK_CONFIG" ] && [ "$FALLBACK_CONFIG" != "connection failed" ]; then
   pass "LiteLLM router config loaded (fallbacks configured in litellm_config.yaml)"
 else
   fail "Could not verify LiteLLM router config"
@@ -584,12 +668,11 @@ echo -e "${DIM}  groq-llama-3.3-70b has 2 deployments (GROQ_API_KEY + GROQ_API_K
 
 for i in 1 2 3; do
   start_ms=$(date +%s%N 2>/dev/null || echo 0)
-  http=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 15 \
-    -X POST "http://localhost:4000/v1/chat/completions" \
+  http=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 15 \
+    -X POST \
     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
     -d '{"model":"groq-llama-3.3-70b","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
-    2>/dev/null) || http="000"
+    "http://localhost:4000/v1/chat/completions") || http="000"
   end_ms=$(date +%s%N 2>/dev/null || echo 0)
   if [ "$start_ms" != "0" ] && [ "$end_ms" != "0" ]; then
     ms=$(( (end_ms - start_ms) / 1000000 ))
@@ -614,12 +697,11 @@ echo -e "${DIM}  Sending rapid requests to trigger rate limiting and verify fall
 
 FALLBACK_TRIGGERED=false
 for i in $(seq 1 5); do
-  http=$(curl -s -o "$RESP" -w "%{http_code}" --max-time 20 \
-    -X POST "http://localhost:4000/v1/chat/completions" \
+  http=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 20 \
+    -X POST \
     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
     -d '{"model":"groq-qwen3-32b","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}' \
-    2>/dev/null) || http="000"
+    "http://localhost:4000/v1/chat/completions") || http="000"
 
   if [ "$http" = "200" ]; then
     model_used=$(python3 -c "import json; print(json.load(open('$RESP')).get('model','?'))" 2>/dev/null)
@@ -786,12 +868,11 @@ if [ -n "$AGENT_MODELS" ]; then
   echo "$AGENT_MODELS" | while IFS='|' read -r agent_id model sub_model; do
     echo -e "  ${CYAN}$agent_id${NC}: model=${BOLD}$model${NC}, subagent_model=${sub_model}"
     # Quick check if the model works (reuse cached results if already tested)
-    hit=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
-      -X POST "http://localhost:4000/v1/chat/completions" \
+    hit=$(docker_curl -s -o "$RESP" -w "%{http_code}" --max-time 10 \
+      -X POST \
       -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-      -H "Content-Type: application/json" \
       -d "{\"model\":\"$model\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}" \
-      2>/dev/null) || hit="000"
+      "http://localhost:4000/v1/chat/completions") || hit="000"
     if [ "$hit" = "200" ]; then
       pass "  $agent_id -> $model: reachable"
     elif [ "$hit" = "429" ]; then
