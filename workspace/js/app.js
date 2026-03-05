@@ -1116,6 +1116,10 @@ document.addEventListener('alpine:init', () => {
       // Without this, a failed model call results in dead silence in the UI.
       oc.on('agent', (payload) => {
         const sessions = Alpine.store('sessions');
+        // Track that the active run is still alive (used by rate-limit retry logic)
+        if (payload.run === sessions._activeRunId || payload.runId === sessions._activeRunId) {
+          sessions._lastAgentEventTime = Date.now();
+        }
         // Check if the agent event carries an error state
         if (payload.state === 'error' || payload.error || payload.errorMessage) {
           const errMsg = payload.errorMessage || payload.error?.message || payload.error || 'Agent turn failed (no details)';
@@ -1174,6 +1178,18 @@ document.addEventListener('alpine:init', () => {
             && payload.sessionKey !== sessions._activeSessionKey) {
           Alpine.store('monitor').addLog('info', `Chat event filtered: session=${payload.sessionKey} (active=${sessions._activeSessionKey})`);
           return; // Not for our active session — ignore
+        }
+
+        // Filter by runId: only process events from our active run or retry run.
+        // This prevents competing/stale runs (e.g., duplicate retry) from clobbering
+        // the streaming state with empty finals.
+        if (payload.runId && sessions._activeRunId) {
+          const isOurRun = payload.runId === sessions._activeRunId
+            || payload.runId === sessions._retryRunId;
+          if (!isOurRun) {
+            Alpine.store('monitor').addLog('info', `Chat event filtered: run=${payload.runId} (active=${sessions._activeRunId}, retry=${sessions._retryRunId || 'none'})`);
+            return;
+          }
         }
 
         if (state === 'delta') {
@@ -1307,6 +1323,8 @@ document.addEventListener('alpine:init', () => {
           sessions._rateLimitRetried = false;
           sessions._sending = false;
           sessions._sendingSessionId = null;
+          sessions._activeRunId = null;
+          sessions._retryRunId = null;
 
           // Update session metadata
           const session = sessions.active;
@@ -1371,9 +1389,23 @@ document.addEventListener('alpine:init', () => {
           const rawErr = extractMessageText(payload.errorMessage) || extractMessageText(payload.message) || 'Unknown error';
           const isRateLimit = /rate.?limit|429|too many|quota/i.test(rawErr);
 
-          // Auto-retry once on rate limit errors — LiteLLM's fallback chain
-          // (Groq → Cerebras → DeepSeek) needs a fresh request to try the next provider.
+          // Rate limit handling: check if the original run is still active server-side.
+          // OpenClaw agents are multi-step — a rate limit on ONE model call doesn't kill
+          // the whole turn. If agent events are still arriving, the run is recovering
+          // via LiteLLM's fallback chain. Only retry if the run appears truly dead.
           if (isRateLimit && !sessions._rateLimitRetried && sessions._streamingMsg) {
+            const runStillActive = sessions._lastAgentEventTime
+              && (Date.now() - sessions._lastAgentEventTime) < 10000; // agent event within last 10s
+
+            if (runStillActive) {
+              // Original run is still alive — don't create a competing run
+              Alpine.store('monitor').addLog('info', 'Rate limit hit but agent run is still active — waiting for server-side recovery');
+              Alpine.store('app').pushChatEvent('warn', '⚠️ API rate limit reached. Please try again later.');
+              sessions._streamingMsg.content = '⏳ Rate limited — agent still working, waiting for fallback...';
+              sessions._rateLimitRetried = true; // prevent duplicate handling
+              return; // Don't mark as failed — original run continues
+            }
+
             sessions._rateLimitRetried = true;
             // Show retry message in the streaming bubble
             sessions._streamingMsg.content = '⏳ Rate limited — auto-retrying with fallback provider...';
@@ -1399,7 +1431,10 @@ document.addEventListener('alpine:init', () => {
                     }
                     // Keep streaming state active so delta events from retry populate the bubble
                     sessions._sending = true;
-                    await window.openclawClient.sendChat(lastUserMsg.content, { sessionKey: sk });
+                    const retryResult = await window.openclawClient.sendChat(lastUserMsg.content, { sessionKey: sk });
+                    // Track retry runId so we accept events from it too
+                    sessions._retryRunId = retryResult?.runId || null;
+                    Alpine.store('monitor').addLog('info', `Retry chat.send accepted (runId=${sessions._retryRunId || 'n/a'})`);
                     // Response will arrive via streaming events — delta handler will clear the indicator
                     return;
                   }
@@ -1435,10 +1470,12 @@ document.addEventListener('alpine:init', () => {
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
           }
-          // Reset retry flag for next message
+          // Reset retry flag and run tracking for next message
           sessions._rateLimitRetried = false;
           sessions._sending = false;
           sessions._sendingSessionId = null;
+          sessions._activeRunId = null;
+          sessions._retryRunId = null;
           sessions._persistMessages();
 
           const session = sessions.active;
@@ -1699,6 +1736,9 @@ document.addEventListener('alpine:init', () => {
     _sending: false, // prevents double-send
     _sendingSessionId: null, // which session is waiting for a response
     _streamingMsg: null, // current streaming message (for OpenClaw events)
+    _activeRunId: null, // runId from last chat.send — used to filter competing run events
+    _retryRunId: null, // runId from rate-limit retry chat.send
+    _lastAgentEventTime: 0, // timestamp of last agent event for active run
     _messageStore: {}, // sessionId -> messages[]
     _deletedKeys: new Set(), // sessionKeys deleted by user — prevents sync from re-adding them
 
@@ -1931,6 +1971,10 @@ document.addEventListener('alpine:init', () => {
           this._activeSessionKey = sessionKey;
 
           const sendResult = await window.openclawClient.sendChat(messageText, { sessionKey });
+          // Track the active runId so we can filter chat events from competing/stale runs
+          this._activeRunId = sendResult?.runId || null;
+          this._retryRunId = null;
+          this._lastAgentEventTime = 0;
           Alpine.store('monitor').addLog('info', `chat.send accepted (session=${sessionKey}, runId=${sendResult?.runId || 'n/a'})`);
           Alpine.store('app').pushChatEvent('info', `Message sent to ${session?.agentName || 'agent'}`);
           // Response will arrive via events (chat.delta, chat.complete)
@@ -1956,6 +2000,8 @@ document.addEventListener('alpine:init', () => {
               this._streamingMsg = null;
               this._sending = false;
               this._sendingSessionId = null;
+              this._activeRunId = null;
+              this._retryRunId = null;
               this._persistMessages();
               Alpine.store('monitor').addLog('warn',
                 hadContent ? 'Chat response timed out after 120s (partial content received)'
@@ -1970,6 +2016,8 @@ document.addEventListener('alpine:init', () => {
           this._streamingMsg = null;
           this._sending = false;
           this._sendingSessionId = null;
+          this._activeRunId = null;
+          this._retryRunId = null;
           Alpine.store('monitor').addLog('error', `OpenClaw chat error: ${e.message}`);
         }
         return;
