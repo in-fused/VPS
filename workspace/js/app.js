@@ -276,7 +276,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/gemini-flash', status: 'idle',
+    model: 'litellm/cerebras-zai-glm', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -298,7 +298,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/gemini-flash', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -366,7 +366,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/gemini-flash', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -389,7 +389,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/gemini-flash', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -1023,7 +1023,7 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'litellm/cerebras-llama-3.3-70b',
+            model: a.model?.primary || a.model || 'litellm/cerebras-llama-3.1-8b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -1684,7 +1684,7 @@ document.addEventListener('alpine:init', () => {
     wizardStep: 1,
     wizard: {
       name: '', emoji: '🤖', description: '',
-      model: 'litellm/gemini-flash', systemPrompt: '', tools: [],
+      model: 'litellm/cerebras-zai-glm', systemPrompt: '', tools: [],
     },
 
     // Count agents with active cron jobs (replaces old running/idle UI-only toggle)
@@ -1700,7 +1700,7 @@ document.addEventListener('alpine:init', () => {
     openWizard() {
       this.wizard = {
         name: '', emoji: '🤖', description: '',
-        model: 'litellm/gemini-flash', systemPrompt: '', tools: [],
+        model: 'litellm/cerebras-zai-glm', systemPrompt: '', tools: [],
       };
       this.wizardStep = 1;
       this.wizardOpen = true;

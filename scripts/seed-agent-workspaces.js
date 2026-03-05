@@ -49,16 +49,16 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 ## Core Team
 | Agent | Role | Model (Provider) |
 |-------|------|-------------------|
-| Lead | Orchestrator — delegates, reviews, manages team | groq-qwen3-32b (Groq) |
+| Lead | Orchestrator — delegates, reviews, manages team | cerebras-zai-glm (Cerebras) |
 | CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-3.3-70b (Cerebras) |
-| Scout | Research — web search, analysis, fact-checking | gemini-flash (Gemini) |
+| Scout | Research — web search, analysis, fact-checking | gemini-pro (Gemini) |
 | Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini) |
 
 ## Platform Team
 | Agent | Role | Model (Provider) |
 |-------|------|-------------------|
-| Ops Lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-3.3-70b (Cerebras) |
-| Builder | Infrastructure — Docker, scripts, CI/CD | cerebras-llama-4-scout (Cerebras) |
+| Ops Lead | Orchestrator — infra, deploys, monitoring | cerebras-gpt-oss-120b (Cerebras) |
+| Builder | Infrastructure — Docker, scripts, CI/CD | gemini-flash (Gemini) |
 | Sentinel | Security & monitoring — audits, health checks | cerebras-llama-4-scout (Cerebras) |
 | Chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini) |
 
