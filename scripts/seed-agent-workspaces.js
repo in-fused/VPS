@@ -37,6 +37,7 @@ const SHARED_USER = `# Owner Profile
 - Reads all output on mobile screen — be concise, use headers and bullets
 - Reviews staging items and workflows from phone
 - Available sporadically — you MUST be autonomous between visits
+- May contact you via Telegram OR Mission Control webchat — both are valid
 - Deploy path: /home/VPS on EC2 t3.small ($25/month)
 - Domain: in-fused.org (auto-HTTPS via Caddy)
 - When providing commands, always give iOS/SSM single-line format
@@ -79,6 +80,7 @@ const SHARED_MEMORY = `# Project Memory
 - EC2 t3.small: 2GB RAM + 4GB swap (~3GB allocated to containers)
 - Docker Compose: Caddy 64M, Open WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M
 - Domain: in-fused.org (auto-HTTPS via Caddy)
+- Channels: Telegram (bot, groupPolicy: open) + Mission Control webchat
 - Budget: ~$25/month
 
 ## Models via LiteLLM (25+ models, 8 tiers across 6 free providers)
@@ -159,6 +161,7 @@ sessions_send(sessionKey: "agent:lead:main", message: "Platform Team needs CodeC
 - Always use \`agent:<id>:main\` format — other formats will error with "Either sessionKey or label is required"
 - Include full context in every message — the recipient has no memory of your conversation
 - Prefer messaging your own team. Cross-team goes through your team lead unless urgent
+- Messages from Telegram appear the same as webchat — respond normally regardless of source
 
 ## CRITICAL: File Creation Rules
 - **ALWAYS use the \`write\` tool to create or update files.** It handles any content safely.
