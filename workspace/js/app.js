@@ -1358,30 +1358,29 @@ document.addEventListener('alpine:init', () => {
               streamMsg.content += finalContent;
             }
 
-            // If streaming produced no visible text, try fetching from chat history
-            // as a last resort — the server knows what the agent said even if we missed deltas
+            // If streaming produced no visible text, do a full history sync from the server.
+            // This handles tool-only agent turns where deltas contain only tool_use/tool_result
+            // blocks (which extractMessageText filters out). The server history returns tool
+            // outputs as separate plain-text messages that _parseHistoryMessages renders correctly.
             if (!streamMsg.content.trim() && payload.sessionKey && window.openclawClient?.authenticated) {
               const _historyMsg = streamMsg; // capture for async
-              Alpine.store('monitor').addLog('info', 'No content captured from stream — fetching from chat history...');
+              Alpine.store('monitor').addLog('info', 'No content captured from stream — syncing full history...');
               _historyMsg.content = '⏳ Loading response...';
               (async () => {
                 try {
                   const history = await window.openclawClient.getHistory(payload.sessionKey);
                   if (Array.isArray(history) && history.length > 0) {
-                    // Find the last assistant message in history
-                    const lastAssistant = [...history].reverse().find(m =>
-                      m.role === 'assistant' || m.role === 'agent'
-                    );
-                    if (lastAssistant) {
-                      const text = extractMessageText(lastAssistant.content) || extractMessageText(lastAssistant.message) || extractMessageText(lastAssistant.text);
-                      if (text) {
-                        _historyMsg.content = text;
-                        _historyMsg.streaming = false;
-                        _historyMsg.time = timeNow();
-                        sessions._persistMessages();
-                        Alpine.store('monitor').addLog('info', `Recovered ${text.length} chars from chat history`);
-                        return;
-                      }
+                    const serverMessages = sessions._parseHistoryMessages(history);
+                    if (serverMessages.length > 0) {
+                      // Full history replacement — same as what refresh/_syncActiveSessionHistory does
+                      sessions.messages = serverMessages;
+                      sessions._messageStore[sessions.activeId] = sessions.messages;
+                      sessions._persistMessages();
+                      sessions._scrollToBottom();
+                      Alpine.store('monitor').addLog('info', `Recovered ${serverMessages.length} messages from full history sync`);
+                      Alpine.store('app').pushChatEvent('ok', 'Response received');
+                      mcAudio.chatComplete();
+                      return;
                     }
                   }
                   // History fetch found nothing — show system note
