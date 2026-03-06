@@ -130,18 +130,6 @@ config.tools.subagents = config.tools.subagents || {};
 config.tools.sessions = config.tools.sessions || {};
 config.tools.sessions.visibility = 'all';
 
-// Full autonomy: disable tool approval requirements — owner has granted full permissions
-config.tools.approval = config.tools.approval || {};
-config.tools.approval.mode = 'none';
-
-// Filesystem: no sandbox restrictions — agents need full /workspace/ access
-config.tools.filesystem = config.tools.filesystem || {};
-config.tools.filesystem.sandbox = false;
-
-// Exec: no restrictions — agents need shell for wget, node, system commands
-config.tools.exec = config.tools.exec || {};
-config.tools.exec.sandbox = false;
-
 // Loop detection: safety net against runaway agent tool loops
 config.tools.loopDetection = config.tools.loopDetection || {};
 config.tools.loopDetection.enabled = true;
@@ -257,7 +245,12 @@ delete config.contextPruning;
 delete config.memorySearch;
 delete config.experimental;
 
-// Clean unrecognized subagent/tool keys (persisted from previous entrypoint)
+// Clean unrecognized tool keys that crash OpenClaw config validation
+if (config.tools) {
+  delete config.tools.approval;
+  delete config.tools.filesystem;
+  delete config.tools.exec;
+}
 if (config.tools && config.tools.subagents) {
   delete config.tools.subagents.maxDepth;
   delete config.tools.subagents.maxConcurrent;
