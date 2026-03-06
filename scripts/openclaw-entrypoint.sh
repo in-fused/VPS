@@ -370,7 +370,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=0.0.0.0, default=cerebras-llama-4-scout, a2a=peer, agents=8 (2 teams), Cerebras (70b/scout) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-4-scout, a2a=peer, agents=8 (2 teams), Cerebras (70b/scout) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.
@@ -385,6 +385,8 @@ node /opt/scripts/seed-agent-workspaces.js
 # immediately on the next agent interaction.
 (sleep 30 && node /opt/scripts/seed-agent-workspaces.js) &
 
-# --bind lan: CLI flag has highest priority. 'lan' = bind 0.0.0.0 (all interfaces).
-# Raw IPs like '0.0.0.0' are not valid — they silently fall back to loopback.
-exec node openclaw.mjs gateway --allow-unconfigured --bind lan
+# Do NOT pass --bind on CLI — it bypasses config file validation, so OpenClaw
+# checks origins before reading controlUi.dangerouslyAllowHostHeaderOriginFallback
+# from openclaw.json. Let the config file (gateway.bind = 'lan') handle it.
+# OPENCLAW_GATEWAY_BIND=lan env var is also set as belt-and-suspenders.
+exec node openclaw.mjs gateway --allow-unconfigured
