@@ -1,8 +1,9 @@
 // ============================================================================
 // Agent Workspace File Seeder — OpenClaw V3 Server-Side Prompts
 // ============================================================================
-// Seeds SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md per agent.
-// Only creates files that don't exist — preserves agent-modified content.
+// Seeds all workspace files per agent. ALL files are force-overwritten on
+// every restart to ensure agents always have current instructions.
+// Agents write their own notes to memory/*.md — those are never touched.
 // Run before gateway starts: node /opt/scripts/seed-agent-workspaces.js
 // ============================================================================
 
@@ -66,14 +67,14 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)
 
 ## P2P Collaboration — FULL MESH
-ALL agents can message ANY other agent directly via sessions_send.
-Skill-based delegation: if another agent (any team) is the best fit for a subtask, message them directly.
-- Need code built? → CodeCraft or Builder (whoever is less busy)
-- Need research? → Scout
-- Need docs? → Scribe or Chronicler
-- Need security review? → Sentinel
-- Need infra? → Builder
-- Need orchestration? → Lead or Ops Lead
+ALL agents can message ANY other agent. Format: \`sessions_send(sessionKey: "agent:<id>:main", message: "...")\`
+Skill-based delegation — use the best fit:
+- Code → sessions_send(sessionKey: "agent:codecraft:main", ...) or sessions_send(sessionKey: "agent:builder:main", ...)
+- Research → sessions_send(sessionKey: "agent:scout:main", ...)
+- Docs → sessions_send(sessionKey: "agent:scribe:main", ...) or sessions_send(sessionKey: "agent:chronicler:main", ...)
+- Security → sessions_send(sessionKey: "agent:sentinel:main", ...)
+- Infra → sessions_send(sessionKey: "agent:builder:main", ...)
+- Orchestration → sessions_send(sessionKey: "agent:lead:main", ...) or sessions_send(sessionKey: "agent:ops-lead:main", ...)
 
 Cross-team work is ENCOURAGED, not just allowed. Report results to YOUR lead, but collaborate freely.
 
@@ -114,12 +115,7 @@ const SHARED_MEMORY = `# Project Memory
 - /workspace/prompts/ — prompt archive (archive.json)
 - /workspace/mc-state/ — governance data
 
-## Protocols (MANDATORY — not optional)
-- ACTIVITY LOG: You MUST append to /workspace/agent-activity/log.json after every task. Read file, parse JSON, push new event to events array, write back. Format: {time:<unix_ms>,level:"info|warn|error",type:"task-complete|workflow-complete|staging-new|system|error",message:"..."}
-- STAGING: You MUST write deliverable output to /workspace/staging/{file} and update /workspace/staging/index.json. Format: {id,name,path,type,createdBy:"your-id",description,status:"pending"}
-- WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json: {workflows:[{id,name,file,createdBy,updatedAt:<unix_ms>,status:"draft|ready|running|completed|failed"}]}. Set \`requestExecution: true\` on an entry to trigger background run.
-- WORKFLOW RESULTS: Write results to /workspace/agent-workflows/results/{id}.json: {workflowId,success:bool,completedAt:<unix_ms>,outputs:{<label>:<result>}}. Update results/index.json: {results:[{id,workflowId,name,success,completedAt,file}]}
-- GOVERNANCE_ADJUST: Include GOVERNANCE_ADJUST:{key:value} to propose scoring changes (owner reviews)
+All protocols, tool docs, and JSON formats are in TOOLS.md — refer there for exact formats.
 `;
 
 const SHARED_TOOLS = `# Tools
@@ -199,7 +195,7 @@ POST: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"
 ## Cron (Background 24/7) — USE THE \`cron\` TOOL
 **NEVER use system crontab.** Use the OpenClaw \`cron\` tool:
 \`cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload: {kind: "systemEvent", message: "..."}, target: {agentId: "sentinel", session: "main"})\`
-Types: at (one-shot), every (ms interval), cron (5-field). Max 1 concurrent. List: \`cron(action: "list")\`
+Types: at (one-shot), every (ms interval), cron (5-field). Max 3 concurrent. List: \`cron(action: "list")\`
 
 ## Workflow Builder
 \`exec node /workspace/js/workflow-builder.js '<json>'\`
@@ -228,14 +224,35 @@ HTML template: dark theme (#0a0a0f bg, #d4af37 gold accent), Tailwind CDN, mobil
 | NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY |
 CDN: Tailwind (\`cdn.tailwindcss.com\`), Chart.js, Alpine.js, D3.js, ApexCharts, Leaflet, Prism.js — all via jsdelivr/unpkg CDN.
 
-## Output Protocol (MANDATORY after EVERY task)
-1. Stage output: \`write\` to /workspace/staging/{file}, update /workspace/staging/index.json
-2. Log activity: \`read\` /workspace/agent-activity/log.json, push event, \`write\` back
-3. No staged output = you did nothing = owner sees nothing on phone
+## Protocols (MANDATORY after EVERY task — no exceptions)
+
+### 1. ACTIVITY LOG — log every task completion
+\`read(path: "/workspace/agent-activity/log.json")\` → parse JSON → push new event → \`write\` full content back.
+Event format: \`{"time":<unix_ms>,"level":"info|warn|error","type":"task-complete|workflow-complete|staging-new|system|error","message":"..."}\`
+If file is empty/missing, initialize: \`write(path: "/workspace/agent-activity/log.json", content: "{\\"events\\":[]}")\`
+
+### 2. STAGING — stage every deliverable for owner review
+\`write(path: "/workspace/staging/<filename>.html", content: "<html>...")\`
+Then update index: \`read(path: "/workspace/staging/index.json")\` → push item → \`write\` back.
+Item format: \`{"id":"<unique>","name":"<title>","path":"staging/<filename>.html","type":"html","createdBy":"<your-id>","description":"<what it is>","status":"pending"}\`
+
+### 3. WORKFLOWS — create visual workflows for multi-step tasks
+\`exec node /workspace/js/workflow-builder.js '<json>'\`
+Index format: \`{"workflows":[{"id":"wf-xxx","name":"...","file":"wf-xxx.json","createdBy":"<your-id>","updatedAt":<unix_ms>,"status":"draft|ready|running|completed|failed"}]}\`
+Set \`requestExecution: true\` on an index entry to trigger background execution.
+
+### 4. WORKFLOW RESULTS — write background execution results
+\`write(path: "/workspace/agent-workflows/results/<id>.json", content: "...")\`
+Format: \`{"workflowId":"...","success":true,"completedAt":<unix_ms>,"outputs":{"<label>":"<result>"}}\`
+Update results/index.json: \`{"results":[{"id":"...","workflowId":"...","name":"...","success":true,"completedAt":<unix_ms>,"file":"<id>.json"}]}\`
+
+### 5. GOVERNANCE_ADJUST — propose scoring changes
+Include \`GOVERNANCE_ADJUST:{"key":"value"}\` in a chat response. Owner reviews — never auto-applied.
+
+**No staged output = you did nothing = owner sees nothing on phone.**
 `;
 
-// NOTE: RESOURCES.md, STAGING_GUIDE.md content now merged into SHARED_TOOLS above.
-// OpenClaw workspace only recognizes standard filenames — custom .md files get ignored.
+// RESOURCES.md, STAGING_GUIDE.md, WORKFLOWS.md content is all in SHARED_TOOLS.
 
 // ============================================================================
 // Agent-specific SOUL.md content
@@ -505,7 +522,7 @@ Include exact file path so Ops Lead can verify.
 NEVER say "please advise." Owner deploys from phone using your docs — wrong commands = stuck at 2am. When in doubt, write it and let the owner correct.`,
 };
 
-// NOTE: WORKFLOWS.md content now merged into SHARED_TOOLS above.
+// WORKFLOWS.md content is in SHARED_TOOLS.
 
 // ============================================================================
 // HEARTBEAT.md — brief checklist for periodic heartbeat runs (leads only)
@@ -514,26 +531,28 @@ NEVER say "please advise." Owner deploys from phone using your docs — wrong co
 const HEARTBEAT_LEAD = `# Heartbeat Checklist
 
 When activated by heartbeat or cron:
-1. \`read\` /workspace/staging/index.json — check for pending items needing review
-2. \`read\` /workspace/agent-activity/log.json — scan recent events since last check
+1. \`read(path: "/workspace/staging/index.json")\` — check for pending items needing review
+2. \`read(path: "/workspace/agent-activity/log.json")\` — scan recent events since last check
 3. If pending tasks exist from owner, delegate immediately:
-   - Core Team lead delegates via: sessions_send(sessionKey: "agent:codecraft:main", ...) / scout / scribe
-   - Platform Team lead delegates via: sessions_send(sessionKey: "agent:builder:main", ...) / sentinel / chronicler
+   - Core Team Lead delegates: sessions_send(sessionKey: "agent:codecraft:main", ...) / sessions_send(sessionKey: "agent:scout:main", ...) / sessions_send(sessionKey: "agent:scribe:main", ...)
+   - Platform Team Ops Lead delegates: sessions_send(sessionKey: "agent:builder:main", ...) / sessions_send(sessionKey: "agent:sentinel:main", ...) / sessions_send(sessionKey: "agent:chronicler:main", ...)
 4. If NO pending tasks, create work: assign your team a deliverable (dashboard, report, audit). An idle team produces nothing.
-5. Check team status: sessions_send(sessionKey: "agent:<team-member>:main", message: "Status check — report current task and blockers")
-6. Log heartbeat summary: \`read\` log.json, push event {type:"system",message:"Heartbeat: [summary]"}, \`write\` back
+5. Check team status — message each member asking for progress:
+   Core Lead → codecraft, scout, scribe. Ops Lead → builder, sentinel, chronicler.
+6. Log heartbeat: \`read(path: "/workspace/agent-activity/log.json")\`, push {type:"system",message:"Heartbeat: [summary]"}, \`write\` back
 7. Keep it brief — heartbeat runs consume tokens
 `;
 
 const HEARTBEAT_SPECIALIST = `# Heartbeat Checklist
 
 When activated by heartbeat or cron:
-1. Execute any pending delegated tasks immediately — do not just check, DO the work
-2. If no delegated tasks, pick up useful work: check staging for items to improve, scan activity log for failed tasks to retry, or produce a new deliverable in your specialty
-3. Report progress to your team lead via sessions_send(sessionKey: "agent:<your-lead-id>:main", message: "Heartbeat: [completed/in-progress work summary]")
-   - Core Team agents → lead ID is "lead"
-   - Platform Team agents → lead ID is "ops-lead"
-4. Log heartbeat: \`read\` /workspace/agent-activity/log.json, push {type:"system",message:"Heartbeat: [status]"}, \`write\` back
+1. Check for delegated tasks: \`read(path: "/workspace/staging/index.json")\` and check your session history
+2. Execute any pending delegated tasks immediately — do not just check, DO the work
+3. If no delegated tasks, pick up useful work: check staging for items to improve, scan activity log for failed tasks to retry, or produce a new deliverable in your specialty
+4. Report progress to your team lead:
+   - Core Team (codecraft, scout, scribe): \`sessions_send(sessionKey: "agent:lead:main", message: "Heartbeat: [summary]")\`
+   - Platform Team (builder, sentinel, chronicler): \`sessions_send(sessionKey: "agent:ops-lead:main", message: "Heartbeat: [summary]")\`
+5. Log heartbeat: \`read(path: "/workspace/agent-activity/log.json")\`, push {type:"system",message:"Heartbeat: [status]"}, \`write\` back
 `;
 
 // ============================================================================
@@ -575,18 +594,28 @@ Parse JSON, push new event, write full content back:
 \`write(path: "/workspace/agent-activity/log.json", content: "<full JSON with your event>")\`
 If read fails/empty, initialize: \`write(path: "/workspace/agent-activity/log.json", content: "{\\"events\\":[{\\"time\\":${Date.now()},\\"level\\":\\"info\\",\\"type\\":\\"system\\",\\"message\\":\\"Agent online\\"}]}")\`
 
-## Step 2: Check for work
-\`read(path: "/workspace/agent-workflows/index.json")\`
-\`read(path: "/workspace/staging/index.json")\`
+## Step 2: Check for delegated work
+\`read(path: "/workspace/agent-workflows/index.json")\` — look for workflows assigned to you
+\`read(path: "/workspace/staging/index.json")\` — check what's already staged
+Check your recent session for delegated tasks from your lead.
 
 ## Step 3: Execute or create work
-If lead delegated tasks, do them. If not, produce a deliverable in your specialty and stage it. Never idle.
+If your lead delegated a task (found in session history), do it NOW — produce the deliverable and stage it.
+If no delegated tasks, produce a deliverable in your specialty and stage it. NEVER idle.
+Example deliverables by role:
+- CodeCraft: dashboard, data viz, tool UI → /workspace/staging/<name>.html
+- Scout: research report, API comparison → /workspace/staging/research-<topic>.html
+- Scribe: getting-started guide, architecture doc → /workspace/staging/<name>.html
+- Builder: health dashboard, deploy script → /workspace/staging/<name>.html
+- Sentinel: security audit, health report → /workspace/staging/<name>.html
+- Chronicler: deploy runbook, incident report → /workspace/staging/<name>.html
 
 ## Step 4: After EVERY task (all 3 steps mandatory)
-1. Log: read log.json → push event → \`write(path: "/workspace/agent-activity/log.json", content: "<updated JSON>")\`
-2. Stage: \`write(path: "/workspace/staging/my-output.html", content: "<html>...")\` then update staging/index.json
-3. Report to lead (EXACT format): \`sessions_send(sessionKey: "agent:lead:main", message: "DONE: Built X at /workspace/staging/filename.html")\`
-   Core Team → "agent:lead:main". Platform Team → "agent:ops-lead:main".
+1. Log: \`read(path: "/workspace/agent-activity/log.json")\` → parse → push event → \`write\` full content back
+2. Stage: \`write(path: "/workspace/staging/<output>.html", content: "<html>...")\` then \`read\` + update staging/index.json
+3. Report to lead:
+   - Core Team (codecraft, scout, scribe): \`sessions_send(sessionKey: "agent:lead:main", message: "DONE: Built X at /workspace/staging/filename.html")\`
+   - Platform Team (builder, sentinel, chronicler): \`sessions_send(sessionKey: "agent:ops-lead:main", message: "DONE: Built X at /workspace/staging/filename.html")\`
 
 No log entries = you did nothing = replaced.
 `;
@@ -594,20 +623,16 @@ No log entries = you did nothing = replaced.
 // ============================================================================
 // Seed workspace files
 // ============================================================================
-// SOUL.md and BOOTSTRAP.md are ALWAYS overwritten on every restart.
-// OpenClaw creates its own default SOUL.md/BOOTSTRAP.md when initializing
-// agents (generic "who am I?" content). Without force-overwrite, agents
-// lose their identity and go through the default onboarding flow instead
-// of knowing their role. Other files (USER.md, MEMORY.md, etc.) are only
-// seeded if missing — agents may legitimately modify these.
+// ALL workspace files are force-overwritten on every restart.
+// Reason: stale content in ANY file causes agents to follow outdated
+// instructions, reference non-existent files, or use wrong formats.
+// Agents write their own persistent notes to memory/*.md — those are
+// never touched by this seeder.
 // ============================================================================
-
-// Files that define agent identity + tool docs — always overwrite.
-// TOOLS.md included because agents don't modify it and tool schema
-// fixes (e.g. sessions_send sessionKey param) must propagate on restart.
-// RESOURCES.md, STAGING_GUIDE.md, WORKFLOWS.md content now merged into TOOLS.md
-// (OpenClaw only recognizes standard workspace filenames — custom names get ignored)
-const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md', 'TOOLS.md']);
+const FORCE_OVERWRITE = new Set([
+  'SOUL.md', 'BOOTSTRAP.md', 'TOOLS.md',
+  'USER.md', 'AGENTS.md', 'MEMORY.md', 'HEARTBEAT.md',
+]);
 
 let seeded = 0;
 let skipped = 0;
