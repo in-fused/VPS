@@ -240,83 +240,168 @@ cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload
 // RESOURCES.md — External repos, free APIs, and data sources
 // ============================================================================
 
-const SHARED_RESOURCES = `# External Resources & Free APIs
+const SHARED_RESOURCES = `# External Resources, APIs & Development Reference
 
-These are curated resources for building features. Use web_fetch or exec wget to access them.
+These are curated resources for building features. Use web_fetch, exec wget, or client-side fetch() to access them.
 
 ## GitHub Resource Repositories
 
 ### 1. Public APIs Collection
 **Repo:** https://github.com/public-apis/public-apis
-**What:** 1400+ free APIs across 50+ categories. The raw list is at:
+**What:** 1400+ free APIs across 50+ categories. Browse the raw list:
 \`\`\`
 exec wget -qO- 'https://raw.githubusercontent.com/public-apis/public-apis/master/README.md' | head -500
 \`\`\`
 
-**Key categories with NO-AUTH APIs (use immediately, no keys needed):**
-- **Finance:** ExchangeRate-API (https://open.er-api.com/v6/latest/USD), CoinGecko (https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd)
-- **Weather:** Open-Meteo (https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true), wttr.in (https://wttr.in/?format=j1)
-- **News:** Wikinews RSS, HackerNews (https://hacker-news.firebaseio.com/v0/topstories.json)
-- **Data:** JSONPlaceholder (https://jsonplaceholder.typicode.com/), REST Countries (https://restcountries.com/v3.1/all)
-- **Dev Tools:** GitHub API (public endpoints), HTTPBin (https://httpbin.org/), ipapi (https://ipapi.co/json/)
-- **Science:** NASA (https://api.nasa.gov/ with DEMO_KEY), arXiv API, PubChem
-- **Crypto:** CoinGecko, CoinCap (https://api.coincap.io/v2/assets)
-
-**Usage pattern (no auth):**
-\`\`\`
-exec wget -qO- 'https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true'
-exec wget -qO- 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd'
-exec wget -qO- 'https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty'
-\`\`\`
-
 ### 2. Financial Datasets MCP Server
 **Repo:** https://github.com/financial-datasets/mcp-server
-**What:** MCP server exposing financial data tools — stock prices, financials, crypto, news.
-**Tools available:**
-- get_income_statements(ticker) — company income statements
-- get_balance_sheets(ticker) — balance sheet data
-- get_cash_flow_statements(ticker) — cash flow data
-- get_current_stock_price(ticker) — real-time stock price
-- get_historical_stock_prices(ticker, start_date, end_date) — OHLCV history
-- get_company_news(ticker) — recent news articles
-- get_available_crypto_tickers() — list crypto tickers
-- get_crypto_prices(ticker) / get_current_crypto_price(ticker) — crypto prices
-**Note:** Requires FINANCIAL_DATASETS_API_KEY. Check if configured before using. Free tier available at financialdatasets.ai.
-**Alternative free sources:** Use CoinGecko, ExchangeRate-API, or Yahoo Finance scraping via Scrapling for free financial data without keys.
+**What:** MCP server wrapping api.financialdatasets.ai — stock prices, financial statements, SEC filings, crypto.
+**11 tools:** get_income_statements, get_balance_sheets, get_cash_flow_statements, get_current_stock_price, get_historical_stock_prices, get_company_news, get_sec_filings, get_available_crypto_tickers, get_current_crypto_price, get_crypto_prices, get_historical_crypto_prices
+**Requires:** FINANCIAL_DATASETS_API_KEY (paid API — ask owner before using).
+**Alternative free path:** CoinGecko, CoinCap, ExchangeRate-API (no auth), or scrape Yahoo Finance via Scrapling.
 
 ### 3. QuantConnect LEAN Engine
 **Repo:** https://github.com/QuantConnect/Lean
 **What:** Open-source algorithmic trading engine. Python + C#, event-driven backtesting, live trading.
-**Core capabilities:**
-- Backtest strategies against historical data (stocks, options, forex, crypto)
-- 200+ built-in indicators (SMA, EMA, RSI, MACD, Bollinger, etc.)
-- Multi-asset portfolio management
-- Research environment via Jupyter notebooks
-**Docker usage (simplest):**
-\`\`\`
-docker run -v /path/to/algo:/Lean/Algorithm.Python quantconnect/lean:latest --algorithm-type-name MyAlgorithm --algorithm-language Python
-\`\`\`
-**CLI usage:**
-\`\`\`
-pip install lean && lean project-create --language python MyProject && lean backtest MyProject
-\`\`\`
-**Agent integration:** Write Python algo → mount into LEAN Docker container → parse JSON results → stage report.
-**Note:** LEAN is heavy (~2GB+ Docker image). Do NOT run on the EC2 t3.small without owner approval. Research and create algo files — the owner can run backtests on Oracle ARM (24GB RAM).
+**200+ indicators:** SMA, EMA, RSI, MACD, Bollinger, Stochastic, ATR, etc.
+**Simplest usage:** \`pip install lean && lean create-project MyStrategy && lean backtest MyStrategy\`
+**Agent workflow:** Write Python algo (class inheriting QCAlgorithm with Initialize() and OnData()) → run \`lean backtest\` → parse JSON results → stage HTML report.
+**Warning:** Docker images are ~2GB. Do NOT run on EC2 t3.small. Write algo files and stage them — owner runs backtests on Oracle ARM (24GB RAM).
 
-## Free API Quick Reference (No Auth, wget-ready)
+---
 
+## Free APIs — NO AUTH Required (wget/fetch ready)
+
+These work immediately with no keys. Use from server (exec wget) or client-side (fetch()).
+
+### Finance & Crypto
 | API | URL | Returns |
 |-----|-----|---------|
-| Bitcoin price | https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd | JSON {bitcoin:{usd:N}} |
-| Weather (NYC) | https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true | JSON weather |
-| Exchange rates | https://open.er-api.com/v6/latest/USD | JSON rates |
-| HackerNews top | https://hacker-news.firebaseio.com/v0/topstories.json | JSON [ids] |
-| HN story detail | https://hacker-news.firebaseio.com/v0/item/{id}.json | JSON story |
-| IP geolocation | https://ipapi.co/json/ | JSON location |
-| Random user | https://randomuser.me/api/ | JSON user |
-| REST Countries | https://restcountries.com/v3.1/name/{name} | JSON country |
-| Crypto top assets | https://api.coincap.io/v2/assets?limit=10 | JSON assets |
-| NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY | JSON image |
+| Bitcoin price | https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd | {bitcoin:{usd:N}} |
+| Multi-crypto | https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true | Prices + 24h% |
+| Crypto top 10 | https://api.coincap.io/v2/assets?limit=10 | Ranked assets |
+| Crypto history | https://api.coincap.io/v2/assets/bitcoin/history?interval=d1 | Daily OHLCV |
+| Exchange rates | https://open.er-api.com/v6/latest/USD | All currency rates |
+| US Treasury | https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/rates_of_exchange | Official rates |
+| Econdb macro | https://www.econdb.com/api/series/?format=json | Economic indicators |
+
+### Weather & Environment
+| API | URL | Returns |
+|-----|-----|---------|
+| Open-Meteo forecast | https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true | Current + forecast |
+| Open-Meteo hourly | https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&hourly=temperature_2m | Hourly temps |
+| wttr.in JSON | https://wttr.in/NewYork?format=j1 | Weather JSON |
+| wttr.in text | https://wttr.in/NewYork?format=3 | One-line weather |
+
+### News & Content
+| API | URL | Returns |
+|-----|-----|---------|
+| HackerNews top | https://hacker-news.firebaseio.com/v0/topstories.json | Story IDs |
+| HN story detail | https://hacker-news.firebaseio.com/v0/item/{id}.json | Story object |
+| HN best stories | https://hacker-news.firebaseio.com/v0/beststories.json | Best story IDs |
+| Wikipedia summary | https://en.wikipedia.org/api/rest_v1/page/summary/{title} | Page summary |
+| Wikipedia search | https://en.wikipedia.org/w/api.php?action=opensearch&search={query}&format=json | Search results |
+
+### Dev Tools & Data
+| API | URL | Returns |
+|-----|-----|---------|
+| HTTPBin | https://httpbin.org/get | Echo request |
+| JSONPlaceholder | https://jsonplaceholder.typicode.com/posts | Fake REST data |
+| ReqRes | https://reqres.in/api/users | Fake user data |
+| IP geolocation | https://ipapi.co/json/ | Location from IP |
+| GitHub public | https://api.github.com/repos/{owner}/{repo} | Repo info |
+| GitHub trending | https://api.github.com/search/repositories?q=stars:>1000&sort=stars | Top repos |
+| Wandbox (compile) | POST https://wandbox.org/api/compile.json | Run code in 35+ langs |
+| QR code | https://api.qrserver.com/v1/create-qr-code/?data={text}&size=200x200 | PNG image |
+
+### Geocoding & Maps
+| API | URL | Returns |
+|-----|-----|---------|
+| Nominatim geocode | https://nominatim.openstreetmap.org/search?q={query}&format=json | Lat/lng results |
+| Nominatim reverse | https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json | Address from coords |
+| REST Countries | https://restcountries.com/v3.1/name/{name} | Country data |
+| All countries | https://restcountries.com/v3.1/all | Every country |
+
+### Science & Reference
+| API | URL | Returns |
+|-----|-----|---------|
+| NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY | Astronomy pic |
+| NASA Mars photos | https://api.nasa.gov/mars-photos/api/v1/rovers/curiosity/photos?sol=1000&api_key=DEMO_KEY | Mars rover pics |
+| arXiv search | http://export.arxiv.org/api/query?search_query=all:{topic}&max_results=5 | Research papers |
+| Random user | https://randomuser.me/api/ | Fake person |
+| Lorem Ipsum | https://loripsum.net/api/3/short | Placeholder text |
+
+### Fun & Media
+| API | URL | Returns |
+|-----|-----|---------|
+| Cat facts | https://catfact.ninja/fact | Random cat fact |
+| Dog images | https://dog.ceo/api/breeds/image/random | Random dog pic |
+| Bored activity | https://www.boredapi.com/api/activity | Activity suggestion |
+| Advice slip | https://api.adviceslip.com/advice | Random advice |
+
+---
+
+## Free APIs — With Key (free signup, no credit card)
+
+These need a free API key but have generous free tiers:
+- **OpenWeatherMap** (https://openweathermap.org/api) — 1000 calls/day free
+- **NewsAPI** (https://newsapi.org/) — 100 requests/day free (dev only)
+- **Alpha Vantage** (https://www.alphavantage.co/) — 25 requests/day free (stocks, forex, crypto)
+- **Polygon.io** (https://polygon.io/) — 5 requests/min free (stocks)
+- **Abstract API** (https://www.abstractapi.com/) — email validation, IP geo, holidays
+Ask owner before signing up for any API keys.
+
+---
+
+## CDN Libraries for Client-Side Apps
+
+When building HTML/JS/CSS apps for staging, use these CDN links (no npm/build step):
+
+### Core UI
+- **Tailwind CSS:** \`<script src="https://cdn.tailwindcss.com"></script>\`
+- **Alpine.js:** \`<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>\`
+- **Petite-Vue** (lighter alternative): \`<script src="https://unpkg.com/petite-vue"></script>\`
+
+### Charts & Visualization
+- **Chart.js:** \`<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>\`
+- **ApexCharts** (real-time): \`<script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>\`
+- **D3.js** (custom viz): \`<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>\`
+- **Lightweight Charts** (TradingView): \`<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>\`
+
+### Maps
+- **Leaflet:** CSS + JS from unpkg.com/leaflet@1.9.4
+
+### Data & Utilities
+- **Lodash:** \`<script src="https://cdn.jsdelivr.net/npm/lodash@4/lodash.min.js"></script>\`
+- **DayJS:** \`<script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>\`
+- **Marked** (Markdown→HTML): \`<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>\`
+- **DOMPurify** (sanitize HTML): \`<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>\`
+
+### Code & Syntax
+- **Prism.js:** \`<script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js"></script>\` + language plugins
+- **highlight.js:** \`<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>\`
+
+### Animation & Effects
+- **GSAP:** \`<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>\`
+- **Confetti:** \`<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1/dist/confetti.browser.min.js"></script>\`
+
+### Icons
+- **Lucide:** \`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.344.0/font/lucide.min.css">\`
+- **Heroicons** (via Tailwind): SVG inlined directly
+
+---
+
+## Scraping via Scrapling (for sites without APIs)
+
+Internal service at http://scrapling:8000 (Docker network only). Use from exec:
+
+\`\`\`
+exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
+exec wget -qO- --post-data='{"url":"https://finance.yahoo.com/quote/AAPL","selectors":{"price":".livePrice span::text","change":".priceChange span::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape
+\`\`\`
+
+**Use cases:** Yahoo Finance quotes, tech news sites, GitHub trending, product pages, documentation.
+**Limitations:** "fast" fetcher only (HTTP with TLS spoofing). Cloudflare-protected sites need "stealth" mode (not available without browser binaries).
 `;
 
 // ============================================================================
