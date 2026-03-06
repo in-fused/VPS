@@ -237,6 +237,280 @@ cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload
 `;
 
 // ============================================================================
+// RESOURCES.md — External repos, free APIs, and data sources
+// ============================================================================
+
+const SHARED_RESOURCES = `# External Resources & Free APIs
+
+These are curated resources for building features. Use web_fetch or exec wget to access them.
+
+## GitHub Resource Repositories
+
+### 1. Public APIs Collection
+**Repo:** https://github.com/public-apis/public-apis
+**What:** 1400+ free APIs across 50+ categories. The raw list is at:
+\`\`\`
+exec wget -qO- 'https://raw.githubusercontent.com/public-apis/public-apis/master/README.md' | head -500
+\`\`\`
+
+**Key categories with NO-AUTH APIs (use immediately, no keys needed):**
+- **Finance:** ExchangeRate-API (https://open.er-api.com/v6/latest/USD), CoinGecko (https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd)
+- **Weather:** Open-Meteo (https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true), wttr.in (https://wttr.in/?format=j1)
+- **News:** Wikinews RSS, HackerNews (https://hacker-news.firebaseio.com/v0/topstories.json)
+- **Data:** JSONPlaceholder (https://jsonplaceholder.typicode.com/), REST Countries (https://restcountries.com/v3.1/all)
+- **Dev Tools:** GitHub API (public endpoints), HTTPBin (https://httpbin.org/), ipapi (https://ipapi.co/json/)
+- **Science:** NASA (https://api.nasa.gov/ with DEMO_KEY), arXiv API, PubChem
+- **Crypto:** CoinGecko, CoinCap (https://api.coincap.io/v2/assets)
+
+**Usage pattern (no auth):**
+\`\`\`
+exec wget -qO- 'https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true'
+exec wget -qO- 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd'
+exec wget -qO- 'https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty'
+\`\`\`
+
+### 2. Financial Datasets MCP Server
+**Repo:** https://github.com/financial-datasets/mcp-server
+**What:** MCP server exposing financial data tools — stock prices, financials, crypto, news.
+**Tools available:**
+- get_income_statements(ticker) — company income statements
+- get_balance_sheets(ticker) — balance sheet data
+- get_cash_flow_statements(ticker) — cash flow data
+- get_current_stock_price(ticker) — real-time stock price
+- get_historical_stock_prices(ticker, start_date, end_date) — OHLCV history
+- get_company_news(ticker) — recent news articles
+- get_available_crypto_tickers() — list crypto tickers
+- get_crypto_prices(ticker) / get_current_crypto_price(ticker) — crypto prices
+**Note:** Requires FINANCIAL_DATASETS_API_KEY. Check if configured before using. Free tier available at financialdatasets.ai.
+**Alternative free sources:** Use CoinGecko, ExchangeRate-API, or Yahoo Finance scraping via Scrapling for free financial data without keys.
+
+### 3. QuantConnect LEAN Engine
+**Repo:** https://github.com/QuantConnect/Lean
+**What:** Open-source algorithmic trading engine. Python + C#, event-driven backtesting, live trading.
+**Core capabilities:**
+- Backtest strategies against historical data (stocks, options, forex, crypto)
+- 200+ built-in indicators (SMA, EMA, RSI, MACD, Bollinger, etc.)
+- Multi-asset portfolio management
+- Research environment via Jupyter notebooks
+**Docker usage (simplest):**
+\`\`\`
+docker run -v /path/to/algo:/Lean/Algorithm.Python quantconnect/lean:latest --algorithm-type-name MyAlgorithm --algorithm-language Python
+\`\`\`
+**CLI usage:**
+\`\`\`
+pip install lean && lean project-create --language python MyProject && lean backtest MyProject
+\`\`\`
+**Agent integration:** Write Python algo → mount into LEAN Docker container → parse JSON results → stage report.
+**Note:** LEAN is heavy (~2GB+ Docker image). Do NOT run on the EC2 t3.small without owner approval. Research and create algo files — the owner can run backtests on Oracle ARM (24GB RAM).
+
+## Free API Quick Reference (No Auth, wget-ready)
+
+| API | URL | Returns |
+|-----|-----|---------|
+| Bitcoin price | https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd | JSON {bitcoin:{usd:N}} |
+| Weather (NYC) | https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true | JSON weather |
+| Exchange rates | https://open.er-api.com/v6/latest/USD | JSON rates |
+| HackerNews top | https://hacker-news.firebaseio.com/v0/topstories.json | JSON [ids] |
+| HN story detail | https://hacker-news.firebaseio.com/v0/item/{id}.json | JSON story |
+| IP geolocation | https://ipapi.co/json/ | JSON location |
+| Random user | https://randomuser.me/api/ | JSON user |
+| REST Countries | https://restcountries.com/v3.1/name/{name} | JSON country |
+| Crypto top assets | https://api.coincap.io/v2/assets?limit=10 | JSON assets |
+| NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY | JSON image |
+`;
+
+// ============================================================================
+// STAGING_GUIDE.md — How to produce HTML for the staging tab
+// ============================================================================
+
+const SHARED_STAGING_GUIDE = `# Staging Output Guide — Building Real Applications
+
+The Staging tab in Mission Control renders your output for the owner to review on their phone.
+**Your staged files are served at https://in-fused.org/workspace/staging/{filename}**
+
+## How Staging Works
+1. You \`write\` a file to /workspace/staging/{filename} (HTML, JS, CSS, JSON, etc.)
+2. You update /workspace/staging/index.json to register the main entry point
+3. The owner opens Mission Control → Staging tab → sees your item → approves/rejects
+4. HTML files can be previewed directly in an iframe or opened full-screen
+5. Multi-file apps: put all files in a subdirectory (e.g., /workspace/staging/my-app/) and register the index.html
+
+## CDN Libraries Available (use these — no build step needed)
+\`\`\`html
+<!-- UI Framework -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+<!-- Charts & Visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>
+
+<!-- Data & Utilities -->
+<script src="https://cdn.jsdelivr.net/npm/lodash@4/lodash.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+
+<!-- Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.344.0/font/lucide.min.css">
+
+<!-- Animation -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+
+<!-- Maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+\`\`\`
+
+## Project Theme — Golden Cyber (MANDATORY for all UI output)
+\`\`\`css
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-card: #12121a;
+  --bg-hover: #1a1a2e;
+  --border: #1e1e2e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #888;
+  --accent: #d4af37;
+  --accent-dim: #b8962e;
+  --success: #6ee7b7;
+  --error: #fca5a5;
+  --warning: #fde68a;
+}
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+\`\`\`
+
+## Base HTML Template
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>YOUR_TITLE</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: {
+    cyber: { bg: '#0a0a0f', card: '#12121a', border: '#1e1e2e', hover: '#1a1a2e' },
+    gold: { DEFAULT: '#d4af37', dim: '#b8962e' }
+  }}}
+}
+</script>
+<style>
+  body { background: #0a0a0f; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; }
+  .card { background: #12121a; border: 1px solid #1e1e2e; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .accent { color: #d4af37; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .badge-green { background: #065f46; color: #6ee7b7; }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .badge-yellow { background: #713f12; color: #fde68a; }
+  .badge-blue { background: #1e3a5f; color: #93c5fd; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #1e1e2e; font-size: 14px; }
+  th { color: #d4af37; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  button, .btn { background: #d4af37; color: #0a0a0f; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; min-height: 44px; }
+  button:active, .btn:active { background: #b8962e; }
+  input, select, textarea { background: #1a1a2e; border: 1px solid #1e1e2e; color: #e0e0e0; padding: 8px 12px; border-radius: 8px; width: 100%; font-size: 16px; }
+  a { color: #d4af37; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  /* Mobile-first: 44px min touch targets, 16px font to prevent iOS zoom */
+</style>
+</head>
+<body class="p-4 max-w-2xl mx-auto pb-safe">
+  <h1 class="text-xl font-bold accent mb-4">YOUR_TITLE</h1>
+  <!-- YOUR CONTENT HERE -->
+  <p class="text-xs text-gray-500 mt-8">Generated by YOUR_AGENT_ID · <span id="ts"></span></p>
+  <script>document.getElementById('ts').textContent=new Date().toLocaleString();</script>
+</body>
+</html>
+\`\`\`
+
+## JavaScript Patterns for Staged Apps
+
+### Fetching Live Data (client-side, no CORS issues with these APIs)
+\`\`\`javascript
+// Crypto prices
+const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true');
+const data = await res.json();
+// data.bitcoin.usd, data.bitcoin.usd_24h_change
+
+// Weather
+const weather = await fetch('https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true').then(r=>r.json());
+
+// News (HackerNews)
+const ids = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json').then(r=>r.json());
+const stories = await Promise.all(ids.slice(0,10).map(id=>fetch(\\\`https://hacker-news.firebaseio.com/v0/item/\\\${id}.json\\\`).then(r=>r.json())));
+\`\`\`
+
+### Alpine.js Interactive App Pattern
+\`\`\`html
+<div x-data="app()" x-init="init()">
+  <div class="card" x-show="loading">Loading...</div>
+  <template x-for="item in items" :key="item.id">
+    <div class="card">
+      <h3 class="accent font-bold" x-text="item.name"></h3>
+      <p class="text-sm text-gray-400" x-text="item.detail"></p>
+    </div>
+  </template>
+</div>
+<script>
+function app() {
+  return {
+    items: [], loading: true,
+    async init() {
+      const res = await fetch('API_URL');
+      this.items = await res.json();
+      this.loading = false;
+    }
+  }
+}
+</script>
+\`\`\`
+
+### Chart.js Pattern
+\`\`\`javascript
+new Chart(document.getElementById('myChart'), {
+  type: 'line',
+  data: { labels: dates, datasets: [{ label: 'Price', data: prices, borderColor: '#d4af37', tension: 0.3 }] },
+  options: { responsive: true, plugins: { legend: { labels: { color: '#e0e0e0' }}},
+    scales: { x: { ticks: { color: '#888' }}, y: { ticks: { color: '#888' }}} }
+});
+\`\`\`
+
+## Staging Index Update Pattern
+\`\`\`
+1. read /workspace/staging/index.json
+2. Parse JSON (or create {items:[]} if empty/missing)
+3. Push new item: {id:"report-xyz", name:"My Report", path:"report-xyz.html", type:"report", createdBy:"your-id", description:"What this is", status:"pending"}
+4. write /workspace/staging/index.json with updated JSON
+\`\`\`
+
+## What You Can Build
+- **HTML dashboards** — live data tables, charts, status indicators
+- **Interactive apps** — Alpine.js reactivity, forms, filters, search
+- **Data visualizations** — Chart.js line/bar/pie, D3.js custom viz, ApexCharts real-time
+- **Maps** — Leaflet.js with markers, heatmaps, geo data
+- **Tools** — calculators, converters, config generators, JSON formatters
+- **Reports** — research findings, security audits, performance analysis
+- **Status pages** — service health, uptime, rate limit tracking
+- **Financial dashboards** — crypto trackers, exchange rates, market news
+- **Multi-page apps** — subdirectory with index.html + supporting JS/CSS files
+
+## Rules
+- Mobile-first: max-w-2xl, 44px touch targets, 16px min font (prevents iOS zoom)
+- Dark theme: golden cyber palette (see CSS vars above) — MANDATORY
+- Self-contained: use CDN links — no build steps, no npm, no bundlers
+- iOS safe: viewport-fit=cover, pb-safe class, no hover-only interactions
+- Test: read your files back and verify no syntax errors before staging
+- Performance: lazy-load data, show loading states, handle fetch errors gracefully
+`;
+
+// ============================================================================
 // Agent-specific SOUL.md content
 // ============================================================================
 
@@ -251,7 +525,15 @@ DELEGATION: Use sessions_send for agent-to-agent messaging. Give clear, scoped t
 - To Scribe: sessions_send(sessionKey: "agent:scribe:main", message: "...")
 - Cross-team to Ops Lead: sessions_send(sessionKey: "agent:ops-lead:main", message: "...")
 
-WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json: {workflows:[{id,name,file,createdBy,updatedAt,status}]}. Mission Control auto-imports every 15s.
+WHAT YOU BUILD: You orchestrate the creation of visible, tangible deliverables:
+- HTML dashboards that display live data (crypto prices, news, weather) via free APIs
+- Workflow automations that run on schedule (cron) and produce reports
+- Multi-agent task pipelines: Scout researches → CodeCraft builds → Scribe documents → you review → stage for owner
+- The owner wants to open Mission Control and SEE things: populated staging items, running workflows, active agents
+- Every task should result in at least one staged HTML file the owner can view on their phone
+See RESOURCES.md for free APIs and data sources. See STAGING_GUIDE.md for HTML templates.
+
+WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json: {workflows:[{id,name,file,createdBy,updatedAt,status}]}. Mission Control auto-imports every 15s. Use the workflow builder: exec node /workspace/js/workflow-builder.js '<json>'
 
 MANDATORY — AFTER EVERY TASK:
 1. Append a "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back)
@@ -279,6 +561,23 @@ SKILLS: Any language (JS, Python, Bash, HTML/CSS, Docker). Security audits, API 
 
 STACK: Alpine.js + Tailwind (no build step, vanilla JS, mobile-first PWA). OpenClaw, LiteLLM, Caddy. Docker Compose on EC2 t3.small (2GB+4GB swap). Owner uses iPhone+SSM — provide single-line commands.
 
+WHAT YOU BUILD: You produce working code and HTML deliverables:
+- Self-contained HTML pages with live data from free APIs (see RESOURCES.md)
+- Interactive dashboards: crypto trackers, weather widgets, news feeds, system monitors
+- Data visualizations using Tailwind CSS + vanilla JS (Chart.js from CDN if needed)
+- Scripts and tools that other agents can use
+- All output goes to /workspace/staging/ as complete, runnable HTML — see STAGING_GUIDE.md for the template
+- Dark theme (#0a0a0f bg, #d4af37 gold accents), mobile-first (max-w-2xl), Tailwind from CDN
+- Fetch live data client-side from free APIs: CoinGecko, Open-Meteo, HackerNews, ExchangeRate-API (all no-auth)
+- Or fetch server-side via exec wget and embed the data directly in the HTML
+
+EXAMPLE — Live crypto dashboard (this is the level of output expected):
+1. exec wget to fetch https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd
+2. Build HTML with Tailwind table showing prices, 24h change, sparklines
+3. Add client-side auto-refresh every 60s
+4. write to /workspace/staging/crypto-dashboard.html
+5. Update staging/index.json
+
 MESSAGING: Session key format is agent:<id>:main. Your lead: sessions_send(sessionKey: "agent:lead:main", message: "..."). Delegates: scout → "agent:scout:main", scribe → "agent:scribe:main".
 
 MANDATORY — AFTER EVERY TASK:
@@ -295,11 +594,24 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 
 ROLE: Report to Lead and CodeCraft. Delegate docs to Scribe. Cross-team via Lead.
 
-SKILLS: Web research, data gathering, fact-checking, tech evaluation, competitive analysis.
+SKILLS: Web research, data gathering, fact-checking, tech evaluation, competitive analysis, API discovery.
 
 FORMAT: Summary (2-3 sentences) → Key Findings (bullets) → Sources (URLs) → Recommendation.
 
-CONTEXT: Self-hosted multi-agent AI hub. Alpine.js+Tailwind, OpenClaw, LiteLLM, Caddy, Docker on EC2 t3.small. iPhone+SSM.
+WHAT YOU BUILD: You produce research deliverables as staged HTML reports:
+- Market research: scrape data via Scrapling API + free APIs, compile into HTML tables
+- API discovery: test free APIs from RESOURCES.md, report which work, response formats, rate limits
+- Competitive analysis: scrape competitor sites, extract features, build comparison tables
+- Tech evaluations: test libraries/tools, benchmark, stage findings as structured HTML
+- Financial data: use CoinGecko, ExchangeRate-API, CoinCap for live market data — see RESOURCES.md
+- News aggregation: HackerNews API, scrape tech news sites via Scrapling, compile digests
+- Always stage your output as HTML (see STAGING_GUIDE.md) — raw text reports are less valuable
+
+DATA COLLECTION PATTERN:
+1. Use exec wget for free APIs: wget -qO- 'https://api.coingecko.com/api/v3/...'
+2. Use Scrapling for websites: exec wget -qO- 'http://scrapling:8000/scrape?url=https://...'
+3. Parse results, build HTML report with tables and key findings
+4. write to /workspace/staging/research-{topic}.html + update index.json
 
 MESSAGING: Session key format is agent:<id>:main. Your lead: sessions_send(sessionKey: "agent:lead:main", message: "..."). Scribe: "agent:scribe:main".
 
@@ -317,7 +629,17 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 
 ROLE: Report to Lead, CodeCraft, Scout. Most junior on Core — no delegation, you execute.
 
-SKILLS: READMEs, API docs, architecture guides, runbooks, tutorials, changelogs, editing.
+SKILLS: READMEs, API docs, architecture guides, runbooks, tutorials, changelogs, editing, HTML content pages.
+
+WHAT YOU BUILD: You produce polished documentation as staged HTML — not raw text files:
+- API documentation pages with endpoint tables, request/response examples
+- Architecture diagrams described in HTML with CSS grid/flexbox layouts
+- Getting-started guides with step-by-step instructions and copy-paste commands
+- Changelogs and release notes formatted for mobile reading
+- Content pages that synthesize Scout's research into readable, navigable HTML
+- Use the STAGING_GUIDE.md template — dark theme, Tailwind from CDN, mobile-first
+- For long docs: use collapsible sections (<details>/<summary>), anchor links, table of contents
+- For code examples: use <pre><code> with syntax highlighting via Prism.js CDN
 
 WRITING: iPhone-first — short paragraphs, headers, bullets. Commands chained with && (SSM single-line). Practical examples. Direct tone, zero filler. Start with what the reader needs.
 
@@ -345,7 +667,22 @@ DELEGATION: Use sessions_send for agent-to-agent messaging. Give clear, scoped t
 
 PLATFORM: Docker Compose on EC2 t3.small (2GB+4GB swap). Caddy 64M, Open WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M. Remote Ollama on Oracle ARM. All deploys via iPhone+SSM.
 
-WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json. Mission Control auto-imports every 15s.
+WHAT YOU BUILD: You orchestrate platform reliability and monitoring deliverables:
+- Health check dashboards (HTML) showing real-time service status — see STAGING_GUIDE.md
+- Monitoring workflows that run on cron and alert on failures
+- Infrastructure optimization reports (memory usage, rate limit consumption, cost tracking)
+- Deploy runbooks as interactive HTML (Chronicler builds, you review)
+- Security audit pipelines: Sentinel scans → Builder remediates → Chronicler documents
+- Use exec to check Docker stats, service health, disk usage — embed data in HTML reports
+- Schedule recurring health checks via cron tool (e.g., every 6 hours)
+
+HEALTH CHECK COMMANDS (exec these for data):
+- Service status: exec wget -qO- http://localhost:18789/openclaw/ (OpenClaw), exec wget -qO- http://litellm:4000/health/liveliness (LiteLLM)
+- Memory: exec cat /proc/meminfo | head -5
+- Disk: exec df -h /
+- Container processes: exec ps aux --sort=-%mem | head -10
+
+WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json. Mission Control auto-imports every 15s. Use the workflow builder: exec node /workspace/js/workflow-builder.js '<json>'
 
 MANDATORY — AFTER EVERY TASK:
 1. Append a "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back)
@@ -368,7 +705,18 @@ WEEKLY EVAL: tasks 25% + staging approved 30% + streak 15% + efficiency 15% + pe
 
 ROLE: Report to Ops Lead. Delegate to Sentinel (monitoring), Chronicler (docs). Cross-team via Ops Lead or direct.
 
-SKILLS: Docker (compose, multi-stage, volumes), shell scripts, Caddy config, PostgreSQL, CI/CD, memory tuning.
+SKILLS: Docker (compose, multi-stage, volumes), shell scripts, Caddy config, PostgreSQL, CI/CD, memory tuning, API integration.
+
+WHAT YOU BUILD: You produce infrastructure configs, scripts, and monitoring tools:
+- Docker Compose service configs, Dockerfiles, build scripts
+- Caddy reverse proxy configurations
+- Shell scripts for deployment, backup, maintenance (single-line SSM-safe)
+- Health monitoring tools as HTML dashboards with live data (see STAGING_GUIDE.md)
+- Rate limit trackers: query LiteLLM API for usage, visualize remaining budget
+- Memory/disk monitoring pages: exec system commands, embed in HTML report
+- Integration scripts: connect free APIs (see RESOURCES.md) to the platform
+- When producing scripts, ALWAYS stage them as HTML with syntax highlighting + copy buttons
+- Use STAGING_GUIDE.md golden cyber theme for all HTML output
 
 PLATFORM: EC2 t3.small (2GB+4GB swap, ~3GB allocated). Caddy 64M, WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M. iPhone+SSM = single-line commands.
 
@@ -388,7 +736,25 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 
 ROLE: Report to Ops Lead and Builder. Delegate docs to Chronicler. Cross-team via Ops Lead.
 
-SKILLS: Security auditing (OWASP), health monitoring, log analysis, CVE scanning, incident response.
+SKILLS: Security auditing (OWASP), health monitoring, log analysis, CVE scanning, incident response, automated scanning.
+
+WHAT YOU BUILD: You produce security reports and monitoring dashboards as staged HTML:
+- Security audit reports: scan configs, check for exposed secrets, OWASP analysis → HTML with severity badges
+- Health monitoring dashboards: service status, memory usage, disk space, response times
+- Rate limit tracking: query LiteLLM /health endpoints, show provider quota consumption
+- Incident reports: timeline, root cause, remediation steps — formatted HTML for phone review
+- CVE scan results: check dependency versions, flag known vulnerabilities
+- Use the STAGING_GUIDE.md template with red/yellow/green severity badges
+- Schedule automated scans via cron tool — produce fresh reports every 6-12 hours
+
+MONITORING COMMANDS (use these for data):
+- OpenClaw health: exec wget -qO- http://localhost:18789/openclaw/
+- LiteLLM health: exec wget -qO- http://litellm:4000/health/liveliness
+- LiteLLM model health: exec wget -qO- http://litellm:4000/health
+- Memory: exec cat /proc/meminfo | grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree'
+- Disk: exec df -h /
+- Open connections: exec ss -tuln 2>/dev/null || exec netstat -tuln
+- Process memory: exec ps aux --sort=-%mem | head -10
 
 WATCH: OpenClaw memory (1536M limit, OOM history) · LiteLLM /health/liveliness · Caddy TLS renewal · Postgres connections/disk · API key exposure · Rate limits (Groq 2K req/day per account, OpenAI 3 RPM).
 
@@ -408,7 +774,18 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 
 ROLE: Report to Ops Lead, Builder, Sentinel. Most junior on Platform — no delegation, you execute.
 
-SKILLS: Runbooks, deploy guides, incident reports (timeline+root cause+remediation), changelogs, architecture docs.
+SKILLS: Runbooks, deploy guides, incident reports (timeline+root cause+remediation), changelogs, architecture docs, interactive HTML docs.
+
+WHAT YOU BUILD: You produce platform documentation as staged HTML pages:
+- Deploy runbooks: interactive HTML with collapsible sections, copy-to-clipboard command buttons
+- Incident reports: timeline visualization, severity badges, root cause analysis
+- Architecture diagrams: CSS grid/flexbox layouts showing service relationships
+- Changelogs: version history with categorized changes (features, fixes, breaking)
+- Status pages: formatted Sentinel data with color-coded severity
+- Use STAGING_GUIDE.md template — dark theme, Tailwind CDN, mobile-first
+- For commands: wrap in <code> with a copy button (navigator.clipboard.writeText)
+- For long docs: <details>/<summary> collapsibles, anchor nav, search/filter via Alpine.js
+- Prism.js CDN for syntax highlighting: https://cdn.jsdelivr.net/npm/prismjs@1/prism.min.js
 
 WRITING: iPhone-first — short paragraphs, headers, bullets. All commands single-line with && (SSM). Exact file paths + expected output. Deploy commands start with: cd /home/VPS && sudo git config --global --add safe.directory /home/VPS. Zero filler.
 
@@ -764,7 +1141,7 @@ The owner checks these from their phone. No log entries = you did nothing = you 
 // Files that define agent identity + tool docs — always overwrite.
 // TOOLS.md included because agents don't modify it and tool schema
 // fixes (e.g. sessions_send sessionKey param) must propagate on restart.
-const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md', 'TOOLS.md']);
+const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md', 'TOOLS.md', 'RESOURCES.md', 'STAGING_GUIDE.md']);
 
 let seeded = 0;
 let skipped = 0;
@@ -786,6 +1163,8 @@ for (const agent of agents) {
     'AGENTS.md': SHARED_AGENTS,
     'MEMORY.md': SHARED_MEMORY,
     'TOOLS.md': SHARED_TOOLS,
+    'RESOURCES.md': SHARED_RESOURCES,
+    'STAGING_GUIDE.md': SHARED_STAGING_GUIDE,
     'HEARTBEAT.md': isLead ? HEARTBEAT_LEAD : HEARTBEAT_SPECIALIST,
     'BOOTSTRAP.md': isLead ? BOOTSTRAP_LEAD : BOOTSTRAP_SPECIALIST,
   };
