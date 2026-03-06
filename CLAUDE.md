@@ -24,6 +24,8 @@
 
 **Scope discipline:** If a function works, don't touch it while working on something else. If you need to change a working function, that's a separate commit with a separate justification — not a drive-by edit bundled into an unrelated fix.
 
+**Root-cause first, no debugging noise.** When fixing a bug, identify and resolve the root cause before producing output. Do not layer workarounds, redundant null-checks, or defensive patches on top of each other — find the one thing that's actually wrong and fix that. If a first attempt doesn't work, remove it before trying the next approach. The final commit should contain only the real fix, not a stack of abandoned debugging attempts. Every line in the diff should be justified by the root cause, not by "just in case."
+
 ---
 
 ## Deployment & Mobile-First Requirements
