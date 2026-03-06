@@ -189,48 +189,50 @@ if (config.agents.list.length === 0) {
       id: 'lead', workspace: 'Lead',
       model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: { name: 'Lead', emoji: '\u{1F9E0}' },
-      subagents: { allowAgents: ['codecraft', 'scout', 'scribe'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'codecraft', workspace: 'CodeCraft',
       model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: { name: 'CodeCraft', emoji: '\u26A1' },
-      subagents: { allowAgents: ['scout', 'scribe'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'scout', workspace: 'Scout',
       model: { primary: 'litellm/gemini-pro' },
       identity: { name: 'Scout', emoji: '\u{1F50D}' },
-      subagents: { allowAgents: ['scribe'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'scribe', workspace: 'Scribe',
       model: { primary: 'litellm/gemini-flash-lite' },
       identity: { name: 'Scribe', emoji: '\u{1F4DD}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     // PLATFORM TEAM
     {
       id: 'ops-lead', workspace: 'Ops Lead',
       model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: { name: 'Ops Lead', emoji: '\u{1F3AF}' },
-      subagents: { allowAgents: ['builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'builder', workspace: 'Builder',
       model: { primary: 'litellm/gemini-flash' },
       identity: { name: 'Builder', emoji: '\u{1F528}' },
-      subagents: { allowAgents: ['sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'sentinel', workspace: 'Sentinel',
       model: { primary: 'litellm/cerebras-llama-4-scout' },
       identity: { name: 'Sentinel', emoji: '\u{1F6E1}\uFE0F' },
-      subagents: { allowAgents: ['chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'chronicler', workspace: 'Chronicler',
       model: { primary: 'litellm/gemini-flash-lite' },
       identity: { name: 'Chronicler', emoji: '\u{1F4CB}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
   ];
 }
