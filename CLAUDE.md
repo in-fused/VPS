@@ -330,7 +330,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 - `models.providers.<name>.supportsReasoningEffort` — not a valid provider key (causes "unexpected property" crash)
 - **Valid since v2026.3.1:** `agents.defaults.compaction.memoryFlush.softThresholdTokens` (we set to 50000)
 
-**Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, and `HEARTBEAT.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). Files are only seeded if missing — agent modifications are preserved.
+**Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, and `BOOTSTRAP.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). **SOUL.md and BOOTSTRAP.md are force-overwritten on every restart** — OpenClaw creates its own default versions (generic "who am I?" onboarding) during agent initialization, which would replace our custom agent identities. The seeder runs twice: once before OpenClaw starts (seeds new files), and once 30s after (overwrites OpenClaw's defaults). Other files are only seeded if missing — agent modifications are preserved.
 
 **Prompt architecture (dual-path):**
 - **Route 1 (OpenClaw WS):** Server-side SOUL.md handles the full system prompt. App.js only injects a brief dynamic `[STATUS]` line (tier, score, week) on the first message.

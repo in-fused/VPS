@@ -358,7 +358,15 @@ console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/open
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.
-# Only creates files that don't exist — preserves agent modifications.
+# Runs twice: once now (seeds new files), once after 30s delay (overwrites
+# OpenClaw's default SOUL.md/BOOTSTRAP.md that it creates on agent init).
 node /opt/scripts/seed-agent-workspaces.js
+
+# Delayed re-seed: OpenClaw creates default workspace files on startup,
+# overwriting our seeded SOUL.md/BOOTSTRAP.md. This background task waits
+# for OpenClaw to finish initializing, then overwrites the defaults.
+# OpenClaw reads workspace files on every turn, so changes take effect
+# immediately on the next agent interaction.
+(sleep 30 && node /opt/scripts/seed-agent-workspaces.js) &
 
 exec node openclaw.mjs gateway --allow-unconfigured

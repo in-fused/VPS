@@ -605,9 +605,20 @@ The owner checks these from their phone. No log entries = you did nothing = you 
 // ============================================================================
 // Seed workspace files
 // ============================================================================
+// SOUL.md and BOOTSTRAP.md are ALWAYS overwritten on every restart.
+// OpenClaw creates its own default SOUL.md/BOOTSTRAP.md when initializing
+// agents (generic "who am I?" content). Without force-overwrite, agents
+// lose their identity and go through the default onboarding flow instead
+// of knowing their role. Other files (USER.md, MEMORY.md, etc.) are only
+// seeded if missing — agents may legitimately modify these.
+// ============================================================================
+
+// Files that define agent identity — always overwrite
+const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md']);
 
 let seeded = 0;
 let skipped = 0;
+let overwritten = 0;
 
 for (const agent of agents) {
   const wsName = agent.workspace || agent.id;
@@ -636,7 +647,12 @@ for (const agent of agents) {
 
   for (const [filename, content] of Object.entries(files)) {
     const filepath = path.join(wsDir, filename);
-    if (!fs.existsSync(filepath)) {
+    if (FORCE_OVERWRITE.has(filename)) {
+      // Identity-critical files: always overwrite to prevent OpenClaw
+      // defaults from replacing our agent-specific prompts
+      fs.writeFileSync(filepath, content, 'utf8');
+      overwritten++;
+    } else if (!fs.existsSync(filepath)) {
       fs.writeFileSync(filepath, content, 'utf8');
       seeded++;
     } else {
@@ -649,4 +665,4 @@ for (const agent of agents) {
   fs.mkdirSync(memDir, { recursive: true });
 }
 
-console.log(`[workspace-seed] ${seeded} files seeded, ${skipped} existing preserved (${agents.length} agents)`);
+console.log(`[workspace-seed] ${overwritten} overwritten (identity), ${seeded} new files seeded, ${skipped} existing preserved (${agents.length} agents)`);
