@@ -185,60 +185,38 @@ See WORKFLOWS.md for builder format. Every multi-step task SHOULD produce a work
 // RESOURCES.md — External repos, free APIs, and data sources
 // ============================================================================
 
-const SHARED_RESOURCES = `# Free APIs & Resources — No Auth Required
+const SHARED_RESOURCES = `# Free APIs & Resources — No Keys Required
 
-Use these NOW with exec wget (server-side) or fetch() (client-side HTML). All free, no keys.
+Server: \`exec wget -qO- '<url>'\` | Client HTML: \`fetch('<url>')\`
 
-## Finance & Crypto
-- Crypto prices: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true
-- Crypto top 10: https://api.coincap.io/v2/assets?limit=10
-- Crypto history: https://api.coincap.io/v2/assets/bitcoin/history?interval=d1
-- Exchange rates: https://open.er-api.com/v6/latest/USD
+## APIs (all free, no auth)
+| Category | URL |
+|----------|-----|
+| Crypto prices | https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true |
+| Crypto top 10 | https://api.coincap.io/v2/assets?limit=10 |
+| Exchange rates | https://open.er-api.com/v6/latest/USD |
+| Weather | https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true |
+| HackerNews | https://hacker-news.firebaseio.com/v0/topstories.json (then /item/{id}.json) |
+| Wikipedia | https://en.wikipedia.org/api/rest_v1/page/summary/{title} |
+| GitHub | https://api.github.com/repos/{owner}/{repo} |
+| NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY |
+| 1400+ more | https://github.com/public-apis/public-apis |
 
-## Weather
-- Forecast: https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true
-- Quick weather: https://wttr.in/NewYork?format=j1
+## Scraping (internal only, http://scrapling:8000)
+GET: \`exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'\`
+POST: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape\`
+Fast fetcher only (no Cloudflare bypass).
 
-## News
-- HackerNews top: https://hacker-news.firebaseio.com/v0/topstories.json (then /item/{id}.json)
-- Wikipedia: https://en.wikipedia.org/api/rest_v1/page/summary/{title}
-
-## Dev Data
-- GitHub repos: https://api.github.com/repos/{owner}/{repo}
-- GitHub trending: https://api.github.com/search/repositories?q=stars:>1000&sort=stars
-- Geocoding: https://nominatim.openstreetmap.org/search?q={query}&format=json
-- IP location: https://ipapi.co/json/
-- Countries: https://restcountries.com/v3.1/all
-
-## Science
-- NASA APOD: https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY
-- arXiv papers: http://export.arxiv.org/api/query?search_query=all:{topic}&max_results=5
-
-## Scraping (sites without APIs)
-\`exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'\`
-POST with selectors: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape\`
-
-## CDN Libraries (for staged HTML apps — no build step)
-- Tailwind: \`<script src="https://cdn.tailwindcss.com"></script>\`
-- Alpine.js: \`<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>\`
-- Chart.js: \`<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>\`
-- D3.js: \`<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>\`
-- ApexCharts: \`<script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>\`
-- Leaflet maps: \`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">\` + JS
-- DayJS: \`<script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>\`
-- Marked (MD→HTML): \`<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>\`
-
-## More APIs
-1400+ free APIs: https://github.com/public-apis/public-apis
-\`exec wget -qO- 'https://raw.githubusercontent.com/public-apis/public-apis/master/README.md' | head -200\`
-
-\`\`\`
-exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
-exec wget -qO- --post-data='{"url":"https://finance.yahoo.com/quote/AAPL","selectors":{"price":".livePrice span::text","change":".priceChange span::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape
-\`\`\`
-
-**Use cases:** Yahoo Finance quotes, tech news sites, GitHub trending, product pages, documentation.
-**Limitations:** "fast" fetcher only (HTTP with TLS spoofing). Cloudflare-protected sites need "stealth" mode (not available without browser binaries).
+## CDN Libraries (for staged HTML — no build step)
+| Lib | Tag |
+|-----|-----|
+| Tailwind | \`<script src="https://cdn.tailwindcss.com"></script>\` |
+| Chart.js | \`<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>\` |
+| Alpine.js | \`<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>\` |
+| D3.js | \`<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>\` |
+| ApexCharts | \`<script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>\` |
+| Leaflet | \`<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">\` + JS |
+| Prism.js | \`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">\` + JS |
 `;
 
 // ============================================================================
@@ -247,54 +225,29 @@ exec wget -qO- --post-data='{"url":"https://finance.yahoo.com/quote/AAPL","selec
 
 const SHARED_STAGING_GUIDE = `# Staging — How to Ship Output
 
-Files served at: https://in-fused.org/workspace/staging/{filename}
-Owner reviews on phone. No staged output = you did nothing.
+URL: https://in-fused.org/workspace/staging/{filename} — owner reviews on phone.
 
 ## Steps
 1. \`write\` file to /workspace/staging/{filename}
 2. \`read\` /workspace/staging/index.json, push item, \`write\` back
-3. Item format: {id, name, path, type, createdBy:"your-id", description, status:"pending"}
+3. Item: {id, name, path, type, createdBy:"your-id", description, status:"pending"}
 
-## HTML Template (COPY THIS — golden cyber theme, mobile-first)
+## HTML Template — COPY THIS
 \`\`\`html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TITLE</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TITLE</title><script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={theme:{extend:{colors:{cyber:{bg:'#0a0a0f',card:'#12121a',border:'#1e1e2e'},gold:{DEFAULT:'#d4af37',dim:'#b8962e'}}}}}</script>
-<style>
-body{background:#0a0a0f;color:#e0e0e0;font-family:system-ui,-apple-system,sans-serif}
-.card{background:#12121a;border:1px solid #1e1e2e;border-radius:12px;padding:16px;margin-bottom:12px}
-.accent{color:#d4af37}
-.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600}
-.badge-green{background:#065f46;color:#6ee7b7}.badge-red{background:#7f1d1d;color:#fca5a5}
-.badge-yellow{background:#713f12;color:#fde68a}.badge-blue{background:#1e3a5f;color:#93c5fd}
-table{width:100%;border-collapse:collapse}
-th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #1e1e2e;font-size:14px}
-th{color:#d4af37;font-size:12px;text-transform:uppercase}
-button{background:#d4af37;color:#0a0a0f;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;min-height:44px}
-input,select,textarea{background:#1a1a2e;border:1px solid #1e1e2e;color:#e0e0e0;padding:8px 12px;border-radius:8px;width:100%;font-size:16px}
-a{color:#d4af37}
-</style>
-</head>
+<style>body{background:#0a0a0f;color:#e0e0e0;font-family:system-ui,sans-serif}.card{background:#12121a;border:1px solid #1e1e2e;border-radius:12px;padding:16px;margin-bottom:12px}.accent{color:#d4af37}.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600}.badge-green{background:#065f46;color:#6ee7b7}.badge-red{background:#7f1d1d;color:#fca5a5}.badge-yellow{background:#713f12;color:#fde68a}.badge-blue{background:#1e3a5f;color:#93c5fd}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #1e1e2e;font-size:14px}th{color:#d4af37;font-size:12px;text-transform:uppercase}button{background:#d4af37;color:#0a0a0f;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;min-height:44px}input,select,textarea{background:#1a1a2e;border:1px solid #1e1e2e;color:#e0e0e0;padding:8px 12px;border-radius:8px;width:100%;font-size:16px}a{color:#d4af37}</style></head>
 <body class="p-4 max-w-2xl mx-auto pb-safe">
 <h1 class="text-xl font-bold accent mb-4">TITLE</h1>
 <!-- CONTENT -->
 <p class="text-xs text-gray-500 mt-8">Generated by AGENT_ID · <span id="ts"></span></p>
 <script>document.getElementById('ts').textContent=new Date().toLocaleString()</script>
-</body>
-</html>
+</body></html>
 \`\`\`
 
-## Rules
-- Mobile-first: max-w-2xl, 44px touch targets, 16px min font
-- Dark theme: #0a0a0f bg, #d4af37 gold accents — MANDATORY
-- Self-contained: CDN libs only, no build step (see RESOURCES.md for CDN links)
-- iOS safe: viewport-fit=cover, no hover-only interactions
-- Fetch live data client-side from free APIs (see RESOURCES.md) or server-side via exec wget
+## Rules: mobile-first (max-w-2xl, 44px touch, 16px font), dark theme (#0a0a0f/#d4af37), self-contained CDN, viewport-fit=cover, no hover-only. See RESOURCES.md for CDN links and free APIs.
 `;
 
 // ============================================================================
@@ -547,88 +500,48 @@ NEVER say "please advise." Owner deploys from phone using your docs — wrong co
 // WORKFLOWS.md — Full workflow creation reference (leads + codecraft)
 // ============================================================================
 
-const SHARED_WORKFLOWS = `# Workflow Builder — Create Visual Workflows
+const SHARED_WORKFLOWS = `# Workflow Builder
 
-Every multi-step task SHOULD produce a workflow. The owner sees these in Mission Control.
-Workflows prove competence and make your work visible, debuggable, and repeatable.
+Every multi-step task SHOULD produce a workflow. Owner sees them in Mission Control (auto-imports within 15s).
 
-## Builder CLI (USE THIS — generates valid LiteGraph JSON automatically)
-\\\`\\\`\\\`
-exec node /workspace/js/workflow-builder.js '<json>'
-\\\`\\\`\\\`
+## CLI: \`exec node /workspace/js/workflow-builder.js '<json>'\`
 
 ## Format
 \\\`\\\`\\\`json
-{
-  "id": "wf-my-workflow",
-  "name": "My Workflow",
-  "createdBy": "your-agent-id",
-  "nodes": [
-    {"type": "trigger", "prompt": "What this workflow does"},
-    {"type": "agent", "agent": "scout"},
-    {"type": "condition", "condition": "error", "conditionType": "Contains"},
-    {"type": "output", "label": "Result", "destination": "Log"}
-  ],
-  "connections": [[0,1],[1,2],[2,3,0,0]]
-}
+{"id":"wf-my-workflow","name":"My Workflow","createdBy":"your-id","nodes":[{"type":"trigger","prompt":"..."},{"type":"agent","agent":"scout"},{"type":"output","label":"Result"}],"connections":[[0,1],[1,2]]}
 \\\`\\\`\\\`
 
 ## Node Types
-| Type | Key Props | Use For |
-|------|-----------|---------|
-| trigger | prompt, trigger ("Manual"/"Scheduled") | Start point |
-| agent | agent (lead/scout/codecraft/etc) | AI processing |
-| task | goal, constraints, priority | Structured goals |
-| tool | tool, agent, config | Web Search/Scrape/Code Execution/File Read/Write/Shell/API Call/Browser |
-| condition | condition, conditionType (Contains/Equals/Regex/Length >/Is Empty) | Branching |
-| output | label, destination (Log/Chat Response/File/Webhook) | Deliver results |
-| loop | splitBy (newline/comma/JSON Array) | Iterate items |
-| merge | mode (Concatenate/JSON Merge/Pick Best/Summary) | Combine inputs |
+| Type | Props | Purpose |
+|------|-------|---------|
+| trigger | prompt, trigger (Manual/Scheduled) | Start |
+| agent | agent (any agent ID) | AI processing |
+| task | goal, constraints, priority | Structured goal |
+| tool | tool, agent, config | Shell/Web Search/Scrape/File/API |
+| condition | condition, conditionType (Contains/Equals/Regex/Length >/Is Empty) | Branch (slot 0=true, 1=false) |
+| output | label, destination (Log/Chat Response/File/Webhook) | Deliver |
+| loop | splitBy (newline/comma/JSON Array) | Iterate |
+| merge | mode (Concatenate/JSON Merge/Pick Best/Summary) | Combine |
 
-## Connections: [fromIndex, toIndex, fromSlot?, toSlot?] — slots default to 0
-Condition: slot 0 = true branch, slot 1 = false branch
+Connections: [fromIdx, toIdx, fromSlot?, toSlot?] — slots default 0.
 
-## Common Patterns
-- **Research:** trigger → agent(scout) → output
-- **Research + Report:** trigger → agent(scout) → agent(scribe) → output
-- **Health check:** trigger → tool(Shell) → condition("error") → output(true) + output(false)
-- **Data pipeline:** trigger → tool(Web Scrape) → agent(codecraft) → output(File)
+## Patterns
+- Research: trigger → agent(scout) → output
+- Research+Report: trigger → agent(scout) → agent(scribe) → output
+- Health: trigger → tool(Shell) → condition("error") → output(alert) / output(ok)
+- Pipeline: trigger → tool(Web Scrape) → agent(codecraft) → output(File)
 
-## Examples
+## Example
 \\\`\\\`\\\`
-exec node /workspace/js/workflow-builder.js '{"id":"wf-research","name":"AI News Research","createdBy":"lead","nodes":[{"type":"trigger","prompt":"Research latest AI developments"},{"type":"agent","agent":"scout"},{"type":"agent","agent":"scribe"},{"type":"output","label":"Report"}],"connections":[[0,1],[1,2],[2,3]]}'
-\\\`\\\`\\\`
-
-\\\`\\\`\\\`
-exec node /workspace/js/workflow-builder.js '{"id":"wf-health","name":"Service Health Check","createdBy":"ops-lead","nodes":[{"type":"trigger","prompt":"Check all services"},{"type":"tool","tool":"Shell Access","agent":"sentinel"},{"type":"condition","condition":"error","conditionType":"Contains"},{"type":"output","label":"Errors Found","destination":"Chat Response"},{"type":"output","label":"All Healthy","destination":"Log"}],"connections":[[0,1],[1,2],[2,3,0,0],[2,4,1,0]]}'
+exec node /workspace/js/workflow-builder.js '{"id":"wf-health","name":"Health Check","createdBy":"ops-lead","nodes":[{"type":"trigger","prompt":"Check services"},{"type":"tool","tool":"Shell Access","agent":"sentinel"},{"type":"condition","condition":"error","conditionType":"Contains"},{"type":"output","label":"Errors"},{"type":"output","label":"OK","destination":"Log"}],"connections":[[0,1],[1,2],[2,3,0,0],[2,4,1,0]]}'
 \\\`\\\`\\\`
 
-Auto-imports to Mission Control within 15s. Status: draft → ready → running → completed/failed.
-Results: write to /workspace/agent-workflows/results/{id}.json
+Results: /workspace/agent-workflows/results/{id}.json. Status: draft → ready → running → completed/failed.
 
-## Collaborative Workflows — Build on Each Other's Work
-Workflows are shared. Any agent can read, extend, or branch from any workflow.
-
-**Discover existing workflows:**
-\\\`\\\`\\\`
-read /workspace/agent-workflows/index.json
-\\\`\\\`\\\`
-
-**Read a workflow to understand its structure:**
-\\\`\\\`\\\`
-read /workspace/agent-workflows/{id}.json
-\\\`\\\`\\\`
-
-**Extend a workflow:** Read the existing one, add nodes, create a new version with a new id (e.g., wf-health-v2).
-**Branch a workflow:** Copy an existing workflow, modify the branch (swap agents, add conditions), save as new id.
-**Chain workflows:** One workflow's output node can write results that another workflow's trigger picks up.
-
-**Rules for collaboration:**
-- READ existing workflows before creating new ones — avoid duplicates
-- If another agent built a workflow that does 80% of what you need, extend it instead of rebuilding
-- Use sessions_send to coordinate: "I'm extending your wf-research workflow with a condition node"
-- Credit the original creator in the workflow name: "Research Pipeline v2 (extended by codecraft)"
-- When delegated a workflow task, check /workspace/agent-workflows/ first for reusable patterns
+## Collaboration
+- \`read /workspace/agent-workflows/index.json\` BEFORE creating — avoid duplicates
+- Extend existing workflows (new id, e.g. wf-health-v2) instead of rebuilding
+- Coordinate cross-team via sessions_send when modifying another agent's workflow
 `;
 
 // ============================================================================
