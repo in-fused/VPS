@@ -17,7 +17,9 @@ try { config = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
 // Ensure gateway settings for reverse proxy
 config.gateway = config.gateway || {};
 config.gateway.port = 18789;
-config.gateway.bind = 'lan';
+// 'lan' alias stopped working in recent OpenClaw versions — bind explicitly
+// to all interfaces so Caddy can reach us on the Docker bridge network.
+config.gateway.bind = '0.0.0.0';
 
 // Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
 config.gateway.auth = config.gateway.auth || {};
