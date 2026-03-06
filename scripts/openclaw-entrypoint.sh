@@ -17,9 +17,10 @@ try { config = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
 // Ensure gateway settings for reverse proxy
 config.gateway = config.gateway || {};
 config.gateway.port = 18789;
-// 'lan' alias stopped working in recent OpenClaw versions — bind explicitly
-// to all interfaces so Caddy can reach us on the Docker bridge network.
+// Bind to all interfaces so Caddy can reach us on the Docker bridge network.
+// Set both 'bind' and 'host' — different OpenClaw versions use different keys.
 config.gateway.bind = '0.0.0.0';
+config.gateway.host = '0.0.0.0';
 
 // Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
 config.gateway.auth = config.gateway.auth || {};
@@ -369,7 +370,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-4-scout, a2a=peer, agents=8 (2 teams), Cerebras (70b/scout) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=0.0.0.0, default=cerebras-llama-4-scout, a2a=peer, agents=8 (2 teams), Cerebras (70b/scout) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.
@@ -384,4 +385,5 @@ node /opt/scripts/seed-agent-workspaces.js
 # immediately on the next agent interaction.
 (sleep 30 && node /opt/scripts/seed-agent-workspaces.js) &
 
-exec node openclaw.mjs gateway --allow-unconfigured
+# Pass bind via CLI flags too — config field may be ignored in newer versions.
+exec node openclaw.mjs gateway --allow-unconfigured --host 0.0.0.0 --bind 0.0.0.0
