@@ -171,8 +171,9 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
   config.channels = config.channels || {};
   config.channels.telegram = {
     botToken: process.env.TELEGRAM_BOT_TOKEN,
+    groupPolicy: 'open',
   };
-  console.log('[config-patch] Telegram bot token configured');
+  console.log('[config-patch] Telegram bot token configured (groupPolicy: open)');
 }
 
 // =========================================================================
