@@ -190,16 +190,17 @@ config.agents.list = config.agents.list || [];
 // Only valid identity keys: name, emoji. Only valid subagents keys: allowAgents, model.
 if (config.agents.list.length === 0) {
   config.agents.list = [
-    // CORE TEAM — Cerebras-primary strategy (2026-03-05 rebalance).
-    // ZAI GLM-4.7 rivals Claude Sonnet for agentic/coding (t2-Bench 87.4%).
-    // GPT-OSS-120B has best reasoning (MMLU-Pro 90%). Spread across providers.
-    // Cerebras: Lead, CodeCraft, Ops Lead, Sentinel, Subagents
+    // CORE TEAM — Reliability-first strategy (2026-03-06 rebalance).
+    // cerebras-zai-glm rate-limits on first request — demoted to fallback only.
+    // Cerebras Llama 3.3 70B: proven reliable, strong reasoning+coding.
+    // GPT-OSS-120B: best reasoning (MMLU-Pro 90%). Spread across providers.
+    // Cerebras: Lead(70b), CodeCraft(gpt-oss), Ops Lead(gpt-oss), Sentinel, Subagents
     // Gemini: Scout, Builder, Scribe, Chronicler
     // Mistral/Groq: fallback only (2 RPM / API instability)
     {
       id: 'lead',
       workspace: 'Lead',
-      model: { primary: 'litellm/cerebras-zai-glm' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'Lead',
         emoji: '🧠',
@@ -212,7 +213,7 @@ if (config.agents.list.length === 0) {
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
@@ -315,13 +316,13 @@ delete config.tools?.agentToAgent?.maxPingPongTurns;
 
 // Clean unrecognized agent keys from persisted agent list.
 // Also spread models across providers to avoid single-provider rate limit exhaustion.
-// Model assignment: Cerebras-primary strategy (2026-03-05 rebalance per Scout research).
-// ZAI GLM-4.7 for agentic leads, GPT-OSS-120B for reasoning, Gemini for research/docs.
-// Cerebras: Lead(zai-glm), CodeCraft(70b), OpsLead(gpt-oss), Sentinel(scout), Subagents(8b)
+// Model assignment: Reliability-first strategy (2026-03-06 rebalance).
+// cerebras-zai-glm rate-limits on first request — demoted to fallback only.
+// Cerebras: Lead(70b), CodeCraft(gpt-oss), OpsLead(gpt-oss), Sentinel(scout), Subagents(8b)
 // Gemini: Scout(pro), Builder(flash), Scribe(flash-lite), Chronicler(flash-lite)
 var MODEL_MAP = {
-  'lead': 'litellm/cerebras-zai-glm',
-  'codecraft': 'litellm/cerebras-llama-3.3-70b',
+  'lead': 'litellm/cerebras-llama-3.3-70b',
+  'codecraft': 'litellm/cerebras-gpt-oss-120b',
   'scout': 'litellm/gemini-pro',
   'scribe': 'litellm/gemini-flash-lite',
   'ops-lead': 'litellm/cerebras-gpt-oss-120b',
@@ -353,7 +354,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-3.1-8b, a2a=peer, agents=8 (2 teams), Cerebras-primary (zai-glm/70b/gpt-oss/scout/8b) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-3.1-8b, a2a=peer, agents=8 (2 teams), Cerebras (70b/gpt-oss/scout/8b) + Gemini (pro/flash/flash-lite) + deepseek (fallback), zai-glm=fallback-only');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

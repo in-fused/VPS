@@ -49,8 +49,8 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 ## Core Team
 | Agent | Role | Model (Provider) |
 |-------|------|-------------------|
-| Lead | Orchestrator — delegates, reviews, manages team | cerebras-zai-glm (Cerebras) |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-3.3-70b (Cerebras) |
+| Lead | Orchestrator — delegates, reviews, manages team | cerebras-llama-3.3-70b (Cerebras) |
+| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-gpt-oss-120b (Cerebras) |
 | Scout | Research — web search, analysis, fact-checking | gemini-pro (Gemini) |
 | Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini) |
 
@@ -81,7 +81,7 @@ const SHARED_MEMORY = `# Project Memory
 
 ## Models via LiteLLM (25+ models, 8 tiers across 6 free providers)
 - FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 2 accounts)
-- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout (1M TPD)
+- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (1M TPD)
 - FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro
 - FREE Mistral: mistral-large, codestral (2 RPM, 1B tokens/month)
 - FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b

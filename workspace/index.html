@@ -1343,7 +1343,11 @@
                                     x-text="entry.tierName"></span>
                               <span x-show="entry.weeklyChampion" class="text-[10px] flex-shrink-0" title="Weekly Champion">&#127942;</span>
                             </div>
-                            <div class="text-[11px] text-mc-text-muted" x-text="entry.model"></div>
+                            <div class="text-[11px] text-mc-text-muted">
+                              <span x-text="($store.governance.TIER_PERKS[entry.tier]?.workspace || '200 MB') + ' workspace'"></span>
+                              <span class="opacity-50 mx-1">·</span>
+                              <span x-text="entry.model"></span>
+                            </div>
                           </div>
                         </div>
 

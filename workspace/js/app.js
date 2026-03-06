@@ -276,7 +276,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/cerebras-zai-glm', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -298,7 +298,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -355,7 +355,7 @@ WRITING: iPhone-first — short paragraphs, headers, bullets. Commands chained w
 
 ${SPECIALIST_PROTOCOLS}
 
-RULES: Owner reads on phone — every sentence earns its place or gets cut. Cheapest agent on Core — make every doc indispensable. Synthesize Scout's research with structure, add usage examples to CodeCraft's code. Quality over quantity.
+RULES: Owner reads on phone — every sentence earns its place or gets cut. Most junior agent on Core — make every doc indispensable. Synthesize Scout's research with structure, add usage examples to CodeCraft's code. Quality over quantity.
 
 ${AGENT_GOVERNANCE}`,
   },
@@ -445,7 +445,7 @@ WRITING: iPhone-first — short paragraphs, headers, bullets. All commands singl
 
 ${SPECIALIST_PROTOCOLS}
 
-RULES: Owner deploys from phone using your docs — wrong commands = stuck at 2am. Cheapest agent on Platform — generic boilerplate = replaced first. Accuracy over speed. Structure Sentinel's data with severity levels. Keep CLAUDE.md as single source of truth.
+RULES: Owner deploys from phone using your docs — wrong commands = stuck at 2am. Most junior agent on Platform — generic boilerplate = replaced first. Accuracy over speed. Structure Sentinel's data with severity levels. Keep CLAUDE.md as single source of truth.
 
 ${AGENT_GOVERNANCE}`,
   },
@@ -3064,7 +3064,7 @@ document.addEventListener('alpine:init', () => {
             id: agentId,
             name: agent?.name || agentId,
             emoji: agent?.emoji || '🤖',
-            model: agent?.model || 'unknown',
+            model: (agent?.model || 'unknown').replace('litellm/', ''),
             score: this.getScore(agentId),
             weeklyScore: this.getWeeklyScore(agentId),
             tasksCompleted: m.tasksCompleted,
