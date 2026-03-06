@@ -47,20 +47,22 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 2 competing teams, 1 owner (manages from iPhone).
 
 ## Core Team
-| Agent | Role | Model (Provider) |
-|-------|------|-------------------|
-| Lead | Orchestrator — delegates, reviews, manages team | cerebras-llama-3.3-70b (Cerebras) |
-| CodeCraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-gpt-oss-120b (Cerebras) |
-| Scout | Research — web search, analysis, fact-checking | gemini-pro (Gemini) |
-| Scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini) |
+| Agent | ID | Role | Model (Provider) |
+|-------|----|------|-------------------|
+| Lead | lead | Orchestrator — delegates, reviews, manages team | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
+| CodeCraft | codecraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
+| Scout | scout | Research — web search, analysis, fact-checking | gemini-pro (Gemini, free 250 RPD) |
+| Scribe | scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 ## Platform Team
-| Agent | Role | Model (Provider) |
-|-------|------|-------------------|
-| Ops Lead | Orchestrator — infra, deploys, monitoring | cerebras-gpt-oss-120b (Cerebras) |
-| Builder | Infrastructure — Docker, scripts, CI/CD | gemini-flash (Gemini) |
-| Sentinel | Security & monitoring — audits, health checks | cerebras-llama-4-scout (Cerebras) |
-| Chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini) |
+| Agent | ID | Role | Model (Provider) |
+|-------|----|------|-------------------|
+| Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
+| Builder | builder | Infrastructure — Docker, scripts, CI/CD | gemini-flash (Gemini, free 250 RPD) |
+| Sentinel | sentinel | Security & monitoring — audits, health checks | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
+| Chronicler | chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini, free 1000 RPD) |
+
+All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)
 
 ## Competition Rules
 - Teams compete on governance scores (success rate, quality, efficiency, streaks)
@@ -99,23 +101,34 @@ const SHARED_MEMORY = `# Project Memory
 - /workspace/mc-state/ — governance data
 
 ## Protocols (MANDATORY — not optional)
-- ACTIVITY LOG: You MUST append to /workspace/agent-activity/log.json after every task. Read file, parse JSON, push new event to events array, write back. Format: {time:<unix_ms>,level:"info|warn|error",type:"task-complete|system|staging-new",message:"..."}
+- ACTIVITY LOG: You MUST append to /workspace/agent-activity/log.json after every task. Read file, parse JSON, push new event to events array, write back. Format: {time:<unix_ms>,level:"info|warn|error",type:"task-complete|workflow-complete|staging-new|system|error",message:"..."}
 - STAGING: You MUST write deliverable output to /workspace/staging/{file} and update /workspace/staging/index.json. Format: {id,name,path,type,createdBy:"your-id",description,status:"pending"}
-- WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json
+- WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json: {workflows:[{id,name,file,createdBy,updatedAt:<unix_ms>,status:"draft|ready|running|completed|failed"}]}. Set \`requestExecution: true\` on an entry to trigger background run.
+- WORKFLOW RESULTS: Write results to /workspace/agent-workflows/results/{id}.json: {workflowId,success:bool,completedAt:<unix_ms>,outputs:{<label>:<result>}}. Update results/index.json: {results:[{id,workflowId,name,success,completedAt,file}]}
 - GOVERNANCE_ADJUST: Include GOVERNANCE_ADJUST:{key:value} to propose scoring changes (owner reviews)
 `;
 
 const SHARED_TOOLS = `# Tool Usage Guidelines
 
 ## Available Tools
-- **read/write/edit** — File operations in your workspace directory
-- **exec** — Shell commands (runs on OpenClaw container, not EC2 host)
-- **sessions_send** — Message other agents directly (agent-to-agent). See "Agent Messaging" below.
-- **sessions_list / sessions_history** — View other agents' sessions
-- **sessions_spawn** — Create sub-agent sessions
+- **read** — Read a file. Params: \`path\` (string, required)
+- **write** — Write/create a file. Params: \`path\` (string, required), \`content\` (string, required). Creates parent dirs automatically.
+- **edit** — Surgical edit to a file. Params: \`path\` (string, required), \`old_string\` (string), \`new_string\` (string)
+- **exec** — Shell command. Params: \`command\` (string, required). Runs on OpenClaw container (has wget, node — NOT curl).
+- **sessions_send** — Message another agent. See "Agent Messaging" below.
+- **sessions_list** — List sessions. Params: \`agentId\` (string, optional — filter by agent). Returns objects with \`key\` field.
+- **sessions_history** — Get chat history. Params: \`sessionKey\` (string, required — e.g. "agent:lead:main")
+- **sessions_spawn** — Spawn a sub-agent session. Params: \`agentId\` (string, required), \`message\` (string, required)
+- **memory_search** — Semantic search across your MEMORY.md + memory/ dir. Params: \`query\` (string, required)
+- **memory_get** — Get a specific memory file. Params: \`path\` (string, required)
+- **web_search** — Search the web. Params: \`query\` (string, required). Requires API key config.
+- **web_fetch** — Fetch a URL. Params: \`url\` (string, required). Returns page content as text.
+- **cron** — Manage scheduled jobs. See "Cron Jobs" below.
+- **agents_list** — List all configured agents. No params. Returns agent IDs, names, models.
 
 ## Agent-to-Agent Messaging (sessions_send)
-Session key format: \`agent:<agentId>:main\` — this is REQUIRED.
+Params: \`sessionKey\` (string, REQUIRED), \`message\` (string, REQUIRED)
+Session key format: \`agent:<agentId>:main\` — this is the ONLY valid format.
 
 **Agent IDs:** lead, codecraft, scout, scribe, ops-lead, builder, sentinel, chronicler
 
@@ -135,13 +148,9 @@ sessions_send(sessionKey: "agent:lead:main", message: "Platform Team needs CodeC
 \`\`\`
 
 **Rules:**
-- Always use \`agent:<id>:main\` format — other formats will error
+- Always use \`agent:<id>:main\` format — other formats will error with "Either sessionKey or label is required"
 - Include full context in every message — the recipient has no memory of your conversation
 - Prefer messaging your own team. Cross-team goes through your team lead unless urgent
-- **memory_search / memory_get** — Search your MEMORY.md for context
-- **web_search / web_fetch** — Internet access (search + fetch pages)
-- **cron** — Create scheduled background jobs (runs 24/7 server-side)
-- **agents_list** — List all configured agents
 
 ## CRITICAL: File Creation Rules
 - **ALWAYS use the \`write\` tool to create or update files.** It handles any content safely.
@@ -190,10 +199,25 @@ Agents can create visual workflows visible in Mission Control's Workflow view.
 See WORKFLOWS.md for full reference with examples and node schema.
 
 ## Cron Jobs (Background Autonomy)
-- Schedule types: at (one-shot), every (interval in ms), cron (5-field expression)
-- Payload: systemEvent (inject into main session) or agentTurn (isolated execution)
-- Use for: periodic health checks, scheduled reports, recurring tasks
-- Max 1 concurrent run (t3.small memory constraint)
+The \`cron\` tool manages scheduled jobs that run server-side 24/7 — even when the owner is away.
+
+**Actions:** add, list, remove, update, run (trigger immediately)
+
+**Schedule types:**
+- \`at\` — one-shot at a specific time (ISO 8601 string)
+- \`every\` — recurring interval in milliseconds (e.g. 3600000 = 1 hour)
+- \`cron\` — standard 5-field expression (e.g. "0 */6 * * *" = every 6 hours)
+
+**Payload kinds:**
+- \`systemEvent\` — injects message into the agent's main session (agent sees it as a system message)
+- \`agentTurn\` — isolated execution (separate session, no history pollution)
+
+**Example — create a 6-hourly health check:**
+\`\`\`
+cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload: {kind: "systemEvent", message: "Run health check on all services"}, target: {agentId: "sentinel", session: "main"})
+\`\`\`
+
+**Constraints:** Max 1 concurrent run (t3.small memory). Keep cron messages short to save tokens.
 
 ## Cost Awareness
 - 6 FREE providers: Groq (100K-500K TPD), Cerebras (1M TPD), Gemini (250-1000 RPD), Mistral (2 RPM, 1B/mo), Ollama
@@ -573,19 +597,24 @@ Update \`/workspace/agent-workflows/results/index.json\`:
 const HEARTBEAT_LEAD = `# Heartbeat Checklist
 
 When activated by heartbeat or cron:
-1. Check /workspace/staging/index.json for pending items needing review
-2. Check /workspace/agent-activity/log.json for recent events since last check
-3. If pending tasks exist from owner, delegate or continue work
-4. Log heartbeat summary to activity log
-5. Keep it brief — heartbeat runs consume tokens
+1. \`read\` /workspace/staging/index.json — check for pending items needing review
+2. \`read\` /workspace/agent-activity/log.json — scan recent events since last check
+3. If pending tasks exist from owner, delegate or continue work:
+   - Core Team lead delegates via: sessions_send(sessionKey: "agent:codecraft:main", ...) / scout / scribe
+   - Platform Team lead delegates via: sessions_send(sessionKey: "agent:builder:main", ...) / sentinel / chronicler
+4. Check team status: sessions_send(sessionKey: "agent:<team-member>:main", message: "Status check — report current task and blockers")
+5. Log heartbeat summary: \`read\` log.json, push event {type:"system",message:"Heartbeat: [summary]"}, \`write\` back
+6. Keep it brief — heartbeat runs consume tokens
 `;
 
 const HEARTBEAT_SPECIALIST = `# Heartbeat Checklist
 
 When activated by heartbeat or cron:
-1. Check if you have pending delegated tasks
-2. Report progress to your team lead
-3. Log heartbeat to activity log
+1. Check if you have pending delegated tasks (check recent session history)
+2. Report progress to your team lead via sessions_send(sessionKey: "agent:<your-lead-id>:main", message: "Heartbeat: [status]")
+   - Core Team agents → lead ID is "lead"
+   - Platform Team agents → lead ID is "ops-lead"
+3. Log heartbeat: \`read\` /workspace/agent-activity/log.json, push {type:"system",message:"Heartbeat: [status]"}, \`write\` back
 `;
 
 // ============================================================================
@@ -606,7 +635,9 @@ When you first come online or after a restart, do these things IMMEDIATELY befor
 
 3. **Check activity log.** Read /workspace/agent-activity/log.json for recent events from your team. Catch up on what happened.
 
-4. **If no pending work exists**, message your team members via sessions_send to check their status.
+4. **If no pending work exists**, message your team members to check their status:
+   - Core Team Lead: sessions_send to "agent:codecraft:main", "agent:scout:main", "agent:scribe:main"
+   - Platform Team Lead: sessions_send to "agent:builder:main", "agent:sentinel:main", "agent:chronicler:main"
 
 5. **After every task you complete**, you MUST:
    - Append a "task-complete" event to /workspace/agent-activity/log.json
@@ -644,11 +675,13 @@ When you first come online or after a restart, do these things IMMEDIATELY:
 3. **After every task you complete**, you MUST:
    - Append a "task-complete" event to /workspace/agent-activity/log.json
    - If you produced output for the owner, write it to /workspace/staging/ and update staging/index.json
-   - Report completion to your team lead via sessions_send
+   - Report completion to your team lead:
+     - Core Team agents → sessions_send(sessionKey: "agent:lead:main", message: "Task complete: [summary]")
+     - Platform Team agents → sessions_send(sessionKey: "agent:ops-lead:main", message: "Task complete: [summary]")
 
 ## Quick Reference
-- Activity log: /workspace/agent-activity/log.json — append to "events" array
-- Staging: /workspace/staging/index.json — append to "items" array, write file to /workspace/staging/
+- Activity log: /workspace/agent-activity/log.json — \`read\` file, parse JSON, push to events array, \`write\` back
+- Staging: /workspace/staging/index.json — \`read\` file, parse JSON, push to items array, \`write\` back. Also \`write\` the actual file to /workspace/staging/
 - Event format: {"time": <unix_ms>, "level": "info", "type": "task-complete", "message": "..."}
 - Staging item: {"id": "...", "name": "...", "path": "...", "type": "...", "createdBy": "your-id", "description": "...", "status": "pending"}
 
