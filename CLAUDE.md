@@ -214,9 +214,9 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | groq-qwen3-32b (free) | Orchestrator | CodeCraft, Scout, Scribe |
+| Lead | cerebras-llama-3.3-70b (free) | Orchestrator | CodeCraft, Scout, Scribe |
 | CodeCraft | cerebras-llama-3.3-70b (free) | Full-stack developer | Scout, Scribe |
-| Scout | gemini-flash (free) | Research specialist | Scribe |
+| Scout | gemini-pro (free) | Research specialist | Scribe |
 | Scribe | gemini-flash-lite (free) | Documentation writer | (none) |
 
 **Platform Team** — Infrastructure, deployments, monitoring:
@@ -224,20 +224,21 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
 | Ops Lead | cerebras-llama-3.3-70b (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
-| Builder | cerebras-llama-4-scout (free) | Infrastructure developer | Sentinel, Chronicler |
+| Builder | gemini-flash (free) | Infrastructure developer | Sentinel, Chronicler |
 | Sentinel | cerebras-llama-4-scout (free) | Security & monitoring | Chronicler |
 | Chronicler | gemini-flash-lite (free) | Platform documentation | (none) |
 
 **Model budget strategy:**
 - **All primary models are FREE** — no per-token costs for normal operation
 - **Models spread across 3 free providers** to avoid single-provider rate limit exhaustion
-- Groq Qwen3-32b (free, 500K TPD × 2 accounts = 1M): Lead only — dual-mode reasoning+tools
-- Cerebras Llama 3.3 70B (free, 1M TPD, fastest inference): CodeCraft, Ops Lead, all subagents
-- Cerebras Llama 4 Scout (free, 1M TPD): Builder, Sentinel — lightweight tasks
-- Gemini Flash (free, 250 RPD, 1M context): Scout — research, large context ideal
-- Gemini Flash-Lite (free, 1000 RPD): Scribe, Chronicler — high-volume documentation
+- Cerebras Llama 3.3 70B (free, 1M TPD, fastest inference): Lead, CodeCraft, Ops Lead — orchestration + coding
+- Cerebras Llama 4 Scout (free, 1M TPD): Sentinel, all subagents — lightweight tasks
+- Gemini Pro (free, 100 RPD × 3 keys = 300 RPD, 1M context): Scout — research, large context ideal
+- Gemini Flash (free, 250 RPD × 3 keys = 750 RPD, 1M context): Builder — infra tasks
+- Gemini Flash-Lite (free, 1000 RPD × 3 keys = 3000 RPD): Scribe, Chronicler — high-volume documentation
+- Groq (free, 4 accounts load-balanced): groq-llama-3.3-70b, groq-qwen3-32b — available for fallback + manual use
 - Mistral (free, 2 RPM, 1B tokens/month): codestral, mistral-large — available for overflow
-- Fallback chain: Groq ↔ Cerebras (cross-fallback) → DeepSeek ($0.28/1M, paid last resort) on 429 errors (automatic via LiteLLM)
+- Fallback chain: Cerebras → Gemini → Groq → DeepSeek ($0.28/1M, paid last resort) on 429 errors (automatic via LiteLLM)
 - LiteLLM `allowed_fails: 2` + `cooldown_time: 60` — exhausted providers are temporarily removed from the pool
 
 **Tier storage (EC2 t3.small, 50GB gp3 volume):**
