@@ -550,23 +550,78 @@ function extractMessageText(raw) {
 
 // Format chat messages: code blocks become collapsible, JSON gets collapsed,
 // markdown-lite for bold/italic/inline code. Returns sanitized HTML.
+function _escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Detect if a string is a tool-output message (JSON result, file write confirmation, shell error, etc.)
+function _isToolOutput(text) {
+  const t = text.trim();
+  // JSON object or array
+  if (/^\{[\s\S]*\}$/.test(t) || /^\[[\s\S]*\]$/.test(t)) {
+    try { JSON.parse(t); return true; } catch { return false; }
+  }
+  // Shell/tool status lines
+  if (/^(Successfully wrote \d|Command exited|\(Command exited|sh: \d+:|\/bin\/sh:)/i.test(t)) return true;
+  // Bare Unix timestamps (OpenClaw message IDs)
+  if (/^\d{13}$/.test(t)) return true;
+  return false;
+}
+
+// Generate a short human-readable summary for a parsed JSON tool output
+function _jsonSummary(obj) {
+  if (obj && obj.status === 'error' && obj.tool) return '\u26a0\ufe0f ' + obj.tool + ' error';
+  if (obj && obj.error) return '\u26a0\ufe0f ' + (obj.error.length > 40 ? obj.error.slice(0, 40) + '...' : obj.error);
+  if (obj && obj.items && Array.isArray(obj.items)) return '\ud83d\udccb ' + obj.items.length + ' staged item(s)';
+  if (obj && obj.events && Array.isArray(obj.events)) return '\ud83d\udcca ' + obj.events.length + ' event(s)';
+  if (obj && obj.workflows && Array.isArray(obj.workflows)) return '\ud83d\udd04 ' + obj.workflows.length + ' workflow(s)';
+  if (Array.isArray(obj)) return '\ud83d\udcca ' + obj.length + ' item(s)';
+  if (obj && typeof obj.message === 'string') return obj.message.length > 50 ? obj.message.slice(0, 50) + '...' : obj.message;
+  return '\ud83d\udce6 Tool output';
+}
+
 function formatChatMessage(text) {
   if (!text) return '';
-  // Escape HTML first
-  let s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // --- Multi-section tool output (merged consecutive tool messages, joined by \n---\n) ---
+  const trimmed = text.trim();
+  if (trimmed.includes('\n---\n')) {
+    const sections = trimmed.split('\n---\n');
+    const allTool = sections.every(s => _isToolOutput(s.trim()));
+    if (allTool) {
+      return sections.map(s => formatChatMessage(s.trim())).join('');
+    }
+  }
+
+  // --- Whole-message tool output detection ---
+  // If the entire message is a single JSON object/array, collapse it.
+  if (/^\{[\s\S]*\}$/.test(trimmed) || /^\[[\s\S]*\]$/.test(trimmed)) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const summary = _jsonSummary(parsed);
+      const escaped = _escapeHtml(trimmed);
+      return '<details class="mc-tool-output"><summary class="mc-tool-summary">' + summary + '</summary><pre class="mc-code-pre"><code>' + escaped + '</code></pre></details>';
+    } catch { /* not valid JSON, fall through */ }
+  }
+  // Whole-message tool status line — render as dim status
+  if (/^(Successfully wrote \d|Command exited|\(Command exited|sh: \d+:|\/bin\/sh:)/i.test(trimmed)) {
+    return '<div class="mc-tool-status">' + _escapeHtml(trimmed) + '</div>';
+  }
+
+  // --- Normal message formatting ---
+  let s = _escapeHtml(text);
 
   // Extract fenced code blocks (```...```) → collapsible <details>
   s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const label = lang || 'code';
     const trimmed = code.replace(/^\n+|\n+$/g, '');
-    return `<details class="mc-code-block"><summary class="mc-code-summary">${label}</summary><pre class="mc-code-pre"><code>${trimmed}</code></pre></details>`;
+    return '<details class="mc-code-block"><summary class="mc-code-summary">' + label + '</summary><pre class="mc-code-pre"><code>' + trimmed + '</code></pre></details>';
   });
 
-  // Detect large JSON blobs ({...} spanning 200+ chars) not inside code blocks
-  s = s.replace(/(^|\n)(\{(?:<br>|.){200,})$/gm, (match, prefix) => {
-    // Only collapse if it looks like JSON (has quoted keys)
-    if (match.includes('&quot;') || match.includes('"')) {
-      return `${prefix}<details class="mc-code-block"><summary class="mc-code-summary">JSON data</summary><pre class="mc-code-pre"><code>${match.replace(prefix, '')}</code></pre></details>`;
+  // Detect JSON blobs ({...} 60+ chars) within mixed content — collapse
+  s = s.replace(/(^|\n)(\{[^}]{60,}\})/gm, (match, prefix, json) => {
+    if (json.includes('&quot;') || json.includes('"')) {
+      return prefix + '<details class="mc-tool-output"><summary class="mc-tool-summary">\ud83d\udce6 Tool output</summary><pre class="mc-code-pre"><code>' + json + '</code></pre></details>';
     }
     return match;
   });
@@ -2112,7 +2167,7 @@ document.addEventListener('alpine:init', () => {
 
     // Convert server history messages to our local format
     _parseHistoryMessages(history) {
-      return history
+      const raw = history
         .filter(m => {
           // Skip tool_result messages entirely — they're internal tool execution
           if (m.role === 'tool') return false;
@@ -2141,14 +2196,50 @@ document.addEventListener('alpine:init', () => {
             (content.length < 60 && /^(ok|done|acknowledged|noted|understood)/i.test(content))
           );
           if (isSystemReply) role = 'system';
+          const isTool = role === 'agent' && _isToolOutput(content);
           return {
             id: m.id || generateId(),
             role,
             content,
             time: m.time || m.timestamp || '',
+            _toolOutput: isTool,
           };
         })
         .filter(m => m.role !== 'system' && (m.role === 'user' || m.content.trim()));
+
+      // Group consecutive agent tool-output messages into one collapsed bubble.
+      // This prevents 5-10 separate JSON/status bubbles from flooding the chat.
+      const grouped = [];
+      let toolBatch = [];
+      const flushToolBatch = () => {
+        if (toolBatch.length === 0) return;
+        if (toolBatch.length === 1) {
+          // Single tool msg — keep as-is, formatChatMessage will collapse it
+          grouped.push(toolBatch[0]);
+        } else {
+          // Multiple consecutive tool outputs → merge into one
+          const merged = toolBatch.map(m => m.content).join('\n---\n');
+          grouped.push({
+            id: toolBatch[0].id,
+            role: 'agent',
+            content: merged,
+            time: toolBatch[toolBatch.length - 1].time,
+            _toolOutput: true,
+            _toolCount: toolBatch.length,
+          });
+        }
+        toolBatch = [];
+      };
+      for (const m of raw) {
+        if (m._toolOutput) {
+          toolBatch.push(m);
+        } else {
+          flushToolBatch();
+          grouped.push(m);
+        }
+      }
+      flushToolBatch();
+      return grouped;
     },
 
     // Sync the active session's messages from the server.

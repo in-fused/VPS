@@ -135,10 +135,11 @@ const SHARED_TOOLS = `# Tools
 | sessions_list | agentId? | List sessions (returns objects with key field) |
 | sessions_history | sessionKey | Get chat history |
 | memory_search | query | Search MEMORY.md + memory/ |
-| web_fetch | url | Fetch URL content |
+| web_fetch | url | Fetch URL content (use this for web access) |
 | cron | action, schedule, payload, target | Scheduled jobs (add/list/remove/run) |
 | agents_list | (none) | List all agents |
 
+**web_search — NOT AVAILABLE.** Requires Perplexity API key (not configured). Use \`web_fetch\` for URLs or \`exec wget\` for APIs. For web scraping use Scrapling (see below).
 **sessions_spawn — DO NOT USE.** Causes "thread=true" errors. Use sessions_send for ALL agent messaging.
 
 ## Tool Call Examples — EXACT FORMAT

@@ -189,7 +189,7 @@
 
 Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to CodeCraft, Scout, Scribe). Then execute:
 
-1. YOU: Read SOUL.md, TOOLS.md, RESOURCES.md, STAGING_GUIDE.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
+1. YOU: Read SOUL.md, TOOLS.md, TOOLS.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
 
 2. CODECRAFT: Functional audit of Mission Control.
    - Load and test /workspace/js/app.js, workflow.js, openclaw-client.js
@@ -198,14 +198,14 @@ Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (s
    - Fix anything you can fix in-place (JS only, no server changes)
 
 3. SCOUT: External connectivity verification.
-   - Test 5 free APIs from RESOURCES.md via exec wget (crypto, weather, HN, geocoding, NASA)
+   - Test 5 free APIs from TOOLS.md via exec wget (crypto, weather, HN, geocoding, NASA)
    - Test Scrapling: exec wget -qO- 'http://scrapling:8000/health' then scrape a real URL
    - Test agent-to-agent: send a test message to Ops Lead's team via sessions_send
    - Report which APIs work, which fail, and any rate-limit headers observed
 
 4. SCRIBE: Write a concise system status page to /workspace/staging/system-status.html
    - What services are running, what's verified working, what's untested
-   - Use STAGING_GUIDE.md template — golden cyber theme, mobile-first
+   - Use TOOLS.md staging template — golden cyber theme, mobile-first
    - Include a "last updated" timestamp and agent attribution
 
 5. CRON: Create a daily health-check job (runs every 24h) that:
@@ -229,7 +229,7 @@ RULES: Every task logs to activity log. Every deliverable goes to staging with i
 
 Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to Builder, Sentinel, Chronicler). Then execute:
 
-1. YOU: Read SOUL.md, TOOLS.md, RESOURCES.md, STAGING_GUIDE.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
+1. YOU: Read SOUL.md, TOOLS.md, TOOLS.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
 
 2. SENTINEL: Security audit — write findings to /workspace/staging/security-audit.html.
    - Check: are any secrets (API keys, passwords) exposed in non-.env files?
@@ -249,7 +249,7 @@ Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (s
 4. CHRONICLER: Write a deployment runbook to /workspace/staging/deploy-runbook.html.
    - Every command must be single-line (owner uses iPhone + SSM)
    - Cover: full deploy, single-service update, rollback, logs, restart, volume reset
-   - Use STAGING_GUIDE.md template — golden cyber theme, mobile-optimized
+   - Use TOOLS.md staging template — golden cyber theme, mobile-optimized
    - Include copy buttons for each command block
 
 5. CRON: Create a 6-hour monitoring job that:
@@ -298,7 +298,7 @@ DELEGATION:
    - Show dark theme patterns, glow effects, border treatments
    - Use the actual CSS variables from styles.css — this is a living reference
 
-RULES: All deliverables to staging as HTML. Use STAGING_GUIDE.md template. Log everything. Mobile-first is non-negotiable — test at 375px width minimum.</div>
+RULES: All deliverables to staging as HTML. Use TOOLS.md staging template. Log everything. Mobile-first is non-negotiable — test at 375px width minimum.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -319,7 +319,7 @@ DELEGATION:
 1. YOU: Design the dashboard layout. It should show at a glance: service health (up/down), memory usage, last deploy time, recent agent activity, and any alerts. Sketch this as a wireframe in /workspace/staging/dashboard-wireframe.html.
 
 2. BUILDER: Build the dashboard — /workspace/staging/monitoring-dashboard.html.
-   - Use STAGING_GUIDE.md template (Alpine.js + Tailwind CDN + golden cyber theme)
+   - Use TOOLS.md staging template (Alpine.js + Tailwind CDN + golden cyber theme)
    - Real-time data: fetch /workspace/agent-activity/log.json and display recent events
    - Service status cards: show each Docker service with health indicator
    - Auto-refresh every 60s
@@ -335,7 +335,7 @@ DELEGATION:
    - What each alert means and what action to take
    - Quick reference for common iPhone/SSM commands related to each metric
 
-RULES: All deliverables to staging. Use STAGING_GUIDE.md template. Log everything. Dashboard must work perfectly on mobile — this is the primary use case.</div>
+RULES: All deliverables to staging. Use TOOLS.md staging template. Log everything. Dashboard must work perfectly on mobile — this is the primary use case.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -406,7 +406,7 @@ CORE TEAM DELEGATION:
    - Payment: crypto, Stripe, donations, or free v1?
    - Stage spec to /workspace/staging/prompt-marketplace-spec.html
 3. SCOUT: Set up a weekly cron to monitor top 5 competitors for changes. Log to activity log.
-4. SCRIBE: Build a landing page mockup — /workspace/staging/prompt-marketplace-landing.html. Mobile-first, golden cyber theme, use STAGING_GUIDE.md.
+4. SCRIBE: Build a landing page mockup — /workspace/staging/prompt-marketplace-landing.html. Mobile-first, golden cyber theme, use TOOLS.md staging template.
 
 PLATFORM TEAM (coordinate via sessions_send to Ops Lead):
 - Builder: Review CodeCraft's spec for infra feasibility. Can we host it without adding services?

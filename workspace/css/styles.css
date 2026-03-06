@@ -582,6 +582,93 @@ input[type="range"].accent-amber-500::-moz-range-thumb {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
+/* ---- Tool output in chat ---- */
+
+/* Single tool output bubble — dimmer, compact */
+.mc-bubble-tool {
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid var(--mc-border);
+  border-radius: 8px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Collapsed tool output within a message (JSON, status) */
+.mc-tool-output {
+  margin: 4px 0;
+  border: 1px solid rgba(55, 65, 81, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+.mc-tool-summary {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mc-text-muted);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+.mc-tool-summary::-webkit-details-marker { display: none; }
+.mc-tool-summary::before {
+  content: '\25b6';
+  margin-right: 6px;
+  font-size: 8px;
+  transition: transform 0.15s;
+  opacity: 0.5;
+}
+.mc-tool-output[open] > .mc-tool-summary::before { transform: rotate(90deg); }
+
+/* Dim tool status line (e.g. "Successfully wrote 133 bytes...") */
+.mc-tool-status {
+  font-size: 11px;
+  color: var(--mc-text-muted);
+  padding: 2px 0;
+  opacity: 0.6;
+}
+
+/* Merged multi-tool group (collapsed by default) */
+.mc-tool-group {
+  border: 1px solid rgba(55, 65, 81, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(17, 24, 39, 0.5);
+}
+.mc-tool-group-summary {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mc-text-muted);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+.mc-tool-group-summary::-webkit-details-marker { display: none; }
+.mc-tool-group-summary::before {
+  content: '\25b6';
+  margin-right: 6px;
+  font-size: 8px;
+  transition: transform 0.15s;
+  opacity: 0.5;
+}
+.mc-tool-group[open] > .mc-tool-group-summary::before { transform: rotate(90deg); }
+.mc-tool-group-body {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(55, 65, 81, 0.3);
+  font-size: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* ---- Touch-friendly targets ---- */
 @media (pointer: coarse) {
   .mc-log-filter-btn {
