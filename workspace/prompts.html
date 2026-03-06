@@ -189,7 +189,7 @@
 
 Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to CodeCraft, Scout, Scribe). Then execute:
 
-1. YOU: Read SOUL.md, TOOLS.md, TOOLS.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
+1. YOU: Read SOUL.md, TOOLS.md, MEMORY.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
 
 2. CODECRAFT: Functional audit of Mission Control.
    - Load and test /workspace/js/app.js, workflow.js, openclaw-client.js
@@ -229,7 +229,7 @@ RULES: Every task logs to activity log. Every deliverable goes to staging with i
 
 Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to Builder, Sentinel, Chronicler). Then execute:
 
-1. YOU: Read SOUL.md, TOOLS.md, TOOLS.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
+1. YOU: Read SOUL.md, TOOLS.md, MEMORY.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
 
 2. SENTINEL: Security audit — write findings to /workspace/staging/security-audit.html.
    - Check: are any secrets (API keys, passwords) exposed in non-.env files?
@@ -378,7 +378,7 @@ Write a full report to /workspace/staging/prompt-marketplace-research.html:
 
 4. RECOMMENDATION: Build, fork, or skip?
 
-Use web_search and web_fetch — current data only, not training knowledge. Cite URLs.
+Use web_fetch for URLs and exec wget for APIs — current data only, not training knowledge. Cite URLs. web_search is NOT available (no Perplexity key).
 
 MANDATORY: Log start + finish to activity log. Write to staging with index.json updated. I check from my phone.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
