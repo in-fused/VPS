@@ -849,6 +849,18 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    // Clear stale local data but keep auth + settings (use after server-side volume reset)
+    resetLocalState() {
+      const keep = new Set(['mc-auth', 'mc-settings', 'mc-sidebar']);
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('mc-') && !keep.has(key)) keysToRemove.push(key);
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      location.reload();
+    },
+
     // Wipe all browser-side state (agents, sessions, messages, governance, workflows)
     // Server-side state (OpenClaw conversations) requires separate Docker volume reset
     factoryReset() {
