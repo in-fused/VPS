@@ -248,6 +248,33 @@ model_list:
     model_info:
       description: "FREE — Gemini 2.5 Pro (key 3)."
 
+  # ---------------------------------------------------------------------------
+  # Gemini Embeddings (for OpenClaw memory_search — load-balanced across 3 keys)
+  # ---------------------------------------------------------------------------
+  # text-embedding-004: 768 dimensions, 2048 token input, FREE (1500 RPM).
+  # OpenClaw routes embeddings here via memorySearch.remote.baseUrl config.
+
+  - model_name: "gemini-embedding"
+    litellm_params:
+      model: "gemini/text-embedding-004"
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      description: "FREE — Gemini text-embedding-004 (key 1). For agent memory search."
+
+  - model_name: "gemini-embedding"
+    litellm_params:
+      model: "gemini/text-embedding-004"
+      api_key: "os.environ/GEMINI_API_KEY_2"
+    model_info:
+      description: "FREE — Gemini text-embedding-004 (key 2)."
+
+  - model_name: "gemini-embedding"
+    litellm_params:
+      model: "gemini/text-embedding-004"
+      api_key: "os.environ/GEMINI_API_KEY_3"
+    model_info:
+      description: "FREE — Gemini text-embedding-004 (key 3)."
+
   # ===========================================================================
   # TIER 5: FREE — Mistral (all models, 2 RPM, 1B tokens/month)
   # ===========================================================================

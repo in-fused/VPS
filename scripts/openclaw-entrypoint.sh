@@ -155,6 +155,19 @@ config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
 // Preserve ticket/issue IDs during summarization
 config.agents.defaults.compaction.identifierPolicy = 'strict';
 
+// Memory search embeddings: route through LiteLLM proxy to use free Gemini
+// text-embedding-004 (load-balanced across 3 keys, 1500 RPM each).
+// Without this, OpenClaw tries api.openai.com with OPENAI_API_KEY which is
+// actually the LiteLLM master key — causing 401 "Incorrect API key" errors
+// and breaking memory_search for all agents.
+config.agents.defaults.memorySearch = config.agents.defaults.memorySearch || {};
+config.agents.defaults.memorySearch.provider = 'openai';
+config.agents.defaults.memorySearch.model = 'gemini-embedding';
+config.agents.defaults.memorySearch.remote = {
+  baseUrl: 'http://litellm:4000/v1/',
+  apiKey: process.env.OPENAI_API_KEY || '',
+};
+
 // Loop detection: safety net against runaway agent tool loops
 config.tools.loopDetection = config.tools.loopDetection || {};
 config.tools.loopDetection.enabled = true;
