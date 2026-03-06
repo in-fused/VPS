@@ -130,6 +130,18 @@ config.tools.subagents = config.tools.subagents || {};
 config.tools.sessions = config.tools.sessions || {};
 config.tools.sessions.visibility = 'all';
 
+// Full autonomy: disable tool approval requirements — owner has granted full permissions
+config.tools.approval = config.tools.approval || {};
+config.tools.approval.mode = 'none';
+
+// Filesystem: no sandbox restrictions — agents need full /workspace/ access
+config.tools.filesystem = config.tools.filesystem || {};
+config.tools.filesystem.sandbox = false;
+
+// Exec: no restrictions — agents need shell for wget, node, system commands
+config.tools.exec = config.tools.exec || {};
+config.tools.exec.sandbox = false;
+
 // Loop detection: safety net against runaway agent tool loops
 config.tools.loopDetection = config.tools.loopDetection || {};
 config.tools.loopDetection.enabled = true;
@@ -139,7 +151,7 @@ config.tools.loopDetection.enabled = true;
 // =========================================================================
 config.cron = config.cron || {};
 config.cron.enabled = true;
-config.cron.maxConcurrentRuns = 1;
+config.cron.maxConcurrentRuns = 3;
 
 // Compaction: prevent aggressive compaction loop regression (#32106)
 config.agents.defaults.compaction = config.agents.defaults.compaction || {};

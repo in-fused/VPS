@@ -1393,11 +1393,14 @@ document.addEventListener('alpine:init', () => {
 
         if (state === 'delta') {
           // Extract text from all possible payload locations
-          const delta = extractMessageText(payload.message)
+          let delta = extractMessageText(payload.message)
             || extractMessageText(payload.content)
             || extractMessageText(payload.delta)
             || extractMessageText(payload.text)
             || '';
+
+          // Suppress OpenClaw "(no output)" placeholder from tool-only turns
+          if (/^\(no output\)$/i.test(delta.trim())) delta = '';
 
           // Streaming content delta
           if (sessions._streamingMsg) {
@@ -2196,6 +2199,9 @@ document.addEventListener('alpine:init', () => {
             (content.length < 60 && /^(ok|done|acknowledged|noted|understood)/i.test(content))
           );
           if (isSystemReply) role = 'system';
+          // Hide OpenClaw "(no output)" placeholder messages from tool-only turns
+          const isNoOutput = role === 'agent' && /^\(no output\)$/i.test(content.trim());
+          if (isNoOutput) role = 'system';
           const isTool = role === 'agent' && _isToolOutput(content);
           return {
             id: m.id || generateId(),
