@@ -105,7 +105,7 @@ config.models.providers.litellm = {
 // Cerebras has 1M TPD across all models. DeepSeek ($0.28/1M) is the paid last resort on 429.
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-llama-3.1-8b' };
+config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -192,11 +192,10 @@ if (config.agents.list.length === 0) {
   config.agents.list = [
     // CORE TEAM — Reliability-first strategy (2026-03-06 rebalance).
     // cerebras-zai-glm rate-limits on first request — demoted to fallback only.
-    // Cerebras Llama 3.3 70B: proven reliable, strong reasoning+coding.
-    // GPT-OSS-120B: best reasoning (MMLU-Pro 90%). Spread across providers.
-    // Cerebras: Lead(70b), CodeCraft(gpt-oss), Ops Lead(gpt-oss), Sentinel, Subagents
-    // Gemini: Scout, Builder, Scribe, Chronicler
-    // Mistral/Groq: fallback only (2 RPM / API instability)
+    // Cerebras Llama 3.3 70B: proven reliable, strong reasoning+coding (128K context).
+    // cerebras-gpt-oss-120b/llama-3.1-8b have 8192 context — below OpenClaw 16K min.
+    // Cerebras: Lead(70b), CodeCraft(70b), Ops Lead(70b), Sentinel(scout), Subagents(scout)
+    // Gemini: Scout(pro), Builder(flash), Scribe(flash-lite), Chronicler(flash-lite)
     {
       id: 'lead',
       workspace: 'Lead',
@@ -207,20 +206,20 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['codecraft', 'scout', 'scribe'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
       id: 'codecraft',
       workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'CodeCraft',
         emoji: '⚡',
       },
       subagents: {
         allowAgents: ['scout', 'scribe'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
@@ -233,7 +232,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['scribe'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
@@ -249,14 +248,14 @@ if (config.agents.list.length === 0) {
     {
       id: 'ops-lead',
       workspace: 'Ops Lead',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: {
         name: 'Ops Lead',
         emoji: '🎯',
       },
       subagents: {
         allowAgents: ['builder', 'sentinel', 'chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
@@ -269,7 +268,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['sentinel', 'chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
@@ -282,7 +281,7 @@ if (config.agents.list.length === 0) {
       },
       subagents: {
         allowAgents: ['chronicler'],
-        model: { primary: 'litellm/cerebras-llama-3.1-8b' },
+        model: { primary: 'litellm/cerebras-llama-4-scout' },
       },
     },
     {
@@ -318,19 +317,20 @@ delete config.tools?.agentToAgent?.maxPingPongTurns;
 // Also spread models across providers to avoid single-provider rate limit exhaustion.
 // Model assignment: Reliability-first strategy (2026-03-06 rebalance).
 // cerebras-zai-glm rate-limits on first request — demoted to fallback only.
-// Cerebras: Lead(70b), CodeCraft(gpt-oss), OpsLead(gpt-oss), Sentinel(scout), Subagents(8b)
+// cerebras-gpt-oss-120b and cerebras-llama-3.1-8b have 8192 context — too small for OpenClaw 16K min.
+// Cerebras: Lead(70b), CodeCraft(70b), OpsLead(70b), Sentinel(scout), Subagents(scout)
 // Gemini: Scout(pro), Builder(flash), Scribe(flash-lite), Chronicler(flash-lite)
 var MODEL_MAP = {
   'lead': 'litellm/cerebras-llama-3.3-70b',
-  'codecraft': 'litellm/cerebras-gpt-oss-120b',
+  'codecraft': 'litellm/cerebras-llama-3.3-70b',
   'scout': 'litellm/gemini-pro',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-gpt-oss-120b',
+  'ops-lead': 'litellm/cerebras-llama-3.3-70b',
   'builder': 'litellm/gemini-flash',
   'sentinel': 'litellm/cerebras-llama-4-scout',
   'chronicler': 'litellm/gemini-flash-lite',
 };
-var SUBAGENT_MODEL = 'litellm/cerebras-llama-3.1-8b';
+var SUBAGENT_MODEL = 'litellm/cerebras-llama-4-scout';
 if (Array.isArray(config.agents?.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
@@ -354,7 +354,7 @@ if (Array.isArray(config.agents?.list)) {
 
 fs.mkdirSync('/home/node/.openclaw', { recursive: true });
 fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-3.1-8b, a2a=peer, agents=8 (2 teams), Cerebras (70b/gpt-oss/scout/8b) + Gemini (pro/flash/flash-lite) + deepseek (fallback), zai-glm=fallback-only');
+console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, default=cerebras-llama-4-scout, a2a=peer, agents=8 (2 teams), Cerebras (70b/scout) + Gemini (pro/flash/flash-lite) + deepseek (fallback)');
 "
 
 # Seed server-side workspace files (SOUL.md, MEMORY.md, etc.) for each agent.

@@ -409,7 +409,7 @@ router_settings:
     - groq-llama-3.3-70b: ["gemini-flash", "cerebras-llama-3.3-70b", "groq-qwen3-32b", "deepseek-chat"]
     - groq-qwen3-32b: ["gemini-flash", "groq-llama-3.3-70b", "mistral-small", "deepseek-chat"]
     - cerebras-llama-3.3-70b: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-llama-4-scout: ["gemini-flash-lite", "cerebras-llama-3.1-8b", "groq-llama-3.3-70b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["gemini-flash-lite", "groq-llama-3.3-70b", "cerebras-llama-3.3-70b", "deepseek-chat"]
     - cerebras-qwen3-235b: ["gemini-pro", "groq-qwen3-32b", "cerebras-zai-glm", "deepseek-chat"]
     - cerebras-zai-glm: ["gemini-pro", "cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "deepseek-chat"]
     - cerebras-gpt-oss-120b: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "deepseek-chat"]
