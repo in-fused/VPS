@@ -588,6 +588,59 @@ Update \`/workspace/agent-workflows/results/index.json\`:
 - For multi-step: Trigger → Agent1 → Agent2 → Merge → Output
 - Tool nodes are powerful — Web Scrape + Agent analysis is a strong pattern
 - Set status to "ready" when the workflow is tested and reliable
+
+## Workflow Builder CLI (RECOMMENDED — much easier than raw JSON)
+Instead of hand-crafting LiteGraph JSON, use the helper script:
+\\\`\\\`\\\`
+exec node /workspace/js/workflow-builder.js '<json>'
+\\\`\\\`\\\`
+
+The helper takes a simple format and generates valid LiteGraph JSON + updates index.json automatically.
+
+**Simple format:**
+\\\`\\\`\\\`json
+{
+  "id": "wf-my-workflow",
+  "name": "My Workflow",
+  "createdBy": "lead",
+  "nodes": [
+    {"type": "trigger", "prompt": "Research AI news"},
+    {"type": "agent", "agent": "scout"},
+    {"type": "condition", "condition": "error", "conditionType": "Contains"},
+    {"type": "output", "label": "Research Results", "destination": "Log"},
+    {"type": "tool", "tool": "Web Search", "agent": "scout"}
+  ],
+  "connections": [
+    [0, 1],
+    [1, 2],
+    [2, 3, 0, 0],
+    [2, 4, 1, 0]
+  ]
+}
+\\\`\\\`\\\`
+
+**Node types:** trigger, agent, task, tool, condition, output, loop, merge
+
+**Connection format:** [fromNodeIndex, toNodeIndex, fromSlot, toSlot] — slots default to 0
+- Condition node: slot 0 = true branch, slot 1 = false branch
+
+**Node properties (all optional, have sensible defaults):**
+- trigger: prompt, trigger ("Manual"|"Scheduled")
+- agent: agent (name like "lead", "scout", "codecraft")
+- task: goal, constraints, priority
+- tool: tool ("Web Search"|"Web Scrape"|"Code Execution"|"File Read"|"File Write"|"Shell Access"|"API Call"|"Web Browser"), agent, config
+- condition: condition (string to check for), conditionType ("Contains"|"Equals"|"Regex"|"Length >"|"Is Empty")
+- output: label, destination ("Log"|"Chat Response"|"File"|"Webhook")
+- loop: splitBy
+- merge: mode ("Concatenate"|"JSON Merge"|"Pick Best"|"Summary")
+
+**Example — 3-step research pipeline:**
+\\\`\\\`\\\`
+exec node /workspace/js/workflow-builder.js '{"id":"wf-research","name":"Research Pipeline","createdBy":"lead","nodes":[{"type":"trigger","prompt":"Research current AI trends"},{"type":"agent","agent":"scout"},{"type":"agent","agent":"scribe"},{"type":"output","label":"Final Report"}],"connections":[[0,1],[1,2],[2,3]]}'
+\\\`\\\`\\\`
+
+The workflow appears in Mission Control within 15 seconds (bridge polls automatically).
+Prints the workflow ID to stdout on success.
 `;
 
 // ============================================================================
