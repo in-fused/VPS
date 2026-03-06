@@ -311,6 +311,61 @@ MANDATORY for you and every agent you delegate to:
 Confirm you've read Scout's research and get your team moving.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
+
+      <div class="prompt-card" style="border-color: rgba(34,197,94,0.3);">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🔧</span>Recovery Sweep: Failed Writes</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> <span class="tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">Marketplace</span> audit + recover + rebuild</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('starter-recovery', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="starter-recovery">@marketplace { id: "recovery-sweep-v1", compat: "openclaw>=2026.1", agents: "2+", tools: ["sessions_list","sessions_history","sessions_send","read","write"], license: "MIT" }
+
+RECOVERY SWEEP: Failed Writes
+
+## CONTEXT
+Agent file writes to shared directories failed (EACCES, permission denied, path not found, or similar). Permissions are now fixed. Your job: find what was lost and rebuild it.
+
+## SETUP — Read before executing
+This prompt uses paths relative to your workspace root. Before running:
+1. Use `read` to check which writable directories exist (try: /workspace/, /app/, or your home dir)
+2. Identify your activity log (e.g., /workspace/agent-activity/log.json or equivalent)
+3. Identify your staging dir (e.g., /workspace/staging/ or equivalent)
+4. Identify your team agents via `sessions_list` or `agents_list`
+
+## PHASE 1: AUDIT
+For each agent on your team (including yourself):
+- `sessions_list` to get all session keys
+- `sessions_history` on each key — scan for write errors: "EACCES", "permission denied", "ENOENT", "read-only", or any tool call with status "error" on write/edit
+- Log each finding: agent name, session key, what they tried to write, where, and the error
+
+## PHASE 2: RECOVER
+For each failed write found in Phase 1:
+- Extract the intended content from the session transcript (the data the agent tried to write is usually in the tool call params)
+- Re-create the file/entry now using `write` or `edit`
+- If the content was a JSON append (e.g., adding to a log array), `read` the current file first, parse, append, write back
+- Preserve original timestamps from the transcript where visible
+
+## PHASE 3: REBUILD
+For each agent that reported "task complete given constraints" but couldn't deliver:
+- Identify the deliverable they described but couldn't write
+- Re-execute ONLY the output step — don't redo research/analysis (it's in the transcript)
+- Delegate to the original agent via `sessions_send` if the deliverable requires their specialty
+
+## PHASE 4: REPORT
+Write a recovery report to your staging directory:
+- File: recovery-sweep-report.html (or .md)
+- Contents: which agents were affected, what was recovered, what was unrecoverable and why
+- Update your staging index if one exists
+- Append a single "task-complete" event to your activity log
+
+## RULES
+- Verify each write succeeds before moving to the next. If a write fails, STOP and report the error — don't retry blindly.
+- Delegate to specialists as needed (code artifacts to your dev agent, docs to your writer).
+- Do not modify any agent's config or model assignments. This is a data recovery task only.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
     </div>
 
     <!-- ARCHIVE TAB -->

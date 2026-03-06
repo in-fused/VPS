@@ -47,6 +47,18 @@
       "archivedAt": 1709553600000,
       "archivedBy": "owner",
       "tags": ["creative-project", "prompt-marketplace", "delegation", "MVP"]
+    },
+    {
+      "id": "recovery-sweep-v1",
+      "title": "Recovery Sweep: Failed Writes",
+      "target": "lead",
+      "category": "operations",
+      "text": "@marketplace { id: \"recovery-sweep-v1\", compat: \"openclaw>=2026.1\", agents: \"2+\", tools: [\"sessions_list\",\"sessions_history\",\"sessions_send\",\"read\",\"write\"], license: \"MIT\" }\n\nRECOVERY SWEEP: Failed Writes\n\n## CONTEXT\nAgent file writes to shared directories failed (EACCES, permission denied, path not found, or similar). Permissions are now fixed. Your job: find what was lost and rebuild it.\n\n## SETUP — Read before executing\nThis prompt uses paths relative to your workspace root. Before running:\n1. Use `read` to check which writable directories exist (try: /workspace/, /app/, or your home dir)\n2. Identify your activity log (e.g., /workspace/agent-activity/log.json or equivalent)\n3. Identify your staging dir (e.g., /workspace/staging/ or equivalent)\n4. Identify your team agents via `sessions_list` or `agents_list`\n\n## PHASE 1: AUDIT\nFor each agent on your team (including yourself):\n- `sessions_list` to get all session keys\n- `sessions_history` on each key — scan for write errors: \"EACCES\", \"permission denied\", \"ENOENT\", \"read-only\", or any tool call with status \"error\" on write/edit\n- Log each finding: agent name, session key, what they tried to write, where, and the error\n\n## PHASE 2: RECOVER\nFor each failed write found in Phase 1:\n- Extract the intended content from the session transcript (the data the agent tried to write is usually in the tool call params)\n- Re-create the file/entry now using `write` or `edit`\n- If the content was a JSON append (e.g., adding to a log array), `read` the current file first, parse, append, write back\n- Preserve original timestamps from the transcript where visible\n\n## PHASE 3: REBUILD\nFor each agent that reported \"task complete given constraints\" but couldn't deliver:\n- Identify the deliverable they described but couldn't write\n- Re-execute ONLY the output step — don't redo research/analysis (it's in the transcript)\n- Delegate to the original agent via `sessions_send` if the deliverable requires their specialty\n\n## PHASE 4: REPORT\nWrite a recovery report to your staging directory:\n- File: recovery-sweep-report.html (or .md)\n- Contents: which agents were affected, what was recovered, what was unrecoverable and why\n- Update your staging index if one exists\n- Append a single \"task-complete\" event to your activity log\n\n## RULES\n- Verify each write succeeds before moving to the next. If a write fails, STOP and report the error — don't retry blindly.\n- Delegate to specialists as needed (code artifacts to your dev agent, docs to your writer).\n- Do not modify any agent's config or model assignments. This is a data recovery task only.",
+      "rating": null,
+      "result": "Marketplace-ready. Generic paths with self-discovery phase. Works on any OpenClaw instance with 2+ agents and file tools.",
+      "archivedAt": 1741219200000,
+      "archivedBy": "owner",
+      "tags": ["marketplace", "recovery", "operations", "failed-writes", "portable", "one-shot"]
     }
   ]
 }
