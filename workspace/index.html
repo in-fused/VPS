@@ -1151,7 +1151,7 @@
                 <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                   <div class="max-w-[75%] rounded-xl px-4 py-3 text-sm leading-relaxed"
                        :class="msg.role === 'user' ? 'mc-bubble-user' : (msg._systemNote ? 'bg-mc-elevated/50 border border-mc-border text-mc-text-muted italic' : 'mc-bubble-agent')">
-                    <div class="whitespace-pre-wrap" x-text="msg.content || (msg.streaming ? '' : '')"></div>
+                    <div class="mc-chat-content" x-html="formatChatMessage(msg.content || (msg.streaming ? '' : ''))"></div>
                     <span x-show="msg.streaming && !msg.content" class="inline-block w-2 h-4 bg-cyan-400 animate-pulse rounded-sm"></span>
                     <span x-show="msg.streaming && msg.content" class="inline-block w-1.5 h-3.5 bg-cyan-400 animate-pulse rounded-sm ml-0.5 align-text-bottom"></span>
                     <div class="text-[10px] mt-1 opacity-40" x-text="msg.streaming ? 'typing...' : msg.time"></div>

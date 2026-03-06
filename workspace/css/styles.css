@@ -520,6 +520,68 @@ input[type="range"].accent-amber-500::-moz-range-thumb {
   }
 }
 
+/* ---- Chat message formatting ---- */
+.mc-chat-content {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.mc-chat-content strong { color: var(--mc-text); font-weight: 600; }
+.mc-chat-content em { font-style: italic; opacity: 0.85; }
+
+.mc-code-block {
+  margin: 8px 0;
+  border: 1px solid var(--mc-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+}
+.mc-code-block[open] { background: rgba(0, 0, 0, 0.4); }
+.mc-code-summary {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mc-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+.mc-code-summary::-webkit-details-marker { display: none; }
+.mc-code-summary::before {
+  content: '▶';
+  margin-right: 6px;
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+.mc-code-block[open] > .mc-code-summary::before { transform: rotate(90deg); }
+
+.mc-code-pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mc-text-sec);
+  border-top: 1px solid var(--mc-border);
+  max-height: 300px;
+  overflow-y: auto;
+}
+.mc-code-pre code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+
+.mc-inline-code {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--mc-primary);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
 /* ---- Touch-friendly targets ---- */
 @media (pointer: coarse) {
   .mc-log-filter-btn {

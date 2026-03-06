@@ -548,6 +548,44 @@ function extractMessageText(raw) {
   return String(raw);
 }
 
+// Format chat messages: code blocks become collapsible, JSON gets collapsed,
+// markdown-lite for bold/italic/inline code. Returns sanitized HTML.
+function formatChatMessage(text) {
+  if (!text) return '';
+  // Escape HTML first
+  let s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Extract fenced code blocks (```...```) → collapsible <details>
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const label = lang || 'code';
+    const trimmed = code.replace(/^\n+|\n+$/g, '');
+    return `<details class="mc-code-block"><summary class="mc-code-summary">${label}</summary><pre class="mc-code-pre"><code>${trimmed}</code></pre></details>`;
+  });
+
+  // Detect large JSON blobs ({...} spanning 200+ chars) not inside code blocks
+  s = s.replace(/(^|\n)(\{(?:<br>|.){200,})$/gm, (match, prefix) => {
+    // Only collapse if it looks like JSON (has quoted keys)
+    if (match.includes('&quot;') || match.includes('"')) {
+      return `${prefix}<details class="mc-code-block"><summary class="mc-code-summary">JSON data</summary><pre class="mc-code-pre"><code>${match.replace(prefix, '')}</code></pre></details>`;
+    }
+    return match;
+  });
+
+  // Inline code: `...`
+  s = s.replace(/`([^`\n]+)`/g, '<code class="mc-inline-code">$1</code>');
+
+  // Bold: **...**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic: *...*
+  s = s.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+
+  // Line breaks
+  s = s.replace(/\n/g, '<br>');
+
+  return s;
+}
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -2675,12 +2713,20 @@ document.addEventListener('alpine:init', () => {
         try {
           window.workflowGraph.configure(JSON.parse(data));
           this._lastSerialized = data;
+          // Force canvas redraw after loading graph data
+          if (window.workflowCanvas) {
+            window.workflowCanvas.setDirty(true, true);
+            window.workflowCanvas.draw(true, true);
+          }
         } catch (e) {
           Alpine.store('monitor').addLog('error', `Failed to load workflow: ${e.message}`);
         }
       } else if (window.workflowGraph) {
         window.workflowGraph.clear();
         this._lastSerialized = null;
+        if (window.workflowCanvas) {
+          window.workflowCanvas.setDirty(true, true);
+        }
       }
       this.setupAutoSave();
     },
