@@ -761,8 +761,10 @@ The owner checks these from their phone. No log entries = you did nothing = you 
 // seeded if missing — agents may legitimately modify these.
 // ============================================================================
 
-// Files that define agent identity — always overwrite
-const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md']);
+// Files that define agent identity + tool docs — always overwrite.
+// TOOLS.md included because agents don't modify it and tool schema
+// fixes (e.g. sessions_send sessionKey param) must propagate on restart.
+const FORCE_OVERWRITE = new Set(['SOUL.md', 'BOOTSTRAP.md', 'TOOLS.md']);
 
 let seeded = 0;
 let skipped = 0;
