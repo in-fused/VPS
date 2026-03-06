@@ -18,9 +18,9 @@ try { config = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
 config.gateway = config.gateway || {};
 config.gateway.port = 18789;
 // Bind to all interfaces so Caddy can reach us on the Docker bridge network.
-// Set both 'bind' and 'host' — different OpenClaw versions use different keys.
-config.gateway.bind = '0.0.0.0';
-config.gateway.host = '0.0.0.0';
+// 'lan' is a named mode (resolves to 0.0.0.0). Raw IPs like '0.0.0.0' silently
+// fall back to loopback. CLI --bind flag takes highest priority over this.
+config.gateway.bind = 'lan';
 
 // Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
 config.gateway.auth = config.gateway.auth || {};
@@ -385,5 +385,6 @@ node /opt/scripts/seed-agent-workspaces.js
 # immediately on the next agent interaction.
 (sleep 30 && node /opt/scripts/seed-agent-workspaces.js) &
 
-# Pass bind via CLI flags too — config field may be ignored in newer versions.
-exec node openclaw.mjs gateway --allow-unconfigured --host 0.0.0.0 --bind 0.0.0.0
+# --bind lan: CLI flag has highest priority. 'lan' = bind 0.0.0.0 (all interfaces).
+# Raw IPs like '0.0.0.0' are not valid — they silently fall back to loopback.
+exec node openclaw.mjs gateway --allow-unconfigured --bind lan
