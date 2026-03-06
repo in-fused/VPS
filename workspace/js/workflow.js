@@ -216,14 +216,102 @@ function registerCustomNodes() {
     });
     this.addWidget('combo', 'Trigger', 'Manual', (v) => {
       this.properties.trigger = v;
+      this._updateScheduleWidgets();
     }, { values: ['Manual', 'Scheduled', 'Webhook', 'On Event'] });
-    this.properties = { prompt: '', trigger: 'Manual' };
+    this.properties = { prompt: '', trigger: 'Manual', cronExpression: '0 */6 * * *', cronJobId: null };
     this.size = [280, 120];
     this.color = '#064e3b';
     this.bgcolor = '#022c22';
+    this._scheduleWidgets = [];
   }
   TriggerNode.title = 'Trigger';
   TriggerNode.desc = 'Workflow start point';
+
+  TriggerNode.prototype._updateScheduleWidgets = function () {
+    // Remove previous schedule widgets
+    for (const w of this._scheduleWidgets) {
+      const idx = this.widgets.indexOf(w);
+      if (idx !== -1) this.widgets.splice(idx, 1);
+    }
+    this._scheduleWidgets = [];
+
+    if (this.properties.trigger === 'Scheduled') {
+      const cronWidget = this.addWidget('text', 'Cron', this.properties.cronExpression, (v) => {
+        this.properties.cronExpression = v;
+      });
+      this._scheduleWidgets.push(cronWidget);
+
+      const btnWidget = this.addWidget('button', this.properties.cronJobId ? 'Remove Schedule' : 'Save Schedule', '', () => {
+        this._toggleCronJob();
+      });
+      this._scheduleWidgets.push(btnWidget);
+
+      if (this.properties.cronJobId) {
+        const statusWidget = this.addWidget('text', 'Job ID', this.properties.cronJobId, null);
+        statusWidget.disabled = true;
+        this._scheduleWidgets.push(statusWidget);
+      }
+      this.size[1] = this.properties.cronJobId ? 200 : 170;
+    } else {
+      this.size[1] = 120;
+    }
+    this.setDirtyCanvas(true);
+  };
+
+  TriggerNode.prototype._toggleCronJob = async function () {
+    const cron = Alpine?.store('cron');
+    if (!cron || !window.openclawClient?.authenticated) {
+      Alpine?.store('monitor')?.addLog('warn', 'Cannot manage cron: OpenClaw not connected');
+      return;
+    }
+
+    if (this.properties.cronJobId) {
+      // Remove existing cron job
+      await cron.remove(this.properties.cronJobId);
+      this.properties.cronJobId = null;
+      Alpine?.store('monitor')?.addLog('info', 'Scheduled trigger removed');
+    } else {
+      // Find the first Agent node downstream to determine target
+      const graph = this.graph;
+      let targetAgent = 'lead';
+      if (graph) {
+        const link = this.outputs[0]?.links?.[0];
+        if (link != null) {
+          const linkInfo = graph.links[link];
+          if (linkInfo) {
+            const targetNode = graph.getNodeById(linkInfo.target_id);
+            if (targetNode?.properties?.agent) {
+              targetAgent = targetNode.properties.agent.toLowerCase().replace(/\s+/g, '-');
+              if (targetAgent === '(auto)') targetAgent = 'lead';
+            }
+          }
+        }
+      }
+      // Determine workflow ID from the workflows store
+      const wfStore = Alpine?.store('workflows');
+      const wfId = wfStore?.active?.id || 'wf-' + Date.now();
+      const wfName = wfStore?.active?.name || 'Scheduled Workflow';
+
+      try {
+        await window.openclawClient.addCronJob({
+          agentId: targetAgent,
+          label: `Workflow: ${wfName}`,
+          schedule: { type: 'cron', expression: this.properties.cronExpression },
+          payload: { kind: 'systemEvent', message: `EXECUTE_WORKFLOW:${wfId}\n${this.properties.prompt}` },
+          session: 'main',
+        });
+        // Refresh and find the new job
+        await cron.fetch();
+        const myJob = cron.jobs.find(j => j.label === `Workflow: ${wfName}`);
+        this.properties.cronJobId = myJob?.id || myJob?.jobId || 'saved';
+        Alpine?.store('monitor')?.addLog('info', `Scheduled trigger saved: ${this.properties.cronExpression}`);
+      } catch (err) {
+        Alpine?.store('monitor')?.addLog('error', `Failed to save schedule: ${err.message}`);
+      }
+    }
+    this._updateScheduleWidgets();
+  };
+
   TriggerNode.prototype.onExecute = function () {
     this.setOutputData(0, this.properties.prompt);
   };
@@ -439,9 +527,9 @@ function registerCustomNodes() {
     'Web Search': {
       timeout: 30000,
       prompt: (input, config) =>
-        `Search the web for: ${input}\n` +
+        `Use the web_search tool with query: ${input}\n` +
         (config.maxResults ? `Return up to ${config.maxResults} results.\n` : '') +
-        `Return a concise summary of the most relevant findings.`,
+        `Return a concise summary of the most relevant findings with source URLs.`,
     },
     'Web Scrape': {
       timeout: 30000,
@@ -516,7 +604,7 @@ function registerCustomNodes() {
     });
     this.addWidget('combo', 'Agent', 'lead', (v) => {
       this.properties.agentId = v;
-    }, { values: ['lead', 'codecraft', 'scout', 'ops-lead', 'builder', 'sentinel'] });
+    }, { values: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'] });
 
     this.properties = { tool: 'Web Search', config: '{}', agentId: 'lead' };
     this.size = [280, 140];

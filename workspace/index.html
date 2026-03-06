@@ -1017,9 +1017,29 @@
             </template>
             <!-- Background results detail panel -->
             <div x-show="$store.app._showBgResults && $store.workflows.active?._bgResult"
-                 x-transition class="border-b border-mc-border bg-mc-surface max-h-48 overflow-y-auto p-3">
-              <pre class="text-xs text-mc-text-sec font-mono whitespace-pre-wrap"
-                   x-text="JSON.stringify($store.workflows.active?._bgResult?.outputs || $store.workflows.active?._bgResult, null, 2)"></pre>
+                 x-transition class="border-b border-mc-border bg-mc-surface max-h-64 overflow-y-auto p-3 space-y-2">
+              <!-- Structured output cards when outputs is an object -->
+              <template x-if="$store.workflows.active?._bgResult?.outputs && typeof $store.workflows.active._bgResult.outputs === 'object'">
+                <div class="space-y-2">
+                  <template x-for="[label, value] in Object.entries($store.workflows.active._bgResult.outputs)" :key="label">
+                    <div class="bg-mc-bg rounded-lg border border-mc-border p-3">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-semibold text-cyan-400" x-text="label"></span>
+                        <button @click="$el.parentElement.nextElementSibling.classList.toggle('line-clamp-3')"
+                                class="text-[10px] text-mc-text-muted hover:text-mc-text active:text-cyan-400 min-w-[44px] min-h-[44px] flex items-center justify-center">Expand</button>
+                      </div>
+                      <div class="text-xs text-mc-text-sec whitespace-pre-wrap line-clamp-3" x-text="typeof value === 'string' ? value : JSON.stringify(value, null, 2)"></div>
+                    </div>
+                  </template>
+                  <div class="text-[10px] text-mc-text-muted" x-show="$store.workflows.active?._bgResult?.completedAt"
+                       x-text="'Completed: ' + new Date($store.workflows.active._bgResult.completedAt).toLocaleString()"></div>
+                </div>
+              </template>
+              <!-- Fallback for non-structured results -->
+              <template x-if="!$store.workflows.active?._bgResult?.outputs || typeof $store.workflows.active._bgResult.outputs !== 'object'">
+                <pre class="text-xs text-mc-text-sec font-mono whitespace-pre-wrap"
+                     x-text="JSON.stringify($store.workflows.active?._bgResult, null, 2)"></pre>
+              </template>
             </div>
             <!-- Mobile: toggle palette button -->
             <button @click="$store.app.workflowPanelOpen = !$store.app.workflowPanelOpen"

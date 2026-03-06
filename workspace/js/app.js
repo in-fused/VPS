@@ -1436,9 +1436,12 @@ document.addEventListener('alpine:init', () => {
             agent.lastActive = 'Just now';
             Alpine.store('agents')._persist();
 
-            const tokens = Math.round(((streamMsg?.content || '').length) / 4);
+            const tokens = payload.usage?.total_tokens
+              || (payload.usage ? (payload.usage.input_tokens || 0) + (payload.usage.output_tokens || 0) : 0)
+              || Math.round(((streamMsg?.content || '').length) / 4);
+            const responseTimeMs = sessions._chatSendTime ? Date.now() - sessions._chatSendTime : 0;
             Alpine.store('governance').recordTask(agent.id, {
-              success: true, tokens, taskType: 'chat-openclaw',
+              success: true, tokens, responseTimeMs, taskType: 'chat-openclaw',
             });
           }
 
@@ -1562,8 +1565,9 @@ document.addEventListener('alpine:init', () => {
           const session = sessions.active;
           const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
           if (agent) {
+            const responseTimeMs = sessions._chatSendTime ? Date.now() - sessions._chatSendTime : 0;
             Alpine.store('governance').recordTask(agent.id, {
-              success: false, taskType: 'chat-openclaw',
+              success: false, responseTimeMs, taskType: 'chat-openclaw',
             });
           }
 
@@ -1977,9 +1981,11 @@ document.addEventListener('alpine:init', () => {
               agent.tasksCompleted++;
               agent.lastActive = 'Just now';
               Alpine.store('agents')._persist();
+              const responseTimeMs = this._chatSendTime ? Date.now() - this._chatSendTime : 0;
               Alpine.store('governance').recordTask(agent.id, {
                 success: true,
                 tokens: Math.round(content.length / 4),
+                responseTimeMs,
                 taskType: 'chat-litellm-fallback',
               });
             }
@@ -2354,6 +2360,7 @@ document.addEventListener('alpine:init', () => {
       this.messages.push(botMsg);
       this._sending = true;
       this._sendingSessionId = this.activeId;
+      this._chatSendTime = Date.now();
 
       // Route 1: OpenClaw WebSocket (real agent execution with tools, memory, etc.)
       if (ocMode === 'connected' && window.openclawClient?.authenticated) {
@@ -2512,8 +2519,9 @@ document.addEventListener('alpine:init', () => {
           }
           Alpine.store('agents')._persist();
 
+          const responseTimeMs = this._chatSendTime ? Date.now() - this._chatSendTime : 0;
           Alpine.store('governance').recordTask(agent.id, {
-            success: !isError, tokens, taskType: 'chat-litellm',
+            success: !isError, tokens, responseTimeMs, taskType: 'chat-litellm',
           });
         }
 
