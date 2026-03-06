@@ -227,6 +227,11 @@ services:
       # to openclaw:18789 via ws:// on the bridge. Without this, internal
       # WebSocket connections fail with connection refused.
       - OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1
+      # Force gateway to bind on all interfaces so Caddy can reach it
+      # via Docker bridge network. Try all known env var patterns.
+      - OPENCLAW_GATEWAY_HOST=0.0.0.0
+      - OPENCLAW_GATEWAY_BIND=0.0.0.0
+      - HOST=0.0.0.0
       # Reduce overhead on low-power VMs (t3.small) — skip process respawning
       - OPENCLAW_NO_RESPAWN=1
       # Telegram bot integration (optional — set in .env)
