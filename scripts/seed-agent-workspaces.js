@@ -127,14 +127,22 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 - **agents_list** — List all configured agents. No params. Returns agent IDs, names, models.
 
 ## Agent-to-Agent Messaging (sessions_send)
+
+**CRITICAL: You MUST use \`sessionKey\` as the parameter name, NOT \`agentId\`. Passing \`agentId\` will fail with "Either sessionKey or label is required".**
+
 Params: \`sessionKey\` (string, REQUIRED), \`message\` (string, REQUIRED)
 Session key format: \`agent:<agentId>:main\` — this is the ONLY valid format.
 
 **Agent IDs:** lead, codecraft, scout, scribe, ops-lead, builder, sentinel, chronicler
 
-**Example — delegate a task to builder:**
+**CORRECT — use sessionKey:**
 \`\`\`
 sessions_send(sessionKey: "agent:builder:main", message: "Review the Caddyfile for security issues and report back.")
+\`\`\`
+
+**WRONG — do NOT use agentId (causes error):**
+\`\`\`
+sessions_send(agentId: "builder", message: "...")  // ERROR: "Either sessionKey or label is required"
 \`\`\`
 
 **Example — report back to your lead:**
@@ -688,9 +696,10 @@ When you first come online or after a restart, do these things IMMEDIATELY befor
 
 3. **Check activity log.** Read /workspace/agent-activity/log.json for recent events from your team. Catch up on what happened.
 
-4. **If no pending work exists**, message your team members to check their status:
-   - Core Team Lead: sessions_send to "agent:codecraft:main", "agent:scout:main", "agent:scribe:main"
-   - Platform Team Lead: sessions_send to "agent:builder:main", "agent:sentinel:main", "agent:chronicler:main"
+4. **If no pending work exists**, message your team members to check their status.
+   IMPORTANT: The parameter name MUST be \`sessionKey\`, not \`agentId\`. Using \`agentId\` causes "Either sessionKey or label is required" error.
+   - Core Team Lead: sessions_send(sessionKey: "agent:codecraft:main", message: "Status check — report current tasks")
+   - Platform Team Lead: sessions_send(sessionKey: "agent:builder:main", message: "Status check — report current tasks")
 
 5. **After every task you complete**, you MUST:
    - Append a "task-complete" event to /workspace/agent-activity/log.json
