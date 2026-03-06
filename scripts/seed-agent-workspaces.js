@@ -660,8 +660,7 @@ for (const agent of agents) {
   for (const [filename, content] of Object.entries(files)) {
     const filepath = path.join(wsDir, filename);
     if (FORCE_OVERWRITE.has(filename)) {
-      // Identity-critical files: always overwrite to prevent OpenClaw
-      // defaults from replacing our agent-specific prompts
+      // All workspace files are force-overwritten to prevent stale content
       fs.writeFileSync(filepath, content, 'utf8');
       overwritten++;
     } else if (!fs.existsSync(filepath)) {
@@ -677,4 +676,4 @@ for (const agent of agents) {
   fs.mkdirSync(memDir, { recursive: true });
 }
 
-console.log(`[workspace-seed] ${overwritten} overwritten (identity), ${seeded} new files seeded, ${skipped} existing preserved (${agents.length} agents)`);
+console.log(`[workspace-seed] ${overwritten} overwritten, ${seeded} new, ${skipped} preserved (${agents.length} agents)`);
