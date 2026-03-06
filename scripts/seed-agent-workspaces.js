@@ -95,16 +95,16 @@ const SHARED_MEMORY = `# Project Memory
 - Channels: Telegram (bot, groupPolicy: open) + Mission Control webchat
 - Budget: ~$25/month
 
-## Models via LiteLLM (25+ models, 8 tiers across 6 free providers)
-- FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 2 accounts)
-- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (1M TPD)
-- FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro
-- FREE Mistral: mistral-large, codestral (2 RPM, 1B tokens/month)
+## Models via LiteLLM (27+ models, 8 tiers across 6 free providers)
+- FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 4 accounts)
+- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-llama-3.1-8b, cerebras-gpt-oss-120b, cerebras-zai-glm, cerebras-qwen3-235b (1M TPD)
+- FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro (load-balanced 3 keys)
+- FREE Mistral: mistral-large, codestral, mistral-small, mistral-nemo (2 RPM, 1B tokens/month)
 - FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b
 - CHEAP: deepseek-chat/coder ($0.28/M), gpt-4o-mini ($0.15/M)
 - MID: claude-haiku ($1/M), minimax-m2.5 ($0.30/M)
-- PREMIUM: claude-sonnet ($3/M), gpt-4o ($2.50/M), claude-opus ($15/M)
-- Fallback chain: Groq → Cerebras → DeepSeek on 429 errors
+- PREMIUM: claude-sonnet ($3/M), gpt-4o ($2.50/M), claude-opus ($15/M), o1 ($15/M)
+- Fallback chain: Cerebras → Gemini → Groq → DeepSeek on 429 errors
 
 ## File System Paths
 - /workspace/agent-workflows/ — LiteGraph workflow JSON + index.json (Mission Control polls every 15s)

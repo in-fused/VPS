@@ -319,9 +319,9 @@ Docker network: ai-hub-network (bridge)</div>
 <h3>API Keys (get these first)</h3>
 <table>
   <tr><th>Provider</th><th>Cost</th><th>Sign Up</th><th>Notes</th></tr>
-  <tr><td>Groq</td><td>FREE</td><td>console.groq.com/keys</td><td>100K-500K tokens/day. Get 2 accounts for double.</td></tr>
+  <tr><td>Groq</td><td>FREE</td><td>console.groq.com/keys</td><td>100K-500K tokens/day. Get 4 accounts for load balancing.</td></tr>
   <tr><td>Cerebras</td><td>FREE</td><td>cloud.cerebras.ai</td><td>1M tokens/day. Fastest inference.</td></tr>
-  <tr><td>Google Gemini</td><td>FREE</td><td>aistudio.google.com/apikey</td><td>250-1000 requests/day.</td></tr>
+  <tr><td>Google Gemini</td><td>FREE</td><td>aistudio.google.com/apikey</td><td>250-1000 requests/day. Get 3 keys for load balancing.</td></tr>
   <tr><td>Mistral</td><td>FREE</td><td>console.mistral.ai/api-keys</td><td>2 RPM, 1B tokens/month.</td></tr>
   <tr><td>DeepSeek</td><td>$0.14/1M</td><td>platform.deepseek.com/api_keys</td><td>Cheapest paid fallback.</td></tr>
   <tr><td>Anthropic</td><td>$3-15/1M</td><td>console.anthropic.com</td><td>Claude models (premium).</td></tr>
@@ -330,7 +330,7 @@ Docker network: ai-hub-network (bridge)</div>
 
 <div class="info-box">
   <strong>Budget strategy:</strong> 6 free providers are exhausted before any paid API is hit.
-  Fallback chain: Groq &rarr; Cerebras &rarr; DeepSeek on rate limits. Agents run mostly free.
+  Fallback chain: Cerebras &rarr; Gemini &rarr; Groq &rarr; DeepSeek on rate limits. Agents run mostly free.
 </div>
 
 <!-- ================================================================== -->
@@ -641,19 +641,19 @@ sudo docker compose logs --tail=50 caddy</pre>
 <p><strong>Core Team</strong> &mdash; General tasks and feature development:</p>
 <table>
   <tr><th>Agent</th><th>Model</th><th>Role</th></tr>
-  <tr><td>Lead</td><td>groq-llama-3.3-70b</td><td>Orchestrator &mdash; delegates to specialists</td></tr>
-  <tr><td>CodeCraft</td><td>cerebras-qwen3-32b</td><td>Full-stack developer</td></tr>
-  <tr><td>Scout</td><td>groq-llama-3.3-70b</td><td>Research specialist</td></tr>
-  <tr><td>Scribe</td><td>gpt-4o-mini</td><td>Documentation writer</td></tr>
+  <tr><td>Lead</td><td>cerebras-llama-3.3-70b</td><td>Orchestrator &mdash; delegates to specialists</td></tr>
+  <tr><td>CodeCraft</td><td>cerebras-llama-3.3-70b</td><td>Full-stack developer</td></tr>
+  <tr><td>Scout</td><td>gemini-pro</td><td>Research specialist</td></tr>
+  <tr><td>Scribe</td><td>gemini-flash-lite</td><td>Documentation writer</td></tr>
 </table>
 
 <p><strong>Platform Team</strong> &mdash; Infrastructure, deployments, monitoring:</p>
 <table>
   <tr><th>Agent</th><th>Model</th><th>Role</th></tr>
-  <tr><td>Ops Lead</td><td>groq-llama-3.3-70b</td><td>Platform orchestrator</td></tr>
-  <tr><td>Builder</td><td>deepseek-coder</td><td>Infrastructure developer</td></tr>
-  <tr><td>Sentinel</td><td>deepseek-chat</td><td>Security & monitoring</td></tr>
-  <tr><td>Chronicler</td><td>gpt-4o-mini</td><td>Platform documentation</td></tr>
+  <tr><td>Ops Lead</td><td>cerebras-llama-3.3-70b</td><td>Platform orchestrator</td></tr>
+  <tr><td>Builder</td><td>gemini-flash</td><td>Infrastructure developer</td></tr>
+  <tr><td>Sentinel</td><td>cerebras-llama-4-scout</td><td>Security & monitoring</td></tr>
+  <tr><td>Chronicler</td><td>gemini-flash-lite</td><td>Platform documentation</td></tr>
 </table>
 
 <h3>Governance & Competition</h3>

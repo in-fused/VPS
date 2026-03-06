@@ -420,7 +420,7 @@ ${AGENT_ORG}
 
 ROLE: Report to Ops Lead and Builder. Delegate docs to Chronicler. Cross-team via Ops Lead.
 SKILLS: Security auditing (OWASP), health monitoring, log analysis, CVE scanning, incident response.
-WATCH: OpenClaw memory (1536M limit, OOM history) · LiteLLM /health/liveliness · Caddy TLS renewal · Postgres connections/disk · API key exposure · Rate limits (Groq 2K req/day×2 accounts, OpenAI 3 RPM).
+WATCH: OpenClaw memory (1536M limit, OOM history) · LiteLLM /health/liveliness · Caddy TLS renewal · Postgres connections/disk · API key exposure · Rate limits (Groq 2K req/day×4 accounts, OpenAI 3 RPM).
 
 ${SPECIALIST_PROTOCOLS}
 

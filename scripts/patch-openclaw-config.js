@@ -61,7 +61,7 @@ config.models.providers.litellm = {
   apiKey: process.env.OPENAI_API_KEY || '',
   api: 'openai-completions',
   models: [
-    // Free — Groq (load-balanced across 2 accounts)
+    // Free — Groq (load-balanced across 4 accounts)
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
     { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
     // Free — Cerebras (1M tokens/day, fastest inference)

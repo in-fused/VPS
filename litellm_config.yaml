@@ -46,7 +46,7 @@ model_list:
       description: "FREE — Fast general-purpose chat. Good all-rounder."
 
   # ===========================================================================
-  # TIER 2: FREE — Groq API (free tier, load-balanced across 2 accounts)
+  # TIER 2: FREE — Groq API (free tier, load-balanced across 4 accounts)
   # ===========================================================================
   # Fast cloud inference at no cost. llama-3.3-70b: 1K RPD, 100K TPD.
   # qwen3-32b: 1K RPD, 500K TPD. Load-balanced across 4 Groq accounts.
@@ -129,7 +129,7 @@ model_list:
       description: "FREE — Llama 3.3 70B on Cerebras. 1M TPD. Fastest inference."
 
   # cerebras-qwen3-32b REMOVED — Cerebras dropped qwen3-32b (404 as of 2026-03-05).
-  # Use groq-qwen3-32b instead (load-balanced across 2 accounts).
+  # Use groq-qwen3-32b instead (load-balanced across 4 accounts).
 
   - model_name: "cerebras-llama-4-scout"
     litellm_params:

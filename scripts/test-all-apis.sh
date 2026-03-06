@@ -622,14 +622,17 @@ test_model "qwen2.5-coder:14b" "FREE/Ollama" "0.00"
 test_model "deepseek-coder-v2:16b" "FREE/Ollama" "0.00"
 test_model "llama3.2:8b" "FREE/Ollama" "0.00"
 
-subsection "TIER 2: FREE — Groq (2 accounts, load-balanced)"
+subsection "TIER 2: FREE — Groq (4 accounts, load-balanced)"
 test_model "groq-llama-3.3-70b" "FREE/Groq" "0.00"
 test_model "groq-qwen3-32b" "FREE/Groq" "0.00"
 
 subsection "TIER 3: FREE — Cerebras (1M TPD)"
 test_model "cerebras-llama-3.3-70b" "FREE/Cerebras" "0.00"
-test_model "cerebras-qwen3-32b" "FREE/Cerebras" "0.00"
 test_model "cerebras-llama-4-scout" "FREE/Cerebras" "0.00"
+test_model "cerebras-llama-3.1-8b" "FREE/Cerebras" "0.00"
+test_model "cerebras-gpt-oss-120b" "FREE/Cerebras" "0.00"
+test_model "cerebras-zai-glm" "FREE/Cerebras" "0.00"
+test_model "cerebras-qwen3-235b" "FREE/Cerebras" "0.00"
 
 subsection "TIER 4: FREE — Google Gemini"
 test_model "gemini-flash" "FREE/Gemini" "0.00"
@@ -668,7 +671,7 @@ section "4. FALLBACK CHAIN VERIFICATION"
 echo -e "${DIM}  Testing LiteLLM router fallback behavior on 429/error${NC}"
 echo -e "${DIM}  Configured chains:${NC}"
 echo -e "${DIM}    groq-llama-3.3-70b -> cerebras-llama-3.3-70b -> deepseek-chat${NC}"
-echo -e "${DIM}    groq-qwen3-32b -> cerebras-qwen3-32b -> deepseek-chat${NC}"
+echo -e "${DIM}    groq-qwen3-32b -> gemini-flash -> groq-llama-3.3-70b -> deepseek-chat${NC}"
 echo -e "${DIM}    cerebras-* -> groq-* -> deepseek-chat${NC}"
 echo -e "${DIM}    gemini-*/mistral-* -> deepseek-chat/deepseek-coder${NC}"
 
@@ -959,7 +962,7 @@ if [ "$FAIL" -gt 0 ]; then
 fi
 
 echo -e "${BOLD}FREE MODEL RECOMMENDATIONS:${NC}"
-echo "  Best for agents (tool calling): cerebras-qwen3-32b (1M TPD, fastest)"
+echo "  Best for agents (tool calling): cerebras-llama-3.3-70b (1M TPD, fastest)"
 echo "  Best for research (large ctx):  gemini-flash (1M context, 250 RPD)"
 echo "  Best for coding:                codestral (Mistral, 2 RPM, 1B/month)"
 echo "  Best for high-volume:           gemini-flash-lite (1000 RPD)"
@@ -967,7 +970,7 @@ echo "  Fallback safety net:            deepseek-chat (\$0.28/1M — cheap paid)
 echo ""
 
 echo -e "${BOLD}OPTIMAL FALLBACK CHAINS:${NC}"
-echo "  Primary agent work:  cerebras-qwen3-32b -> groq-qwen3-32b -> deepseek-chat"
+echo "  Primary agent work:  cerebras-llama-3.3-70b -> gemini-flash -> groq-llama-3.3-70b -> deepseek-chat"
 echo "  Research tasks:      gemini-flash -> deepseek-chat"
 echo "  Code generation:     codestral -> deepseek-coder"
 echo "  High-volume batch:   groq-llama-3.3-70b -> cerebras-llama-3.3-70b -> deepseek-chat"

@@ -178,10 +178,60 @@ class WorkflowBridge {
   // EXECUTE: Run an agent-requested workflow on Mission Control
   // =========================================================================
 
+  // Platform Team agent IDs — used to detect which team lead should receive workflow
+  _platformAgentIds: new Set(['ops-lead', 'builder', 'sentinel', 'chronicler']),
+
+  // Detect the appropriate team lead for a workflow based on its first agent node.
+  // If the first agent node uses a Platform Team agent, route to Ops Lead; otherwise Lead.
+  _detectTeamLead(workflowId) {
+    const graphData = localStorage.getItem('mc-workflow-' + workflowId);
+    if (!graphData) return 'lead';
+    try {
+      const graph = JSON.parse(graphData);
+      const nodes = graph.nodes || [];
+      // Find the first agent node (by type or by having an agent property)
+      const firstAgent = nodes.find(n =>
+        n.type === 'mission/agent' || (n.properties && n.properties.agent)
+      );
+      if (firstAgent) {
+        const agentId = firstAgent.properties?.agent || '';
+        if (this._platformAgentIds.has(agentId)) return 'ops-lead';
+      }
+    } catch {}
+    return 'lead';
+  },
+
   async _executeAgentWorkflow(workflowId) {
     const wfStore = Alpine?.store('workflows');
     if (!wfStore) return;
 
+    // Detect which team lead should handle this workflow
+    const targetLead = this._detectTeamLead(workflowId);
+
+    // Try server-side execution via EXECUTE_WORKFLOW protocol first.
+    // This sends the serialized graph to the team lead via sessions_send,
+    // allowing execution to continue server-side after browser closes.
+    if (window.openclawClient?.authenticated) {
+      const graphData = localStorage.getItem('mc-workflow-' + workflowId);
+      if (graphData) {
+        try {
+          await window.openclawClient.sendChat(
+            `EXECUTE_WORKFLOW:${workflowId}\n${graphData}`,
+            { sessionKey: `agent:${targetLead}:main` }
+          );
+          Alpine.store('monitor')?.addLog('info',
+            `Sent workflow "${workflowId}" to ${targetLead} for background execution`
+          );
+          return; // Server-side execution — don't run locally
+        } catch {
+          Alpine.store('monitor')?.addLog('warn',
+            `Server-side dispatch failed for "${workflowId}" — executing locally`
+          );
+        }
+      }
+    }
+
+    // Fallback: execute locally on Mission Control (requires browser open)
     wfStore.load(workflowId);
     await new Promise(r => setTimeout(r, 500));
     await wfStore.run();
@@ -196,7 +246,7 @@ class WorkflowBridge {
       }
     }
 
-    // Write results back via RPC (no chat pollution)
+    // Write results back via RPC to the appropriate team lead (no chat pollution)
     if (window.openclawClient?.authenticated) {
       try {
         const resultJson = JSON.stringify({
@@ -205,13 +255,13 @@ class WorkflowBridge {
           success: true,
           outputs: results,
         }, null, 2);
-        await window.openclawClient.setAgentFile('lead', `workflows/results/${workflowId}.json`, resultJson);
+        await window.openclawClient.setAgentFile(targetLead, `workflows/results/${workflowId}.json`, resultJson);
       } catch {
-        // Fallback: inject as labeled message
+        // Fallback: inject as labeled message to the correct team lead
         try {
           await window.openclawClient.injectChat(
             `WORKFLOW_RESULT:${workflowId}\n${JSON.stringify(results, null, 2)}`,
-            { sessionKey: 'agent:lead:main', label: 'system-bridge' }
+            { sessionKey: `agent:${targetLead}:main`, label: 'system-bridge' }
           );
         } catch {}
       }

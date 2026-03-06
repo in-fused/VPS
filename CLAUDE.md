@@ -64,14 +64,14 @@ Every operational command MUST include both variants, clearly labeled:
 
 📱 iOS/SSM:
 ```
-cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/autonomous-agents-ios-uToqU && sudo bash scripts/deploy.sh
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/post-deployment-multi-agent-A8VKl && sudo bash scripts/deploy.sh
 ```
 
 🖥️ Desktop/SSH:
 ```bash
 cd /home/VPS
 sudo git config --global --add safe.directory /home/VPS
-sudo git pull origin claude/autonomous-agents-ios-uToqU
+sudo git pull origin claude/post-deployment-multi-agent-A8VKl
 sudo bash scripts/deploy.sh
 ```
 
@@ -161,11 +161,11 @@ Docker network: ai-hub-network (bridge)
 | litellm | ghcr.io/berriai/litellm:main-stable | 512M | 4000 |
 | litellm-db | postgres:16-alpine | 128M | 5432 |
 | openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
-| scrapling | in-fused/scrapling:latest (custom build) | 256M | 8000 (internal) |
+| scrapling | in-fused/scrapling:latest (custom build) | 512M | 8000 (internal) |
 | openclaw-init | alpine:3 | — | — |
 | workspace-init | alpine:3 | — | — |
 
-Total ~3.3GB (2GB RAM + 4GB swap). Custom images (caddy, open-webui, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
+Total ~3.6GB (2GB RAM + 4GB swap). Custom images (caddy, open-webui, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
 
 ---
 
@@ -185,10 +185,10 @@ Single password protects the entire site. Flow:
 | Tier | Models | Cost |
 |------|--------|------|
 | FREE | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
-| FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 2 accounts, 100K-500K TPD) | $0 |
-| FREE | cerebras-llama-3.3-70b, cerebras-qwen3-32b, cerebras-llama-4-scout (Cerebras, 1M TPD) | $0 |
+| FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 4 accounts, 100K-500K TPD) | $0 |
+| FREE | cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (Cerebras, 1M TPD) | $0 |
 | FREE | gemini-flash, gemini-flash-lite, gemini-pro (Google Gemini, 250-1000 RPD) | $0 |
-| FREE | mistral-large, codestral (Mistral, 2 RPM, 1B tokens/month) | $0 |
+| FREE | mistral-large, codestral, mistral-small, mistral-nemo (Mistral, 2 RPM, 1B tokens/month) | $0 |
 | CHEAP | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.15–0.28/1M |
 | MID | claude-haiku, minimax-m2.5 | $0.30–1.00/1M |
 | PREMIUM | claude-sonnet, claude-opus, gpt-4o, o1 | $2.50–15/1M |
@@ -205,8 +205,8 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
 - Provider: custom "litellm" at http://litellm:4000/v1, openai wire format (chat/completions)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
-- Default model: `cerebras-qwen3-32b` (object format `{ primary: '...' }`, free 1M TPD)
-- 19 models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
+- Default model: `cerebras-llama-4-scout` (object format `{ primary: '...' }`, free 1M TPD)
+- 27+ models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
 
 ### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
 

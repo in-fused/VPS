@@ -112,7 +112,7 @@ The system is now **fully deployed and functional**. Here is the exact combinati
 This was the most iterative debugging area. Models kept breaking (providers dropping support, rate limits, 404s). Here's the final state and why:
 
 #### Timeline of model changes:
-1. **Initial:** All agents on `groq-llama-3.3-70b` (2 accounts)
+1. **Initial:** All agents on `groq-llama-3.3-70b` (started with 2 accounts, now 4)
 2. **Mar 3:** Cerebras dropped `qwen3-32b` -> migrated to `groq-qwen3-32b`
 3. **Mar 3:** Added Cerebras, Gemini (3 keys), Mistral providers
 4. **Mar 4:** Switched to "free-first" strategy spreading across providers
