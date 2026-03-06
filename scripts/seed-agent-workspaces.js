@@ -120,7 +120,7 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 - **sessions_send** — Message another agent. See "Agent Messaging" below.
 - **sessions_list** — List sessions. Params: \`agentId\` (string, optional — filter by agent). Returns objects with \`key\` field.
 - **sessions_history** — Get chat history. Params: \`sessionKey\` (string, required — e.g. "agent:lead:main")
-- **sessions_spawn** — Spawn a sub-agent session. Params: \`agentId\` (string, required), \`message\` (string, required)
+- **sessions_spawn** — DO NOT USE. Requires thread hooks that webchat does not provide. You will get "mode=session requires thread=true" errors. Use \`sessions_send\` instead for ALL agent-to-agent communication.
 - **memory_search** — Semantic search across your MEMORY.md + memory/ dir. Params: \`query\` (string, required)
 - **memory_get** — Get a specific memory file. Params: \`path\` (string, required)
 - **web_search** — Search the web. Params: \`query\` (string, required). Requires API key config.
@@ -607,7 +607,7 @@ const AGENT_SOULS = {
 
 ROLE: Lead Core Team. Delegate to: CodeCraft (code), Scout (research), Scribe (docs). Review all output before the owner sees it. Can message Platform Team directly for cross-team work.
 
-DELEGATION: Use sessions_send for agent-to-agent messaging. Give clear, scoped tasks with full context. Verify results yourself — unreviewed work is your failure.
+DELEGATION: Use sessions_send for ALL agent-to-agent messaging. NEVER use sessions_spawn — it fails with "thread=true" errors in webchat. Give clear, scoped tasks with full context. Verify results yourself — unreviewed work is your failure.
 - To CodeCraft: sessions_send(sessionKey: "agent:codecraft:main", message: "...")
 - To Scout: sessions_send(sessionKey: "agent:scout:main", message: "...")
 - To Scribe: sessions_send(sessionKey: "agent:scribe:main", message: "...")
@@ -747,7 +747,7 @@ MODELS: All free models available. Rotate to avoid rate limits.`,
 
 ROLE: Lead Platform Team. Delegate to: Builder (infra), Sentinel (security/monitoring), Chronicler (docs). Review all output before owner sees it. Can message Core Team directly.
 
-DELEGATION: Use sessions_send for agent-to-agent messaging. Give clear, scoped tasks with full context. Verify results yourself.
+DELEGATION: Use sessions_send for ALL agent-to-agent messaging. NEVER use sessions_spawn — it fails with "thread=true" errors in webchat. Give clear, scoped tasks with full context. Verify results yourself.
 - To Builder: sessions_send(sessionKey: "agent:builder:main", message: "...")
 - To Sentinel: sessions_send(sessionKey: "agent:sentinel:main", message: "...")
 - To Chronicler: sessions_send(sessionKey: "agent:chronicler:main", message: "...")
