@@ -1458,15 +1458,10 @@
                 </svg>
               </button>
               <div x-show="dangerOpen" x-collapse class="px-4 pb-4 space-y-3">
-                <p class="text-[11px] text-mc-text-muted"><strong>Reset Local State</strong> clears stale sessions, governance scores, and workflows but keeps your login and settings. Use after a server-side OpenClaw volume reset.</p>
-                <button @click="if(confirm('Clear local sessions, governance, and workflows? (Keeps login & settings)')) $store.auth.resetLocalState()"
-                        class="px-4 py-2 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all">
-                  Reset Local State
-                </button>
-                <p class="text-[11px] text-mc-text-muted mt-2"><strong>Factory Reset</strong> wipes <strong>all</strong> browser state: chat sessions, governance scores, tier progress, champion history, workflows, and settings. Server-side data (OpenClaw conversations, agent activity logs) is not affected. This cannot be undone.</p>
-                <button @click="if(prompt('Type RESET to confirm factory reset:') === 'RESET') $store.auth.factoryReset()"
+                <p class="text-[11px] text-mc-text-muted">Reset Local State wipes <strong>all</strong> browser state: chat sessions, governance scores, tier progress, champion history, workflows, and settings. Keeps your login. Server-side data (OpenClaw conversations, agent activity logs) is not affected. This cannot be undone.</p>
+                <button @click="if(prompt('Type RESET to confirm:') === 'RESET') $store.auth.resetLocalState()"
                         class="px-4 py-2 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all">
-                  Factory Reset Browser State
+                  Reset Local State
                 </button>
               </div>
             </div>
