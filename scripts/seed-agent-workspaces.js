@@ -118,6 +118,14 @@ const SHARED_TOOLS = `# Tool Usage Guidelines
 - **cron** — Create scheduled background jobs (runs 24/7 server-side)
 - **agents_list** — List all configured agents
 
+## CRITICAL: File Creation Rules
+- **ALWAYS use the \`write\` tool to create or update files.** It handles any content safely.
+- **NEVER use \`exec echo\` or \`exec cat\` with heredocs to create files.** Shell quoting will break on apostrophes, quotes, backticks, and special characters (e.g. "CodeCraft's" causes "Unterminated quoted string").
+- **NEVER use \`exec mkdir -p && echo\` patterns.** Use \`write\` — it creates parent directories automatically.
+- For reading files, use the \`read\` tool, not \`exec cat\`.
+- For modifying existing files, use \`edit\` for surgical changes or \`read\` then \`write\` for full rewrites.
+- Reserve \`exec\` for actual shell operations: wget, node scripts, process management, system commands.
+
 ## Web Scraping (Scrapling API)
 A dedicated scraping service runs at http://scrapling:8000 on the Docker network.
 NOTE: This container does NOT have curl. Use wget or node fetch for HTTP requests.
@@ -543,13 +551,13 @@ const BOOTSTRAP_LEAD = `# Bootstrap — First Actions
 
 When you first come online or after a restart, do these things IMMEDIATELY before anything else:
 
-1. **Log yourself as online.** Use the write tool to update /workspace/agent-activity/log.json:
-   \`\`\`
-   Read the current file first, then write back with your event appended to the events array:
+1. **Log yourself as online.** Use the \`read\` tool to get /workspace/agent-activity/log.json, then use the \`write\` tool to write it back with your event appended:
+   \`\`\`json
    {"time": <unix_ms>, "level": "info", "type": "system", "message": "<your name> online and ready for tasks"}
    \`\`\`
+   **IMPORTANT: Use the \`write\` tool, NOT \`exec echo\`. Shell quoting breaks on apostrophes and special characters.**
 
-2. **Check for pending owner tasks.** Read /workspace/staging/index.json — if any items have status "pending", the owner hasn't reviewed them yet. If items were rejected, re-do them.
+2. **Check for pending owner tasks.** Use \`read\` on /workspace/staging/index.json — if any items have status "pending", the owner hasn't reviewed them yet. If items were rejected, re-do them.
 
 3. **Check activity log.** Read /workspace/agent-activity/log.json for recent events from your team. Catch up on what happened.
 
@@ -580,13 +588,13 @@ const BOOTSTRAP_SPECIALIST = `# Bootstrap — First Actions
 
 When you first come online or after a restart, do these things IMMEDIATELY:
 
-1. **Log yourself as online.** Use the write tool to update /workspace/agent-activity/log.json:
-   \`\`\`
-   Read the current file, parse JSON, append to events array, write back:
+1. **Log yourself as online.** Use the \`read\` tool to get /workspace/agent-activity/log.json, then use the \`write\` tool to write it back with your event appended:
+   \`\`\`json
    {"time": <unix_ms>, "level": "info", "type": "system", "message": "<your name> online and ready"}
    \`\`\`
+   **IMPORTANT: Use the \`write\` tool, NOT \`exec echo\`. Shell quoting breaks on apostrophes and special characters.**
 
-2. **Check for delegated tasks.** Read your recent session history — if your lead assigned something, do it.
+2. **Check for delegated tasks.** Use \`read\` on your recent session history — if your lead assigned something, do it.
 
 3. **After every task you complete**, you MUST:
    - Append a "task-complete" event to /workspace/agent-activity/log.json
