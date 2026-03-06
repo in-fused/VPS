@@ -161,111 +161,226 @@
 
     <!-- STARTER TAB -->
     <div id="tab-starter" class="section active">
-      <p class="section-desc">Send these to kick off agent operations. Prompt 1 to Lead, Prompt 2 to Ops Lead.</p>
+      <p class="section-desc">Prompts are ordered by priority. Start with Phase 1 (both leads), then Phase 2, then Phase 3.</p>
 
       <div class="info-box">
         <h2>Quick Start</h2>
         <ol>
           <li><strong>Chat</strong> &rarr; <strong>New Conversation</strong> &rarr; pick <strong>Lead</strong></li>
-          <li>Tap <strong>Copy</strong> on Prompt 1 &rarr; paste &rarr; Send</li>
+          <li>Tap <strong>Copy</strong> on Phase 1 Core Team &rarr; paste &rarr; Send</li>
           <li><strong>New Conversation</strong> &rarr; pick <strong>Ops Lead</strong></li>
-          <li>Tap <strong>Copy</strong> on Prompt 2 &rarr; paste &rarr; Send</li>
-          <li>Close the browser. Agents work 24/7.</li>
+          <li>Tap <strong>Copy</strong> on Phase 1 Platform Team &rarr; paste &rarr; Send</li>
+          <li>Close the browser. Agents work 24/7. Come back for Phase 2.</li>
         </ol>
       </div>
 
+      <!-- PHASE 1 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #ef4444; color: #ef4444; font-weight: 700; font-size: 0.95rem;">PHASE 1 — Operational Readiness &amp; Security Lockdown</div>
+
       <div class="prompt-card">
         <div class="prompt-header">
           <div class="prompt-meta">
-            <div class="prompt-title"><span class="emoji">🧠</span>Core Team Kickoff</div>
-            <div class="prompt-subtitle"><span class="tag">Lead</span> explore + delegate + cron</div>
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — Go Live</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> verify + fix + monitor</div>
           </div>
-          <button class="copy-btn" onclick="copyPrompt('starter1', this)">Copy</button>
+          <button class="copy-btn" onclick="copyPrompt('p1-lead', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter1">First session. Before anything else: log yourself as online to /workspace/agent-activity/log.json (read it, append a "system" event, write it back). Then confirm you can reach your team (CodeCraft, Scout, Scribe) via sessions_send. Delegate:
+        <div class="prompt-body collapsed" id="p1-lead">PRIORITY 1: Site must be fully operational before anything else.
 
-1. YOU: Discover your tools, read /workspace/, report what you find.
-2. CODECRAFT: Audit /workspace/js/ (app.js, workflow.js, openclaw-client.js) for bugs or quick wins.
-3. SCOUT: Research OpenClaw cron tool and workspace file capabilities.
-4. SCRIBE: Write a system status doc — what's deployed, what works, what needs work.
-5. CRON: Set up a daily health-check job that logs to the activity log.
+Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to CodeCraft, Scout, Scribe). Then execute:
 
-MANDATORY for you and every agent you delegate to:
-- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
-- Every deliverable MUST be written to /workspace/staging/ with index.json updated (status: "pending")
-- I check these from my phone. No log entries = you did nothing.
+1. YOU: Read SOUL.md, TOOLS.md, RESOURCES.md, STAGING_GUIDE.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
 
-I'll close the browser — keep working autonomously. Governance scores are live.</div>
+2. CODECRAFT: Functional audit of Mission Control.
+   - Load and test /workspace/js/app.js, workflow.js, openclaw-client.js
+   - Verify: chat sends/receives, agent list populates, session persistence works, WS reconnect works
+   - File any bugs found as items in /workspace/staging/ with clear reproduction steps
+   - Fix anything you can fix in-place (JS only, no server changes)
+
+3. SCOUT: External connectivity verification.
+   - Test 5 free APIs from RESOURCES.md via exec wget (crypto, weather, HN, geocoding, NASA)
+   - Test Scrapling: exec wget -qO- 'http://scrapling:8000/health' then scrape a real URL
+   - Test agent-to-agent: send a test message to Ops Lead's team via sessions_send
+   - Report which APIs work, which fail, and any rate-limit headers observed
+
+4. SCRIBE: Write a concise system status page to /workspace/staging/system-status.html
+   - What services are running, what's verified working, what's untested
+   - Use STAGING_GUIDE.md template — golden cyber theme, mobile-first
+   - Include a "last updated" timestamp and agent attribution
+
+5. CRON: Create a daily health-check job (runs every 24h) that:
+   - Hits the Scrapling health endpoint
+   - Checks /workspace/staging/index.json exists and is valid JSON
+   - Appends result to /workspace/agent-activity/log.json
+
+RULES: Every task logs to activity log. Every deliverable goes to staging with index.json updated. No log = no credit. I check from my phone. Work autonomously after I close the browser.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
       <div class="prompt-card">
         <div class="prompt-header">
           <div class="prompt-meta">
-            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team Kickoff</div>
-            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> security + infra + monitoring</div>
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Security Lockdown</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> audit + harden + monitor</div>
           </div>
-          <button class="copy-btn" onclick="copyPrompt('starter2', this)">Copy</button>
+          <button class="copy-btn" onclick="copyPrompt('p1-ops', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter2">First session. Before anything else: log yourself as online to /workspace/agent-activity/log.json (read it, append a "system" event, write it back). Then confirm you can reach your team (Builder, Sentinel, Chronicler) via sessions_send. Delegate:
+        <div class="prompt-body collapsed" id="p1-ops">PRIORITY 1: Lock down the site. Nothing else until security is verified.
 
-1. YOU: Discover your tools, read /workspace/, report what you find.
-2. SENTINEL: Security audit — exposed secrets, TLS config, container memory vs limits, API key exposure.
-3. BUILDER: Audit docker-compose.yml, deploy.sh, openclaw-entrypoint.sh — memory limits, restart policies, health checks.
-4. CHRONICLER: Write a deployment runbook with single-line commands (owner uses iPhone + SSM).
-5. CRON: Set up a 6-hour health-check job covering all services. Flag anything above 80% memory.
+Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to Builder, Sentinel, Chronicler). Then execute:
 
-MANDATORY for you and every agent you delegate to:
-- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
-- Every deliverable MUST be written to /workspace/staging/ with index.json updated (status: "pending")
-- I check these from my phone. No log entries = you did nothing.
+1. YOU: Read SOUL.md, TOOLS.md, RESOURCES.md, STAGING_GUIDE.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
 
-I'll close the browser — keep working autonomously. Governance scores are live.</div>
+2. SENTINEL: Security audit — write findings to /workspace/staging/security-audit.html.
+   - Check: are any secrets (API keys, passwords) exposed in non-.env files?
+   - Check: is the auth cookie (mc_oc) secure? HttpOnly? SameSite?
+   - Check: CORS headers, CSP headers, X-Frame-Options in Caddy responses
+   - Check: are Docker containers running as root? Any unnecessary capabilities?
+   - Check: is the OpenClaw WS auth handshake rejecting bad credentials?
+   - Severity-rank all findings: CRITICAL / HIGH / MEDIUM / LOW
+
+3. BUILDER: Infrastructure audit — write findings to /workspace/staging/infra-audit.html.
+   - Memory: what's each container using vs its limit? (use exec to check if possible)
+   - Restart policies: are all services set to restart on failure?
+   - Health checks: which services have them, which don't?
+   - Volumes: are permissions correct on all mounted volumes?
+   - Network: is anything exposed that shouldn't be? (Scrapling should be internal-only)
+
+4. CHRONICLER: Write a deployment runbook to /workspace/staging/deploy-runbook.html.
+   - Every command must be single-line (owner uses iPhone + SSM)
+   - Cover: full deploy, single-service update, rollback, logs, restart, volume reset
+   - Use STAGING_GUIDE.md template — golden cyber theme, mobile-optimized
+   - Include copy buttons for each command block
+
+5. CRON: Create a 6-hour monitoring job that:
+   - Checks all service health endpoints
+   - Logs results to /workspace/agent-activity/log.json
+   - Flags anything above 80% memory or any unhealthy service
+
+RULES: Every task logs to activity log. Every deliverable goes to staging with index.json updated. No log = no credit. I check from my phone. Work autonomously after I close the browser.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <!-- PHASE 2 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 0.95rem;">PHASE 2 — UI Upgrade Sprint</div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — UI Polish</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> Mission Control visual + UX upgrade</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p2-lead', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p2-lead">PHASE 2: Site is operational. Now make Mission Control look and feel polished.
+
+Read Phase 1 deliverables first: check /workspace/staging/ for the system-status, security-audit, and infra-audit reports. Address any CRITICAL findings before starting UI work.
+
+DELEGATION:
+
+1. YOU: Review current Mission Control UI on mobile dimensions. Identify the top 5 UX pain points. Prioritize by impact. Write your assessment to /workspace/staging/ui-audit.html.
+
+2. CODECRAFT: Implement the top-priority UI fixes from Lead's assessment. Focus areas:
+   - Chat view: message rendering, code block formatting, scroll behavior
+   - Sidebar navigation: touch targets, active state visibility, collapse behavior on mobile
+   - Agent cards: status indicators, model display, governance score badges
+   - Loading states: skeleton screens or spinners where content loads async
+   - Write all changes to /workspace/staging/ as standalone HTML demos first — don't modify production files
+
+3. SCOUT: Research current best practices for mobile-first dashboards.
+   - Find 3-5 examples of well-designed mobile admin panels or chat interfaces
+   - Screenshot or describe key patterns (navigation, data density, touch interactions)
+   - Write research to /workspace/staging/ui-research.html
+
+4. SCRIBE: Create a visual style guide page — /workspace/staging/style-guide.html.
+   - Document our color palette (--gold, --surface, etc.), typography (Rajdhani, JetBrains Mono)
+   - Show all reusable UI components: buttons, cards, badges, inputs, modals
+   - Show dark theme patterns, glow effects, border treatments
+   - Use the actual CSS variables from styles.css — this is a living reference
+
+RULES: All deliverables to staging as HTML. Use STAGING_GUIDE.md template. Log everything. Mobile-first is non-negotiable — test at 375px width minimum.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
       <div class="prompt-card">
         <div class="prompt-header">
           <div class="prompt-meta">
-            <div class="prompt-title"><span class="emoji">🔍</span>Prompt Marketplace Research</div>
-            <div class="prompt-subtitle"><span class="tag">Scout</span> competitive landscape + P2P feasibility</div>
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Monitoring Dashboard</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> build health + status UI</div>
           </div>
-          <button class="copy-btn" onclick="copyPrompt('starter3', this)">Copy</button>
+          <button class="copy-btn" onclick="copyPrompt('p2-ops', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter3">RESEARCH TASK — Prompt Marketplace Landscape
+        <div class="prompt-body collapsed" id="p2-ops">PHASE 2: Build a monitoring dashboard the owner can check from their phone.
 
-I'm considering building a P2P marketplace for LLM prompts as our first creative project. Before committing resources, I need to know what already exists and where the gaps are.
+Read Phase 1 deliverables: /workspace/staging/security-audit.html and /workspace/staging/infra-audit.html. Address any unresolved CRITICAL issues first.
 
-DELIVERABLES — write a full report to /workspace/staging/prompt-marketplace-research.html:
+DELEGATION:
 
-1. EXISTING PLAYERS: Find and analyze every notable prompt marketplace, directory, or exchange platform. For each one document:
-   - Name, URL, launch date, business model (free/paid/commission)
-   - Is it centralized or decentralized? Curated or open?
-   - What do they sell? (raw prompts, prompt templates, fine-tuned chains, agent configs, workflows?)
-   - Pricing model (fixed price, auction, subscription, tips?)
-   - Community size if available (users, listings, revenue)
+1. YOU: Design the dashboard layout. It should show at a glance: service health (up/down), memory usage, last deploy time, recent agent activity, and any alerts. Sketch this as a wireframe in /workspace/staging/dashboard-wireframe.html.
+
+2. BUILDER: Build the dashboard — /workspace/staging/monitoring-dashboard.html.
+   - Use STAGING_GUIDE.md template (Alpine.js + Tailwind CDN + golden cyber theme)
+   - Real-time data: fetch /workspace/agent-activity/log.json and display recent events
+   - Service status cards: show each Docker service with health indicator
+   - Auto-refresh every 60s
+   - Mobile-first: single-column layout, large touch targets, readable at a glance
+
+3. SENTINEL: Add a security status section to the dashboard.
+   - Show auth status (cookie age, last login attempt if trackable)
+   - Show TLS cert expiry (fetch from Caddy or display static info)
+   - Flag any security audit items still unresolved from Phase 1
+
+4. CHRONICLER: Write user documentation for the dashboard — /workspace/staging/dashboard-docs.html.
+   - How to read each metric
+   - What each alert means and what action to take
+   - Quick reference for common iPhone/SSM commands related to each metric
+
+RULES: All deliverables to staging. Use STAGING_GUIDE.md template. Log everything. Dashboard must work perfectly on mobile — this is the primary use case.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <!-- PHASE 3 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #22c55e; color: #22c55e; font-weight: 700; font-size: 0.95rem;">PHASE 3 — Creative Projects</div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🔍</span>Prompt Marketplace — Research</div>
+            <div class="prompt-subtitle"><span class="tag">Scout</span> competitive landscape + feasibility</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p3-research', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p3-research">RESEARCH TASK — Prompt Marketplace Landscape
+
+First creative project for both teams. Before building, I need to know what exists and where the gaps are.
+
+Write a full report to /workspace/staging/prompt-marketplace-research.html:
+
+1. EXISTING PLAYERS: Analyze every notable prompt marketplace. For each:
+   - Name, URL, business model (free/paid/commission %)
+   - Centralized or decentralized? Curated or open?
+   - What they sell (raw prompts, templates, agent configs, workflows?)
+   - Community size if findable (users, listings, revenue)
    - Strengths and weaknesses
+   Start with: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.
 
-   Known names to start: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.
+2. GAP ANALYSIS: What's missing?
+   - True P2P (no central curator)?
+   - Prompt versioning, forking, collaborative iteration?
+   - Full agent system prompts (not just raw text)?
+   - On-chain or decentralized trading?
+   - Multi-agent workflow configs?
 
-2. GAP ANALYSIS: What's missing from the current market?
-   - Is there a true P2P marketplace (no central curator, seller-to-buyer direct)?
-   - Is anyone doing prompt versioning, forking, or collaborative iteration?
-   - Is anyone handling prompt-to-agent-config (not just raw text but full agent system prompts)?
-   - Is anyone doing on-chain or decentralized prompt trading?
-   - What about prompt bundles, workflows, or multi-agent orchestration configs?
+3. FEASIBILITY: If we built one:
+   - What differentiates us?
+   - Can our agents build it themselves?
+   - MVP scope? Technical requirements?
 
-3. FEASIBILITY ASSESSMENT: If we built a P2P prompt marketplace:
-   - What would differentiate us from PromptBase etc.?
-   - Could we use our agent system to build it (agents creating, testing, and listing prompts)?
-   - What's the minimum viable product look like?
-   - Technical requirements (hosting, payments, identity)
+4. RECOMMENDATION: Build, fork, or skip?
 
-4. RECOMMENDATION: Build from scratch, fork something, or skip it entirely?
+Use web_search and web_fetch — current data only, not training knowledge. Cite URLs.
 
-Use web_search and web_fetch extensively. I want current data, not training knowledge. Cite URLs.
-
-MANDATORY: Log a "task-complete" event to /workspace/agent-activity/log.json when you start AND when you finish. Write the report to /workspace/staging/prompt-marketplace-research.html AND update /workspace/staging/index.json with status "pending". I check from my phone.</div>
+MANDATORY: Log start + finish to activity log. Write to staging with index.json updated. I check from my phone.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
 
@@ -273,97 +388,63 @@ MANDATORY: Log a "task-complete" event to /workspace/agent-activity/log.json whe
         <div class="prompt-header">
           <div class="prompt-meta">
             <div class="prompt-title"><span class="emoji">🧠</span>Prompt Marketplace — Build Plan</div>
-            <div class="prompt-subtitle"><span class="tag">Lead</span> delegate to team after Scout research</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> cross-team build after Scout research</div>
           </div>
-          <button class="copy-btn" onclick="copyPrompt('starter4', this)">Copy</button>
+          <button class="copy-btn" onclick="copyPrompt('p3-build', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter4">CREATIVE PROJECT — P2P Prompt Marketplace
+        <div class="prompt-body collapsed" id="p3-build">CREATIVE PROJECT — P2P Prompt Marketplace (Both Teams)
 
-Scout has completed (or is working on) research into existing prompt marketplaces. Read their report at /workspace/staging/prompt-marketplace-research.html first.
+Read Scout's research at /workspace/staging/prompt-marketplace-research.html first.
 
-Based on Scout's findings, I want you to lead the team in planning a P2P prompt marketplace. This is our first real creative build — the agents building something from the ground up.
+This is the first cross-team build. Core Team handles product + frontend. Platform Team handles infra + security.
 
-DELEGATION PLAN:
+CORE TEAM DELEGATION:
+1. YOU (Lead): Synthesize Scout's research. Write a 1-page product brief — what makes ours different, target user, MVP scope. Stage to /workspace/staging/prompt-marketplace-brief.html.
+2. CODECRAFT: Architect the tech approach based on the brief:
+   - Can it run as static HTML from /workspace/? (zero hosting cost)
+   - P2P options: IPFS, Nostr, git-based, or simple JSON store?
+   - Payment: crypto, Stripe, donations, or free v1?
+   - Stage spec to /workspace/staging/prompt-marketplace-spec.html
+3. SCOUT: Set up a weekly cron to monitor top 5 competitors for changes. Log to activity log.
+4. SCRIBE: Build a landing page mockup — /workspace/staging/prompt-marketplace-landing.html. Mobile-first, golden cyber theme, use STAGING_GUIDE.md.
 
-1. YOU (Lead): Read Scout's research, synthesize the opportunity. Decide the product direction — what makes ours different. Write a 1-page product brief to /workspace/staging/prompt-marketplace-brief.html.
-
-2. CODECRAFT: Based on the brief, architect the technical approach. Consider:
-   - Can it run as a static site served from our /workspace/ volume? (Zero hosting cost)
-   - Or does it need a backend service added to docker-compose?
-   - P2P options: could we use IPFS, Nostr, or just a git-based exchange?
-   - Payment: crypto, Stripe, or free/donation-based to start?
-   - Write a technical spec to /workspace/staging/prompt-marketplace-spec.html
-
-3. SCOUT: Continue monitoring the competitive landscape. Set up a weekly cron job to check the top 5 prompt marketplaces for new features, pricing changes, or shutdowns. Log findings to the activity log.
-
-4. SCRIBE: Create a landing page mockup for the marketplace. Put it in /workspace/staging/prompt-marketplace-landing.html. Mobile-first, matches our golden cyber theme.
+PLATFORM TEAM (coordinate via sessions_send to Ops Lead):
+- Builder: Review CodeCraft's spec for infra feasibility. Can we host it without adding services?
+- Sentinel: Review for security implications (user uploads, XSS in prompts, auth)
 
 CONSTRAINTS:
-- This must be buildable by our agent team. Don't design something that needs a human dev team.
-- Start small — an MVP that proves the concept, not a full platform.
-- All deliverables to /workspace/staging/ with index.json updated (status: "pending").
+- Must be buildable by agents. No human dev team dependency.
+- MVP first — prove the concept, iterate later.
+- All deliverables to /workspace/staging/ with index.json updated.
 
-MANDATORY for you and every agent you delegate to:
-- Every completed task MUST append a "task-complete" event to /workspace/agent-activity/log.json
-- Every deliverable MUST update /workspace/staging/index.json
-- I check from my phone. No log entries = you did nothing.
-
-Confirm you've read Scout's research and get your team moving.</div>
+Log everything. No logs = no credit.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
+
+      <!-- UTILITY PROMPTS -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid var(--text-muted); color: var(--text-sec); font-weight: 700; font-size: 0.95rem;">Utility Prompts</div>
 
       <div class="prompt-card" style="border-color: rgba(34,197,94,0.3);">
         <div class="prompt-header">
           <div class="prompt-meta">
             <div class="prompt-title"><span class="emoji">🔧</span>Recovery Sweep: Failed Writes</div>
-            <div class="prompt-subtitle"><span class="tag">Lead</span> <span class="tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">Marketplace</span> audit + recover + rebuild</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> <span class="tag" style="background:rgba(34,197,94,0.12);color:#22c55e;">Utility</span> audit + recover</div>
           </div>
-          <button class="copy-btn" onclick="copyPrompt('starter-recovery', this)">Copy</button>
+          <button class="copy-btn" onclick="copyPrompt('util-recovery', this)">Copy</button>
         </div>
-        <div class="prompt-body collapsed" id="starter-recovery">@marketplace { id: "recovery-sweep-v1", compat: "openclaw>=2026.1", agents: "2+", tools: ["sessions_list","sessions_history","sessions_send","read","write"], license: "MIT" }
+        <div class="prompt-body collapsed" id="util-recovery">RECOVERY SWEEP: Failed Writes
 
-RECOVERY SWEEP: Failed Writes
+Agent file writes failed (EACCES, permission denied, ENOENT). Permissions are now fixed. Find what was lost and rebuild it.
 
-## CONTEXT
-Agent file writes to shared directories failed (EACCES, permission denied, path not found, or similar). Permissions are now fixed. Your job: find what was lost and rebuild it.
+PHASE 1 — AUDIT: For each team agent: sessions_list → sessions_history on each key → scan for write errors ("EACCES", "permission denied", "ENOENT", "read-only", tool calls with status "error" on write/edit). Log each finding.
 
-## SETUP — Read before executing
-This prompt uses paths relative to your workspace root. Before running:
-1. Use `read` to check which writable directories exist (try: /workspace/, /app/, or your home dir)
-2. Identify your activity log (e.g., /workspace/agent-activity/log.json or equivalent)
-3. Identify your staging dir (e.g., /workspace/staging/ or equivalent)
-4. Identify your team agents via `sessions_list` or `agents_list`
+PHASE 2 — RECOVER: For each failed write: extract intended content from the session transcript (tool call params contain the data). Re-create the file. For JSON appends, read current file first, parse, append, write back.
 
-## PHASE 1: AUDIT
-For each agent on your team (including yourself):
-- `sessions_list` to get all session keys
-- `sessions_history` on each key — scan for write errors: "EACCES", "permission denied", "ENOENT", "read-only", or any tool call with status "error" on write/edit
-- Log each finding: agent name, session key, what they tried to write, where, and the error
+PHASE 3 — REBUILD: For agents that reported "task complete given constraints" but couldn't deliver: identify the unwritten deliverable from transcript, delegate to the original agent via sessions_send.
 
-## PHASE 2: RECOVER
-For each failed write found in Phase 1:
-- Extract the intended content from the session transcript (the data the agent tried to write is usually in the tool call params)
-- Re-create the file/entry now using `write` or `edit`
-- If the content was a JSON append (e.g., adding to a log array), `read` the current file first, parse, append, write back
-- Preserve original timestamps from the transcript where visible
+PHASE 4 — REPORT: Write /workspace/staging/recovery-sweep-report.html — agents affected, what recovered, what's unrecoverable and why. Update staging index. Log to activity log.
 
-## PHASE 3: REBUILD
-For each agent that reported "task complete given constraints" but couldn't deliver:
-- Identify the deliverable they described but couldn't write
-- Re-execute ONLY the output step — don't redo research/analysis (it's in the transcript)
-- Delegate to the original agent via `sessions_send` if the deliverable requires their specialty
-
-## PHASE 4: REPORT
-Write a recovery report to your staging directory:
-- File: recovery-sweep-report.html (or .md)
-- Contents: which agents were affected, what was recovered, what was unrecoverable and why
-- Update your staging index if one exists
-- Append a single "task-complete" event to your activity log
-
-## RULES
-- Verify each write succeeds before moving to the next. If a write fails, STOP and report the error — don't retry blindly.
-- Delegate to specialists as needed (code artifacts to your dev agent, docs to your writer).
-- Do not modify any agent's config or model assignments. This is a data recovery task only.</div>
+RULES: Verify each write succeeds before moving on. If a write fails, STOP and report — don't retry blindly. This is data recovery only — no config changes.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
       </div>
     </div>
