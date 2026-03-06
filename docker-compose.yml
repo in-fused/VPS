@@ -295,7 +295,8 @@ services:
         [ -f /workspace/staging/index.json ] || echo '{\"items\":[]}' > /workspace/staging/index.json &&
         [ -f /workspace/agent-activity/log.json ] || echo '{\"events\":[]}' > /workspace/agent-activity/log.json &&
         [ -f /workspace/mc-state/governance.json ] || echo '{\"agents\":{},\"teams\":[],\"updatedAt\":0}' > /workspace/mc-state/governance.json &&
-        echo 'Workspace synced + bridge dirs ready'"
+        chown -R 1000:1000 /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts &&
+        echo 'Workspace synced + bridge dirs ready (owned by node:1000)'"
     restart: "no"
 
   # ===========================================================================
