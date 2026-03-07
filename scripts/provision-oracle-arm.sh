@@ -30,7 +30,7 @@ set -euo pipefail
 
 # OCI credentials (from your API key config preview)
 OCI_USER="ocid1.user.oc1..aaaaaaaat2mw5f3sxvlwcnqv6gizayboosqkq4ihrc7ukc7np3w5rtj5ky5a"
-OCI_FINGERPRINT="dc:09:9a:86:36:ae:03:0a:17:cc:b9:66:10:04:35:b6"
+OCI_FINGERPRINT="18:64:d7:eb:27:cf:7f:2d:f8:cb:93:92:24:cb:a1:c2"
 OCI_TENANCY="ocid1.tenancy.oc1..aaaaaaaa7skrn7sa5tbenz745ooy42uq6puv62xjnwen5zg6swhzdnkasgua"
 OCI_REGION="us-ashburn-1"
 OCI_KEY_FILE="/home/VPS/oci_api_key.pem"
