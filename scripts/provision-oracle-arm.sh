@@ -35,11 +35,13 @@ OCI_TENANCY="ocid1.tenancy.oc1..aaaaaaaa7skrn7sa5tbenz745ooy42uq6puv62xjnwen5zg6
 OCI_REGION="us-ashburn-1"
 OCI_KEY_FILE="/home/VPS/oci_api_key.pem"
 
-# Instance configuration (free tier maximums)
+# Instance configuration
+# Strategy: start with smaller instance (easier to land), grab second later
+# Free tier allows 4 OCPUs / 24GB total — split across instances if needed
 SHAPE="VM.Standard.A1.Flex"
-OCPUS=4
-MEMORY_GB=24
-BOOT_VOLUME_GB=200
+OCPUS=2
+MEMORY_GB=12
+BOOT_VOLUME_GB=100
 IMAGE_OCID="ocid1.image.oc1.iad.aaaaaaaa2qup33kak66ll3loslunng52zk5haq4pggre5gg7y3snr5wh55rq"
 # Ubuntu 22.04 aarch64 (2025.07.24)
 
@@ -50,9 +52,9 @@ ENV_FILE="$VPS_DIR/.env"
 LOG_FILE="$VPS_DIR/oracle-provision.log"
 SSH_KEY_FILE="$VPS_DIR/oracle-instance-key"
 
-# Retry settings
-RETRY_INTERVAL=60  # seconds between instance creation attempts
-MAX_RETRIES=1440   # 24 hours of retries at 60s intervals
+# Retry settings — aggressive to compete with other provisioners
+RETRY_INTERVAL=20  # seconds between full AD rotation cycles
+MAX_RETRIES=4320   # 24 hours of retries at 20s intervals
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -354,44 +356,47 @@ echo ""
 INSTANCE_ID=""
 ATTEMPT=0
 
-# Try each AD in rotation
-AD_INDEX=0
+# Try each AD in rotation — blast all ADs quickly, then sleep
 readarray -t AD_ARRAY < <(echo "$ALL_ADS" | tr -d '[]"' | tr ',' '\n' | sed 's/^ *//')
+AD_COUNT=${#AD_ARRAY[@]}
 
 while [ -z "$INSTANCE_ID" ] && [ $ATTEMPT -lt $MAX_RETRIES ]; do
-    ATTEMPT=$((ATTEMPT + 1))
+    # Try ALL availability domains in rapid succession (no sleep between ADs)
+    for CURRENT_AD in "${AD_ARRAY[@]}"; do
+        [ -n "$INSTANCE_ID" ] && break
+        ATTEMPT=$((ATTEMPT + 1))
 
-    # Rotate through availability domains
-    CURRENT_AD="${AD_ARRAY[$AD_INDEX]}"
-    AD_INDEX=$(( (AD_INDEX + 1) % ${#AD_ARRAY[@]} ))
+        log_info "Attempt $ATTEMPT/$MAX_RETRIES — AD: $CURRENT_AD"
 
-    log_info "Attempt $ATTEMPT/$MAX_RETRIES — AD: $CURRENT_AD"
+        RESULT=$(oci compute instance launch \
+            --compartment-id "$COMPARTMENT_ID" \
+            --availability-domain "$CURRENT_AD" \
+            --shape "$SHAPE" \
+            --shape-config "{\"ocpus\": $OCPUS, \"memoryInGBs\": $MEMORY_GB}" \
+            --image-id "$IMAGE_OCID" \
+            --subnet-id "$SUBNET_ID" \
+            --display-name "ollama-arm-server" \
+            --assign-public-ip true \
+            --boot-volume-size-in-gbs "$BOOT_VOLUME_GB" \
+            --metadata "{\"ssh_authorized_keys\": \"$SSH_PUBLIC_KEY\"}" \
+            --query 'data.id' \
+            --raw-output 2>&1) || true
 
-    RESULT=$(oci compute instance launch \
-        --compartment-id "$COMPARTMENT_ID" \
-        --availability-domain "$CURRENT_AD" \
-        --shape "$SHAPE" \
-        --shape-config "{\"ocpus\": $OCPUS, \"memoryInGBs\": $MEMORY_GB}" \
-        --image-id "$IMAGE_OCID" \
-        --subnet-id "$SUBNET_ID" \
-        --display-name "ollama-arm-server" \
-        --assign-public-ip true \
-        --boot-volume-size-in-gbs "$BOOT_VOLUME_GB" \
-        --metadata "{\"ssh_authorized_keys\": \"$SSH_PUBLIC_KEY\"}" \
-        --query 'data.id' \
-        --raw-output 2>&1) || true
+        if [[ "$RESULT" == ocid1.instance* ]]; then
+            INSTANCE_ID="$RESULT"
+            log_ok "Instance created! ID: $INSTANCE_ID"
+        elif echo "$RESULT" | grep -qi "out of.*capacity\|InternalError\|LimitExceeded\|capacity"; then
+            log_warn "Out of capacity in $CURRENT_AD"
+        elif echo "$RESULT" | grep -qi "limit\|quota\|exceeded"; then
+            log_warn "Limit/quota issue: $(echo "$RESULT" | head -1)"
+        else
+            log_warn "Unexpected response: $(echo "$RESULT" | head -3)"
+        fi
+    done
 
-    if [[ "$RESULT" == ocid1.instance* ]]; then
-        INSTANCE_ID="$RESULT"
-        log_ok "Instance created! ID: $INSTANCE_ID"
-    elif echo "$RESULT" | grep -qi "out of.*capacity\|InternalError\|LimitExceeded\|capacity"; then
-        log_warn "Out of capacity in $CURRENT_AD — retrying in ${RETRY_INTERVAL}s..."
-        sleep "$RETRY_INTERVAL"
-    elif echo "$RESULT" | grep -qi "limit\|quota\|exceeded"; then
-        log_warn "Limit/quota issue: $(echo "$RESULT" | head -1) — retrying in ${RETRY_INTERVAL}s..."
-        sleep "$RETRY_INTERVAL"
-    else
-        log_warn "Unexpected response: $(echo "$RESULT" | head -3) — retrying in ${RETRY_INTERVAL}s..."
+    # Sleep only after trying all ADs
+    if [ -z "$INSTANCE_ID" ]; then
+        log_info "All $AD_COUNT ADs exhausted — waiting ${RETRY_INTERVAL}s before next round..."
         sleep "$RETRY_INTERVAL"
     fi
 done
