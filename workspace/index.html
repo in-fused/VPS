@@ -1089,42 +1089,12 @@
                 <span class="text-sm text-mc-text-muted">Select a conversation</span>
               </template>
             </div>
-            <!-- Live status bar — shows connection state + last event -->
-            <div class="flex items-center gap-2 px-3 py-1.5 border-b border-mc-border bg-mc-surface/50 text-[11px] flex-shrink-0">
-              <!-- Connection dot -->
+            <!-- Minimal status bar — connection state only -->
+            <div class="flex items-center gap-2 px-3 py-1 border-b border-mc-border bg-mc-surface/50 text-[11px] flex-shrink-0">
               <span class="w-2 h-2 rounded-full flex-shrink-0"
                     :class="$store.app.ocConnected ? 'bg-emerald-400' : ($store.app.connected ? 'bg-amber-400' : 'bg-red-400')"></span>
-              <span class="text-mc-text-muted flex-shrink-0"
+              <span class="text-mc-text-muted"
                     x-text="$store.app.ocConnected ? 'Live' : ($store.app.connected ? 'Fallback' : 'Offline')"></span>
-              <span class="text-mc-border">|</span>
-              <!-- Last event -->
-              <span class="text-mc-text-muted truncate flex-1" x-text="$store.app.lastEvent || 'Waiting...'"></span>
-              <!-- Event feed toggle -->
-              <button @click="$store.app.showEventFeed = !$store.app.showEventFeed"
-                      class="px-1.5 py-0.5 rounded text-[10px] font-mono transition-all flex-shrink-0"
-                      :class="$store.app.showEventFeed ? 'bg-cyan-500/20 text-cyan-400' : 'text-mc-text-muted hover:text-mc-text-sec'">
-                <span x-text="$store.app.showEventFeed ? 'Hide' : 'Events'"></span>
-                <span x-show="$store.app.chatEvents.length > 0"
-                      class="ml-1 text-[9px] opacity-60" x-text="$store.app.chatEvents.length"></span>
-              </button>
-            </div>
-
-            <!-- Collapsible event feed -->
-            <div x-show="$store.app.showEventFeed" x-transition
-                 class="border-b border-mc-border bg-mc-bg/80 max-h-40 overflow-y-auto flex-shrink-0">
-              <div class="p-2 space-y-0.5">
-                <template x-for="(ev, i) in $store.app.chatEvents.slice(0, 20)" :key="i">
-                  <div class="flex items-start gap-2 px-2 py-1 rounded text-[11px] font-mono hover:bg-mc-elevated/50">
-                    <span class="text-mc-text-muted whitespace-nowrap flex-shrink-0" x-text="ev.time"></span>
-                    <span class="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0"
-                          :class="ev.level === 'error' ? 'bg-red-400' : ev.level === 'warn' ? 'bg-amber-400' : ev.level === 'ok' ? 'bg-emerald-400' : 'bg-cyan-400/50'"></span>
-                    <span class="text-mc-text-sec" x-text="ev.msg"></span>
-                  </div>
-                </template>
-                <div x-show="$store.app.chatEvents.length === 0" class="text-center text-[11px] text-mc-text-muted py-2">
-                  No events yet — send a message to start
-                </div>
-              </div>
             </div>
 
             <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">

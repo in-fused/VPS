@@ -491,6 +491,11 @@ function isValidSessionKey(key) {
   return typeof key === 'string' && /^agent:[a-z0-9-]+:[a-z0-9-]+$/.test(key);
 }
 
+// Check if message content is a transient placeholder (processing indicator)
+function isPlaceholder(text) {
+  return text === '...' || text.startsWith('⏳');
+}
+
 //   - null/undefined
 // This normalizes all formats to a plain string.
 function extractMessageText(raw) {
@@ -1519,7 +1524,7 @@ document.addEventListener('alpine:init', () => {
           if (sessions._streamingMsg) {
             // If content is a retry/processing indicator, clear it before appending real content
             const cur = sessions._streamingMsg.content;
-            if (delta && cur.startsWith('⏳')) {
+            if (delta && isPlaceholder(cur)) {
               sessions._streamingMsg.content = delta;
             } else {
               sessions._streamingMsg.content += delta;
@@ -1534,7 +1539,7 @@ document.addEventListener('alpine:init', () => {
             const lastMsg = sessions.messages[sessions.messages.length - 1];
             if (lastMsg?.role === 'agent') {
               // Strip error/placeholder prefix if the fallback is now succeeding
-              if (lastMsg.content.startsWith('⚠️') || lastMsg.content.startsWith('⏳') || lastMsg.content.startsWith('[Agent completed')) {
+              if (isPlaceholder(lastMsg.content) || lastMsg.content.startsWith('[Agent completed') || lastMsg.content.startsWith('Error:')) {
                 lastMsg.content = '';
               }
               lastMsg.streaming = true;
@@ -1564,7 +1569,7 @@ document.addEventListener('alpine:init', () => {
           let producedContent = false;
           if (streamMsg) {
             // Strip processing/retry indicators if present
-            if (streamMsg.content.startsWith('⏳')) {
+            if (isPlaceholder(streamMsg.content)) {
               streamMsg.content = '';
             }
 
@@ -1585,7 +1590,7 @@ document.addEventListener('alpine:init', () => {
             if (!streamMsg.content.trim() && payload.sessionKey && window.openclawClient?.authenticated) {
               const _historyMsg = streamMsg; // capture for async
               Alpine.store('monitor').addLog('info', 'No content captured from stream — syncing full history...');
-              _historyMsg.content = '⏳ Loading response...';
+              _historyMsg.content = '...';
               (async () => {
                 try {
                   const history = await window.openclawClient.getHistory(payload.sessionKey);
@@ -1604,15 +1609,14 @@ document.addEventListener('alpine:init', () => {
                     }
                   }
                   // History fetch found nothing — show system note
-                  const toolHint = payload.usage ? ` (${payload.usage.total_tokens || 0} tokens used)` : '';
-                  _historyMsg.content = `[Agent completed — no text response${toolHint}. Check Monitor for details.]`;
+                  _historyMsg.content = '[Agent completed task with no text response.]';
                   _historyMsg._systemNote = true;
                   _historyMsg.streaming = false;
                   _historyMsg.time = timeNow();
                   sessions._persistMessages();
                 } catch (e) {
                   Alpine.store('monitor').addLog('warn', `History fetch failed: ${e.message}`);
-                  _historyMsg.content = '[Agent completed — response not captured. Try sending again.]';
+                  _historyMsg.content = '[Response not captured — try sending again.]';
                   _historyMsg._systemNote = true;
                   _historyMsg.streaming = false;
                   _historyMsg.time = timeNow();
@@ -1622,8 +1626,7 @@ document.addEventListener('alpine:init', () => {
               // Don't block — async history fetch will update the message
               producedContent = false;
             } else if (!streamMsg.content.trim()) {
-              const toolHint = payload.usage ? ` (${payload.usage.total_tokens || 0} tokens used)` : '';
-              streamMsg.content = `[Agent completed — no text response${toolHint}. Check Monitor for details.]`;
+              streamMsg.content = '[Agent completed task with no text response.]';
               streamMsg.streaming = false;
               streamMsg.time = timeNow();
               streamMsg._systemNote = true;
@@ -1719,11 +1722,11 @@ document.addEventListener('alpine:init', () => {
             // → groq-llama-3.3-70b → deepseek-chat) preserve full tool access.
             if (sessions._rateLimitCount === 1 && !sessions._rateLimitRetried) {
               sessions._rateLimitRetried = true;
-              sessions._streamingMsg.content = '⏳ Rate limited — waiting for server fallback...';
+              sessions._streamingMsg.content = '...';
               Alpine.store('monitor').addLog('info', 'Rate limit #1 — giving OpenClaw 8s to recover via LiteLLM fallback chain');
 
               sessions._rateLimitRecoveryTimer = setTimeout(() => {
-                if (sessions._streamingMsg && sessions._streamingMsg.content.startsWith('⏳')) {
+                if (sessions._streamingMsg && isPlaceholder(sessions._streamingMsg.content)) {
                   const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
                   if (lastUserMsg) {
                     Alpine.store('monitor').addLog('info', 'No recovery after 8s — retrying via OpenClaw');
@@ -1740,7 +1743,7 @@ document.addEventListener('alpine:init', () => {
             if (sessions._rateLimitCount === 2 && !sessions._route1Retried) {
               sessions._route1Retried = true;
               clearTimeout(sessions._rateLimitRecoveryTimer);
-              sessions._streamingMsg.content = '⏳ Retrying via OpenClaw...';
+              sessions._streamingMsg.content = '...';
               Alpine.store('monitor').addLog('info', 'Rate limit #2 — retrying via OpenClaw (Route 1)');
               const lastUserMsg = [...sessions.messages].reverse().find(m => m.role === 'user');
               if (lastUserMsg) {
@@ -1772,9 +1775,9 @@ document.addEventListener('alpine:init', () => {
               errText = match ? match[0] + ' — falling back to next provider' : errText.slice(0, 200);
             }
             let prior = sessions._streamingMsg.content.trim();
-            if (prior.startsWith('⏳')) prior = '';
+            if (isPlaceholder(prior)) prior = '';
             const prefix = prior ? '\n\n' : '';
-            sessions._streamingMsg.content = prior + prefix + '⚠️ ' + errText;
+            sessions._streamingMsg.content = prior + prefix + errText;
             sessions._streamingMsg._systemNote = true;
             sessions._streamingMsg.streaming = false;
             sessions._streamingMsg = null;
@@ -2084,7 +2087,7 @@ document.addEventListener('alpine:init', () => {
       }
 
       try {
-        botMsg.content = '⏳ Retrying via OpenClaw (server-side fallback)...';
+        botMsg.content = '...';
         this._scrollToBottom();
 
         // Re-attach streaming to the existing bot message
@@ -2101,7 +2104,7 @@ document.addEventListener('alpine:init', () => {
 
         // Give the retry 12s to produce content before falling back to Route 2
         this._rateLimitRecoveryTimer = setTimeout(() => {
-          if (this._streamingMsg && this._streamingMsg.content.startsWith('⏳')) {
+          if (this._streamingMsg && isPlaceholder(this._streamingMsg.content)) {
             Alpine.store('monitor').addLog('info', 'Route 1 retry: no content after 12s — falling back to Route 2');
             this._fallbackToRoute2(botMsg, originalText);
           }
@@ -2169,18 +2172,18 @@ document.addEventListener('alpine:init', () => {
         });
       }
 
-      botMsg.content = '⏳ OpenClaw rate-limited — trying direct LiteLLM fallback...';
+      botMsg.content = '...';
 
       for (const model of fallbackModels) {
         try {
           Alpine.store('monitor').addLog('info', `Route 2 fallback: trying ${model}...`);
           Alpine.store('app').pushChatEvent('info', `Trying fallback: ${model}`);
-          botMsg.content = `⏳ Trying ${model}...`;
+          botMsg.content = '...';
           this._scrollToBottom();
 
           let content = '';
           for await (const delta of litellmApi.streamChat(model, apiMessages)) {
-            if (!content && botMsg.content.startsWith('⏳')) {
+            if (!content && isPlaceholder(botMsg.content)) {
               botMsg.content = ''; // clear placeholder on first real content
             }
             content += delta;
@@ -2217,7 +2220,7 @@ document.addEventListener('alpine:init', () => {
       }
 
       // All models failed
-      botMsg.content = '⚠️ All LLM providers failed. Check API keys in .env — run diagnostic commands from CLAUDE.md.';
+      botMsg.content = 'All providers unavailable — check Activity tab for details.';
       botMsg.streaming = false;
       botMsg.time = timeNow();
       this._resetSendingState();
@@ -2393,7 +2396,7 @@ document.addEventListener('alpine:init', () => {
         // If we're currently streaming and have REAL content (not a placeholder),
         // don't clobber it — live deltas take priority over history polling.
         if (this._streamingMsg && this._streamingMsg.content
-            && !this._streamingMsg.content.startsWith('⏳')
+            && !isPlaceholder(this._streamingMsg.content)
             && this._streamingMsg.content.length > 0) {
           return;
         }
@@ -2583,7 +2586,7 @@ document.addEventListener('alpine:init', () => {
       // Clean up client-side streaming state
       if (this._streamingMsg) {
         const cur = this._streamingMsg.content;
-        if (!cur || cur.startsWith('⏳')) {
+        if (!cur || isPlaceholder(cur)) {
           this._streamingMsg.content = '(Stopped by user)';
         }
         this._streamingMsg.streaming = false;
@@ -2681,7 +2684,7 @@ document.addEventListener('alpine:init', () => {
           // Processing indicator after 15s of no content
           const _processingTimer = setTimeout(() => {
             if (this._sending && this._streamingMsg === botMsg && !botMsg.content.trim()) {
-              botMsg.content = '⏳ Agent is processing (using tools)...';
+              botMsg.content = '...';
               this._scrollToBottom();
             }
           }, 15000);
@@ -2692,7 +2695,7 @@ document.addEventListener('alpine:init', () => {
             // Skip if Route 2 fallback is handling it
             if (this._route2Active) return;
 
-            const hadContent = botMsg.content.trim() && !botMsg.content.startsWith('⏳');
+            const hadContent = botMsg.content.trim() && !isPlaceholder(botMsg.content);
 
             // Try history recovery as last resort
             if (!hadContent && this._activeSessionKey && window.openclawClient?.authenticated) {
@@ -2717,7 +2720,7 @@ document.addEventListener('alpine:init', () => {
             }
 
             // Give up
-            if (!hadContent) botMsg.content = '(No response after 120s — try sending again or check Monitor.)';
+            if (!hadContent) botMsg.content = 'No response received — try sending again.';
             botMsg.streaming = false;
             this._resetSendingState();
             this._persistMessages();
