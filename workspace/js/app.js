@@ -1162,9 +1162,16 @@ document.addEventListener('alpine:init', () => {
         const merged = sessions
           // Skip sessions the user deleted — canonical sessions (agent:X:main)
           // persist on the server even after reset/delete, so we filter them here.
+          // Also skip heartbeat/cron sessions — these are internal OpenClaw sessions
+          // that shouldn't appear in the chat UI.
           .filter(s => {
             const sk = s.key || s.sessionKey || '';
-            return !sessionStore._deletedKeys.has(sk);
+            if (sessionStore._deletedKeys.has(sk)) return false;
+            // Filter out heartbeat/cron/system sessions by displayName or label
+            const dn = (s.displayName || '').toLowerCase();
+            const lb = (s.label || '').toLowerCase();
+            if (/heartbeat|cron|system-event/.test(dn) || /heartbeat|cron|system-event/.test(lb)) return false;
+            return true;
           })
           .map(s => {
             const sk = s.key || s.sessionKey || '';
@@ -1344,6 +1351,13 @@ document.addEventListener('alpine:init', () => {
       oc.on('chat', (payload) => {
         const sessions = Alpine.store('sessions');
         const state = payload.state;
+
+        // Skip heartbeat/cron events — these are internal OpenClaw housekeeping
+        // that should never appear in the chat UI. Detect by label or content.
+        if (payload.label && /heartbeat|cron|system-event/i.test(payload.label)) return;
+        const _peekContent = extractMessageText(payload.message);
+        if (_peekContent && /^#?\s*HEARTBEAT/i.test(_peekContent)) return;
+        if (_peekContent && /^HEARTBEAT_OK/i.test(_peekContent)) return;
 
         // Debug: log payload structure for diagnosing empty responses
         if (state === 'delta' || state === 'final') {
@@ -2180,8 +2194,8 @@ document.addEventListener('alpine:init', () => {
           const content = extractMessageText(m.content);
           let role = m.role === 'assistant' ? 'agent' : m.role;
           const isSystemInjection = role === 'user' && (
-            /^Read HEARTBEAT/i.test(content) ||
-            /^HEARTBEAT/i.test(content) ||
+            /^#?\s*Read HEARTBEAT/i.test(content) ||
+            /^#?\s*HEARTBEAT/i.test(content) ||
             /^EXECUTE_WORKFLOW:/i.test(content) ||
             /^WRITE_FILES:/i.test(content) ||
             /^WORKFLOW_RESULT:/i.test(content) ||
@@ -2196,6 +2210,7 @@ document.addEventListener('alpine:init', () => {
           const isSystemReply = role === 'agent' && (
             /^FILES_WRITTEN:/i.test(content) ||
             /^GOVERNANCE_ADJUST:/i.test(content) ||
+            /^HEARTBEAT_OK/i.test(content) ||
             (content.length < 60 && /^(ok|done|acknowledged|noted|understood)/i.test(content))
           );
           if (isSystemReply) role = 'system';
@@ -2362,9 +2377,10 @@ document.addEventListener('alpine:init', () => {
               console.warn('[Sessions] Server reset failed:', e.message);
             });
           }
-          // Clear local messages
+          // Clear local messages and set active session key for event filtering
           this.messages = [];
           this._messageStore[existing.id] = [];
+          this._activeSessionKey = sessionKey;
           existing.lastMessage = '';
           existing.title = 'New conversation';
           existing.updatedAt = Date.now();
