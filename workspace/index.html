@@ -1708,14 +1708,35 @@
                   <span class="text-sm font-semibold text-mc-text truncate flex-1"
                         x-text="$store.staging.selected.name"></span>
                   <span class="text-[11px] text-mc-text-muted hidden sm:inline" x-text="$store.staging.selected.description"></span>
-                  <button @click="$store.staging.approve($store.staging.selected.id)"
-                          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20 transition-all flex-shrink-0">
-                    Approve
-                  </button>
-                  <button @click="$store.staging.reject($store.staging.selected.id, prompt('Reason for rejection:'))"
-                          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-danger-dim text-red-400 hover:bg-red-500/20 transition-all flex-shrink-0">
-                    Reject
-                  </button>
+                  <template x-if="!$store.staging._rejectingId">
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button @click="$store.staging.approve($store.staging.selected.id)"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20 transition-all">
+                        Approve
+                      </button>
+                      <button @click="$store.staging._rejectingId = $store.staging.selected.id; $store.staging._rejectReason = ''"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-danger-dim text-red-400 hover:bg-red-500/20 transition-all">
+                        Reject
+                      </button>
+                    </div>
+                  </template>
+                  <template x-if="$store.staging._rejectingId === $store.staging.selected?.id">
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <input x-model="$store.staging._rejectReason" type="text" placeholder="Reason (optional)"
+                             class="w-32 sm:w-48 px-2 py-1.5 rounded-lg text-xs bg-mc-elevated border border-mc-border text-mc-text placeholder-mc-text-muted focus:border-red-500/50 focus:outline-none"
+                             @keydown.enter="$store.staging.reject($store.staging._rejectingId, $store.staging._rejectReason); $store.staging._rejectingId = null"
+                             @keydown.escape="$store.staging._rejectingId = null"
+                             x-ref="rejectInput" x-init="$nextTick(() => $refs.rejectInput?.focus())">
+                      <button @click="$store.staging.reject($store.staging._rejectingId, $store.staging._rejectReason); $store.staging._rejectingId = null"
+                              class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">
+                        Send
+                      </button>
+                      <button @click="$store.staging._rejectingId = null"
+                              class="px-2 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-mc-text transition-all">
+                        Cancel
+                      </button>
+                    </div>
+                  </template>
                 </div>
               </template>
               <template x-if="!$store.staging.selected">

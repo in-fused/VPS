@@ -3804,6 +3804,8 @@ document.addEventListener('alpine:init', () => {
     selectedId: null,
     _pollTimer: null,
     _localStatuses: {},  // id → status — persists approval/rejection across poll cycles
+    _rejectingId: null,  // id of item being rejected (inline form)
+    _rejectReason: '',   // rejection reason text
 
     init() {
       this._localStatuses = storage.load('staging-statuses', {});
