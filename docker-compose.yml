@@ -2,8 +2,7 @@
 # Docker Compose — VPS Unified AI Hub
 ###############################################################################
 # Core services (always running):
-#   - caddy:      Reverse proxy + auto-HTTPS
-#   - open-webui: ChatGPT-like frontend
+#   - caddy:      Reverse proxy + auto-HTTPS + landing page
 #   - litellm:    Multi-provider API gateway
 #   - openclaw:   Autonomous AI agent (24/7 background tasks)
 #
@@ -46,58 +45,11 @@ services:
     networks:
       - ai-net
     depends_on:
-      - open-webui
       - litellm
     deploy:
       resources:
         limits:
           memory: 64M
-
-  # ===========================================================================
-  # Open WebUI — Unified AI Frontend
-  # ===========================================================================
-  # ChatGPT-like interface that connects to all your AI providers.
-  # First user to sign up becomes admin.
-  open-webui:
-    build:
-      context: ./webui-theme
-      dockerfile: Dockerfile
-    image: in-fused/open-webui:latest
-    container_name: open-webui
-    restart: unless-stopped
-    volumes:
-      - webui-data:/app/backend/data
-    environment:
-      # Connect to LiteLLM as the OpenAI-compatible backend
-      - OPENAI_API_BASE_URL=http://litellm:4000/v1
-      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
-      # Connect to remote Ollama (Oracle Cloud) if configured
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
-      # Security
-      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
-      - WEBUI_AUTH=false
-      # Features
-      - ENABLE_RAG_WEB_SEARCH=true
-      - ENABLE_IMAGE_GENERATION=false
-      # Disable auto-LLM calls that burn credits on page load / new chat
-      - ENABLE_AUTOCOMPLETE_GENERATION=false
-      - TITLE_GENERATION_PROMPT_TEMPLATE=false
-      - ENABLE_SEARCH_QUERY_GENERATION=false
-      - ENABLE_TAGS_GENERATION=false
-    networks:
-      - ai-net
-    depends_on:
-      - litellm
-    deploy:
-      resources:
-        limits:
-          memory: 768M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   # ===========================================================================
   # LiteLLM Database — PostgreSQL
@@ -335,7 +287,6 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
-  webui-data:
   litellm-db-data:
   openclaw-data:
   agent-workspace:

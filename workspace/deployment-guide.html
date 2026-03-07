@@ -288,7 +288,7 @@ Updated: March 2026 &nbsp;|&nbsp; EC2 t3.small (~$25/month) &nbsp;|&nbsp; Manage
   &#9500;&#9472; /openclaw/*            &rarr; Cookie-gated &rarr; OpenClaw :18789
   &#9500;&#9472; /ws/openclaw           &rarr; Cookie-gated WebSocket &rarr; OpenClaw :18789
   &#9500;&#9472; /workspace/*           &rarr; Mission Control static files
-  &#9492;&#9472; / (everything else)    &rarr; Open WebUI :8080
+  &#9492;&#9472; / (everything else)    &rarr; Landing page (static HTML)
 
 OpenClaw &rarr; LiteLLM &rarr; Anthropic, OpenAI, DeepSeek, Groq, Cerebras, Gemini, Mistral, Ollama
 OpenClaw agents &rarr; Scrapling :8000 (internal web scraping)
@@ -298,7 +298,7 @@ Docker network: ai-hub-network (bridge)</div>
 <table>
   <tr><th>Service</th><th>Image</th><th>Memory</th><th>Port</th></tr>
   <tr><td>Caddy</td><td>in-fused/caddy:latest (custom)</td><td>64M</td><td>80, 443</td></tr>
-  <tr><td>Open WebUI</td><td>in-fused/open-webui:latest (custom)</td><td>768M</td><td>8080</td></tr>
+  <tr><td>Landing Page</td><td>(static HTML served by Caddy)</td><td>-</td><td>-</td></tr>
   <tr><td>LiteLLM</td><td>ghcr.io/berriai/litellm:main-stable</td><td>512M</td><td>4000</td></tr>
   <tr><td>LiteLLM DB</td><td>postgres:16-alpine</td><td>128M</td><td>5432</td></tr>
   <tr><td>OpenClaw</td><td>ghcr.io/openclaw/openclaw:main</td><td>1536M</td><td>18789</td></tr>
@@ -458,7 +458,7 @@ nano .env</pre>
     <tr><td><code>DEEPSEEK_API_KEY</code></td><td>Recommended</td><td>Cheapest paid fallback.</td></tr>
     <tr><td><code>OPENCLAW_PASSWORD</code></td><td>Auto-generated</td><td>Set one you'll remember, or let deploy.sh generate it.</td></tr>
   </table>
-  <p>All other secrets (<code>WEBUI_SECRET_KEY</code>, <code>LITELLM_MASTER_KEY</code>, <code>LITELLM_SALT_KEY</code>, <code>DB_PASSWORD</code>) are <strong>auto-generated</strong> on first deploy if left blank.</p>
+  <p>All other secrets (<code>LITELLM_MASTER_KEY</code>, <code>LITELLM_SALT_KEY</code>, <code>DB_PASSWORD</code>) are <strong>auto-generated</strong> on first deploy if left blank.</p>
 </div>
 
 <div class="warn-box">
@@ -483,9 +483,9 @@ sudo bash scripts/deploy.sh</pre>
     <li>Auto-generate secrets &mdash; fills any empty keys in <code>.env</code></li>
     <li>Clean old Docker images &mdash; frees disk space</li>
     <li>Pull pre-built images &mdash; LiteLLM, PostgreSQL, OpenClaw</li>
-    <li>Build custom images &mdash; Caddy (with rate-limit), Open WebUI (with theme), Scrapling</li>
+    <li>Build custom images &mdash; Caddy (with rate-limit), Scrapling</li>
     <li>Start the stack &mdash; <code>docker compose up -d</code></li>
-    <li>Health checks &mdash; waits for LiteLLM, Open WebUI, OpenClaw</li>
+    <li>Health checks &mdash; waits for LiteLLM, OpenClaw</li>
     <li>Print status &mdash; shows URLs, providers, and useful commands</li>
   </ol>
 </div>
@@ -506,9 +506,9 @@ sudo bash scripts/deploy.sh</pre>
   &#10003; Groq (free tier)
 
   -- Services ---------------------------------------------
-  Open WebUI:      https://your-domain.com/
+  Landing Page:    https://your-domain.com/
+  Mission Control: https://your-domain.com/workspace/
   OpenClaw Agent:  https://your-domain.com/openclaw/
-  Agent Workspace: https://your-domain.com/workspace/
   LiteLLM API:     https://your-domain.com/api/litellm/</pre>
 </div>
 
@@ -527,7 +527,7 @@ sudo bash scripts/deploy.sh</pre>
   <span class="step-title">Verify in Browser</span>
   <ul class="checklist">
     <li>Open <code>https://your-domain.com/</code> &mdash; should show login page</li>
-    <li>Log in with OPENCLAW_PASSWORD &mdash; should show Open WebUI</li>
+    <li>Log in with OPENCLAW_PASSWORD &mdash; should show landing page (chat + hub directory)</li>
     <li>Open <code>https://your-domain.com/workspace/</code> &mdash; should show Mission Control</li>
     <li>Open <code>https://your-domain.com/openclaw/</code> &mdash; should show OpenClaw UI</li>
   </ul>

@@ -91,7 +91,7 @@ const SHARED_MEMORY = `# Project Memory
 
 ## Infrastructure
 - EC2 t3.small: 2GB RAM + 4GB swap (~3GB allocated to containers)
-- Docker Compose: Caddy 64M, Open WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M
+- Docker Compose: Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M
 - Domain: in-fused.org (auto-HTTPS via Caddy)
 - Channels: Telegram (bot, groupPolicy: open) + Mission Control webchat
 - Budget: ~$25/month

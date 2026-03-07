@@ -93,13 +93,6 @@ fi
 ###############################################################################
 UPDATED_ENV=false
 
-if [ -z "${WEBUI_SECRET_KEY:-}" ]; then
-    SECRET=$(openssl rand -hex 32)
-    sed -i "s|^WEBUI_SECRET_KEY=.*|WEBUI_SECRET_KEY=$SECRET|" .env
-    log_info "Generated WEBUI_SECRET_KEY"
-    UPDATED_ENV=true
-fi
-
 if [ -z "${LITELLM_MASTER_KEY:-}" ]; then
     MASTER=$(openssl rand -hex 16)
     sed -i "s|^LITELLM_MASTER_KEY=.*|LITELLM_MASTER_KEY=sk-$MASTER|" .env
@@ -173,11 +166,11 @@ docker image prune -f > /dev/null 2>&1
 log_ok "Cleanup complete"
 
 ###############################################################################
-# 5. Pull latest images (skip open-webui — it's built locally with theme)
+# 5. Pull latest images
 ###############################################################################
 log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
-# Explicitly list services that use pre-built images (not open-webui or caddy which have build:)
+# Explicitly list services that use pre-built images (not caddy/scrapling which have build:)
 PULL_SERVICES="litellm litellm-db openclaw"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
@@ -194,21 +187,13 @@ done
 log_ok "Images pulled"
 
 ###############################################################################
-# 5b. Build custom images (caddy with rate-limit, open-webui with theme)
+# 5b. Build custom images (caddy with rate-limit, scrapling)
 ###############################################################################
 log_info "Building caddy with rate-limit module..."
 if docker compose build caddy; then
     log_ok "Custom caddy image built (with brute force protection)"
 else
     log_error "Caddy build failed — check caddy/Dockerfile"
-    exit 1
-fi
-
-log_info "Building open-webui with custom theme..."
-if docker compose build open-webui; then
-    log_ok "Custom open-webui image built"
-else
-    log_error "Build failed — check webui-theme/Dockerfile"
     exit 1
 fi
 
@@ -240,18 +225,6 @@ for i in $(seq 1 30); do
     fi
     if [ "$i" -eq 30 ]; then
         log_warn "LiteLLM health check timed out (may still be starting)"
-    fi
-    sleep 3
-done
-
-# Wait for Open WebUI
-for i in $(seq 1 30); do
-    if docker compose exec -T open-webui curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-        log_ok "Open WebUI is healthy"
-        break
-    fi
-    if [ "$i" -eq 30 ]; then
-        log_warn "Open WebUI health check timed out (may still be starting)"
     fi
     sleep 3
 done
@@ -295,8 +268,8 @@ fi
 echo ""
 echo "  ── First Time Setup ───────────────────────────────────"
 echo "  1. Open the URL above in your browser"
-echo "  2. Create your admin account (first user = admin)"
-echo "  3. Start chatting with any model!"
+echo "  2. Log in with your site password"
+echo "  3. Start chatting or open Mission Control!"
 echo ""
 
 # Show configured providers
@@ -314,9 +287,9 @@ if [ -n "$DOMAIN" ]; then
 else
     BASE="http://${PUBLIC_IP:-YOUR_IP}"
 fi
-echo "  Open WebUI:      $BASE/"
+echo "  Landing Page:    $BASE/"
+echo "  Mission Control: $BASE/workspace/"
 echo "  OpenClaw Agent:  $BASE/openclaw/"
-echo "  Agent Workspace: $BASE/workspace/"
 echo "  LiteLLM API:     $BASE/api/litellm/"
 if [ -n "${OPENCLAW_PASSWORD:-}" ]; then
     echo ""

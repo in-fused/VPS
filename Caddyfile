@@ -268,22 +268,26 @@
 	}
 
 	# =========================================================================
-	# Open WebUI — Everything else (main frontend + landing page)
+	# Landing Page — Chat + Hub Directory (replaces Open WebUI)
 	# =========================================================================
 	# Gated behind the same mc_oc cookie as /openclaw/ and /workspace/.
-	# Unauthenticated visitors see a custom login page (auth.html).
-	# Open WebUI's built-in auth is disabled (WEBUI_AUTH=false) since
-	# Caddy handles authentication for the entire site.
+	# Unauthenticated visitors see the login page (auth.html).
+	# Authenticated visitors see landing.html (quick chat + site directory).
 	handle {
-		# When auth is disabled, proxy unconditionally
 		@root_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @root_noauth {
-			reverse_proxy open-webui:8080
+			rewrite * /landing.html
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
 		}
 
 		@root_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @root_authed {
-			reverse_proxy open-webui:8080
+			rewrite * /landing.html
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
 		}
 
 		handle {

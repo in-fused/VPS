@@ -207,7 +207,7 @@ Internet -> https://in-fused.org -> Caddy (auto-HTTPS + rate limiting)
   /ws/openclaw       -> WebSocket -> OpenClaw :18789 (Mission Control)
   / + WS upgrade     -> WebSocket -> OpenClaw :18789 (legacy Control UI)
   /workspace/*       -> Cookie-gated -> Static files (agent-workspace volume)
-  / (everything else)-> Cookie-gated -> Open WebUI :8080
+  / (everything else)-> Cookie-gated -> Landing page (static HTML)
 
 OpenClaw -> LiteLLM -> 6 free providers (Groq x4, Cerebras, Gemini x3, Mistral, Ollama) + paid fallbacks
 ```
@@ -269,7 +269,7 @@ Agent hits 429 -> wait 8s (LiteLLM cascades: Groq->Cerebras->DeepSeek)
 - 8 services + optional Ollama
 - Key env vars: `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1`, `OPENCLAW_NODE_OPTIONS_READY=1`
 - workspace-init: `chown -R 1000:1000` on bridge directories
-- Memory limits: Caddy 64M, WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M
+- Memory limits: Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M
 
 ### `Caddyfile` (307 lines)
 - Rate limiting on /auth/verify (5/min per IP)

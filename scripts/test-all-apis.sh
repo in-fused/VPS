@@ -339,7 +339,7 @@ if [ "$ONLY_MODELS" != "true" ] && [ "$ONLY_FALLBACKS" != "true" ]; then
 section "1. INFRASTRUCTURE HEALTH"
 
 subsection "Docker Services"
-SERVICES=("caddy" "open-webui" "litellm" "litellm-db" "openclaw" "scrapling")
+SERVICES=("caddy" "litellm" "litellm-db" "openclaw" "scrapling")
 for svc in "${SERVICES[@]}"; do
   status=$(docker compose -f "$REPO_DIR/docker-compose.yml" ps --format '{{.State}}' "$svc" 2>/dev/null || echo "unknown")
   health=$(docker inspect --format '{{.State.Health.Status}}' "$svc" 2>/dev/null || echo "none")

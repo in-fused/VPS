@@ -100,8 +100,8 @@
 const SERVICES = [
   { name: 'Caddy', desc: 'Reverse proxy, auto-HTTPS, cookie auth', port: '80/443', mem: '64M',
     check: '/auth/verify', expectStatus: [401, 200] },
-  { name: 'Open WebUI', desc: 'ChatGPT-like frontend with golden cyber theme', port: '8080', mem: '768M',
-    check: '/', expectStatus: [200, 302] },
+  { name: 'Landing Page', desc: 'Quick chat + hub directory', port: '-', mem: '-',
+    check: '/', expectStatus: [200] },
   { name: 'LiteLLM', desc: 'Unified gateway — 25+ models, 6 providers', port: '4000', mem: '512M',
     check: '/api/litellm/health', expectStatus: [200] },
   { name: 'OpenClaw', desc: 'Autonomous agent runtime (24/7)', port: '18789', mem: '1536M',

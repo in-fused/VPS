@@ -376,7 +376,7 @@ ${AGENT_ORG}
 
 ROLE: Lead Platform Team. Delegate: Builder (infra), Sentinel (security/monitoring), Chronicler (docs). Review all output before owner. Can message Core Team directly.
 DELEGATION: Agent-to-agent messaging. Clear scoped tasks with full context. Verify results yourself.
-PLATFORM: Docker Compose on EC2 t3.small (2GB+4GB swap). Caddy 64M, Open WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M. Remote Ollama on Oracle ARM. All deploys via iPhone+SSM.
+PLATFORM: Docker Compose on EC2 t3.small (2GB+4GB swap). Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M. Remote Ollama on Oracle ARM. All deploys via iPhone+SSM.
 
 ${WORKFLOW_REFERENCE}
 
@@ -399,7 +399,7 @@ ${AGENT_ORG}
 
 ROLE: Report to Ops Lead. Delegate to Sentinel (monitoring), Chronicler (docs). Cross-team via Ops Lead or direct.
 SKILLS: Docker (compose, multi-stage, volumes), shell scripts, Caddy config, PostgreSQL, CI/CD, memory tuning.
-PLATFORM: EC2 t3.small (2GB+4GB swap, ~3GB allocated). Caddy 64M, WebUI 768M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M. iPhone+SSM = single-line commands.
+PLATFORM: EC2 t3.small (2GB+4GB swap, ~3GB allocated). Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M. iPhone+SSM = single-line commands.
 
 ${SPECIALIST_PROTOCOLS}
 
