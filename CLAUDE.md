@@ -333,7 +333,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 - `models.providers.<name>.supportsReasoningEffort` — not a valid provider key (causes "unexpected property" crash)
 - **Valid since v2026.3.1:** `agents.defaults.compaction.memoryFlush.softThresholdTokens` (we set to 50000)
 
-**Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, and `BOOTSTRAP.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). **SOUL.md and BOOTSTRAP.md are force-overwritten on every restart** — OpenClaw creates its own default versions (generic "who am I?" onboarding) during agent initialization, which would replace our custom agent identities. The seeder runs twice: once before OpenClaw starts (seeds new files), and once 30s after (overwrites OpenClaw's defaults). Other files are only seeded if missing — agent modifications are preserved.
+**Agent system prompts are now SERVER-SIDE** via OpenClaw V3 workspace files. The entrypoint runs `seed-agent-workspaces.js` which creates `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, and `BOOTSTRAP.md` in each agent's workspace directory (`~/.openclaw/workspace-{name}/`). **ALL workspace files are force-overwritten on every restart** — OpenClaw creates its own default SOUL.md/BOOTSTRAP.md during agent initialization, and stale content in any file causes agents to follow outdated instructions. The seeder runs twice: once before OpenClaw starts, and once 30s after (overwrites OpenClaw's defaults). Agents write persistent notes to `memory/*.md` — those are never touched.
 
 **Prompt architecture (dual-path):**
 - **Route 1 (OpenClaw WS):** Server-side SOUL.md handles the full system prompt. App.js only injects a brief dynamic `[STATUS]` line (tier, score, week) on the first message.
@@ -363,12 +363,12 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 ### File Map
 | File | Lines | Purpose |
 |------|-------|---------|
-| `workspace/index.html` | 1429 | Main SPA shell (Alpine.js templates, all views) |
-| `workspace/js/app.js` | 2811 | Shared prompt constants, Alpine stores, health checks, chat, governance |
-| `workspace/js/workflow.js` | ~860 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
-| `workspace/js/workflow-bridge.js` | ~190 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
-| `workspace/js/openclaw-client.js` | 423 | OpenClaw WebSocket RPC client |
-| `workspace/css/styles.css` | 543 | Custom styles |
+| `workspace/index.html` | 2360 | Main SPA shell (Alpine.js templates, all views) |
+| `workspace/js/app.js` | 3994 | Shared prompt constants, Alpine stores, health checks, chat, governance |
+| `workspace/js/workflow.js` | 1274 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
+| `workspace/js/workflow-bridge.js` | 530 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
+| `workspace/js/openclaw-client.js` | 724 | OpenClaw WebSocket RPC client |
+| `workspace/css/styles.css` | 720 | Custom styles |
 | `workspace/auth.html` | — | Site-wide login page |
 | `workspace/openclaw-auth.html` | — | OpenClaw-specific login page |
 
@@ -563,15 +563,16 @@ VPS/
 │   ├── api.py                    ← Scraping API endpoints
 │   └── requirements.txt          ← scrapling[fetchers], fastapi, uvicorn
 ├── workspace/                    ← Mission Control SPA
-│   ├── index.html                ← Main SPA (1429 lines)
+│   ├── index.html                ← Main SPA (2360 lines)
 │   ├── auth.html                 ← Site login page
 │   ├── openclaw-auth.html        ← OpenClaw login page
 │   ├── manifest.json             ← PWA manifest
 │   ├── css/styles.css            ← Custom styles (543 lines)
 │   └── js/
-│       ├── app.js                ← Alpine stores + chat + governance (1352 lines)
-│       ├── workflow.js           ← LiteGraph nodes + executor (796 lines)
-│       └── openclaw-client.js    ← OpenClaw WS RPC client (423 lines)
+│       ├── app.js                ← Alpine stores + chat + governance (3994 lines)
+│       ├── workflow.js           ← LiteGraph nodes + executor (1274 lines)
+│       ├── workflow-bridge.js    ← Agent-to-workflow bridge (530 lines)
+│       └── openclaw-client.js    ← OpenClaw WS RPC client (724 lines)
 └── scripts/
     ├── deploy.sh                 ← Stack deployment
     ├── setup-server.sh           ← Server hardening
@@ -741,6 +742,7 @@ These are solved — do not re-investigate or re-fix:
 - **OpenClaw config crash loops**: Entrypoint cleans all invalid keys (see "Config Validation" section above)
 - **Duplicate WebSocket events on re-login**: `disconnect()` clears all handlers, `_mcEventsRegistered` guard
 - **WebSocket handshake (device identity mismatch / client.id / password missing / auth.mode)**: Fixed by removing dummy device block, using valid `client.id: 'webchat'`, sending password in both `auth.token` + `auth.password`, omitting `auth.mode`. See "Auth Handshake" section above.
+- **Heartbeat/system messages leaking into chat**: Fixed with 11 regex patterns + label filter in both `_parseHistoryMessages` (history load) and `on('chat')` (live events). Heartbeat/cron sessions filtered from `_syncSessionsFromOpenClaw()`. Patterns match `# HEARTBEAT.md`, `# Heartbeat Checklist`, `HEARTBEAT_OK`, `# Bootstrap`, `Current time:`, all bridge/workflow/staging injections, and any message with heartbeat/cron/system/bridge/staging label.
 
 ---
 
@@ -793,10 +795,10 @@ Agents can create cron jobs that run server-side 24/7:
 
 ### Server-Side Agent Workspace Files (ACTIVE)
 
-OpenClaw v3 builds agent system prompts from workspace files. The entrypoint seeds these via `scripts/seed-agent-workspaces.js` on every container start (idempotent — only creates missing files).
+OpenClaw v3 builds agent system prompts from workspace files. The entrypoint seeds these via `scripts/seed-agent-workspaces.js` on every container start. **All 7 files are force-overwritten** on every restart to prevent stale instructions.
 
-**Seeded files:** `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`
-**Also valid but not seeded:** `IDENTITY.md`, `BOOTSTRAP.md` (agents can create these themselves)
+**Seeded files (force-overwritten):** `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`
+**Also valid but not seeded:** `IDENTITY.md` (agents can create this themselves)
 
 **Workspace directories:** `~/.openclaw/workspace-<agentWorkspace>/` — read on every turn.
 - Lead → `workspace-Lead/`
