@@ -1352,12 +1352,24 @@ document.addEventListener('alpine:init', () => {
         const sessions = Alpine.store('sessions');
         const state = payload.state;
 
-        // Skip heartbeat/cron events — these are internal OpenClaw housekeeping
-        // that should never appear in the chat UI. Detect by label or content.
-        if (payload.label && /heartbeat|cron|system-event/i.test(payload.label)) return;
+        // Skip heartbeat/cron/bootstrap events — these are internal OpenClaw
+        // housekeeping that should never appear in the chat UI.
+        // Must match ALL patterns from _parseHistoryMessages isSystemInjection/isSystemReply.
+        if (payload.label && /heartbeat|cron|system|bridge|staging/i.test(payload.label)) return;
         const _peekContent = extractMessageText(payload.message);
-        if (_peekContent && /^#?\s*HEARTBEAT/i.test(_peekContent)) return;
-        if (_peekContent && /^HEARTBEAT_OK/i.test(_peekContent)) return;
+        if (_peekContent && (
+          /^#?\s*Read HEARTBEAT/i.test(_peekContent) ||
+          /^#?\s*HEARTBEAT/i.test(_peekContent) ||
+          /^HEARTBEAT_OK/i.test(_peekContent) ||
+          /^#?\s*Bootstrap/i.test(_peekContent) ||
+          /^EXECUTE_WORKFLOW:/i.test(_peekContent) ||
+          /^WRITE_FILES:/i.test(_peekContent) ||
+          /^WORKFLOW_RESULT:/i.test(_peekContent) ||
+          /^STAGING_APPROVED:/i.test(_peekContent) ||
+          /^STAGING_REJECTED:/i.test(_peekContent) ||
+          /^FILES_WRITTEN:/i.test(_peekContent) ||
+          /^Current time:/i.test(_peekContent)
+        )) return;
 
         // Debug: log payload structure for diagnosing empty responses
         if (state === 'delta' || state === 'final') {
@@ -2196,6 +2208,7 @@ document.addEventListener('alpine:init', () => {
           const isSystemInjection = role === 'user' && (
             /^#?\s*Read HEARTBEAT/i.test(content) ||
             /^#?\s*HEARTBEAT/i.test(content) ||
+            /^#?\s*Bootstrap/i.test(content) ||
             /^EXECUTE_WORKFLOW:/i.test(content) ||
             /^WRITE_FILES:/i.test(content) ||
             /^WORKFLOW_RESULT:/i.test(content) ||
