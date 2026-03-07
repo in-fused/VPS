@@ -2142,7 +2142,7 @@
                   <div class="flex items-center justify-between bg-mc-elevated rounded-xl px-4 py-3">
                     <div class="flex-1 min-w-0 mr-3">
                       <div class="text-sm text-mc-text truncate" x-text="job.label || job.name || job.id || 'Unnamed'"></div>
-                      <div class="text-xs text-mc-text-muted font-mono mt-0.5" x-text="(typeof job.schedule === 'object' && job.schedule !== null) ? (job.schedule.expression || job.schedule.every || job.schedule.type || JSON.stringify(job.schedule)) : (job.schedule || job.cron || job.every || '—')"></div>
+                      <div class="text-xs text-mc-text-muted font-mono mt-0.5" x-text="$store.cron.formatSchedule(job)"></div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
                       <button @click="$store.cron.runNow(job.id || job.jobId)" title="Run now"

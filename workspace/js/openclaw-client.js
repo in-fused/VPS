@@ -473,7 +473,7 @@ class OpenClawClient {
   // RPC REQUEST/RESPONSE
   // ---------------------------------------------------------------------------
 
-  request(method, params = {}) {
+  request(method, params = {}, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
       if (!this.authenticated) {
         reject(new Error('Not connected to OpenClaw'));
@@ -484,7 +484,7 @@ class OpenClawClient {
       const timeout = setTimeout(() => {
         this._pending.delete(id);
         reject(new Error(`RPC timeout: ${method}`));
-      }, 30000);
+      }, timeoutMs);
 
       this._pending.set(id, { resolve, reject, timeout });
 
@@ -676,7 +676,7 @@ class OpenClawClient {
   }
 
   async runCronJob(jobId) {
-    return this.request('cron.run', { id: jobId });
+    return this.request('cron.run', { id: jobId }, 60000);
   }
 
   async getCronRuns(jobId) {

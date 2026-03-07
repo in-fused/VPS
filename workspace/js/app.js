@@ -1137,7 +1137,9 @@ document.addEventListener('alpine:init', () => {
             name: a.name || a.id || 'Agent',
             emoji: a.emoji || a.avatar || '🤖',
             description: a.description || a.identity?.description || '',
-            model: a.model?.primary || a.model || 'litellm/cerebras-llama-3.1-8b',
+            model: a.model?.primary || (typeof a.model === 'string' ? a.model : null)
+              || (DEMO_AGENTS.find(d => d.id === (a.id || a.agentId))?.model)
+              || 'litellm/cerebras-llama-3.3-70b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -3726,6 +3728,33 @@ document.addEventListener('alpine:init', () => {
 
     countForAgent(agentId) {
       return this.forAgent(agentId).length;
+    },
+
+    // Convert cron job schedule to human-readable text
+    formatSchedule(job) {
+      const s = job.schedule;
+      if (!s) return job.cron || job.every || '\u2014';
+      if (typeof s === 'string') return s;
+      if (typeof s !== 'object') return String(s);
+      // Cron expression
+      if (s.expression) return s.expression;
+      // everyMs — convert ms to readable interval
+      if (s.everyMs) {
+        const ms = s.everyMs;
+        if (ms >= 86400000) return `Every ${Math.round(ms / 86400000)}d`;
+        if (ms >= 3600000) return `Every ${Math.round(ms / 3600000)}h`;
+        if (ms >= 60000) return `Every ${Math.round(ms / 60000)}m`;
+        return `Every ${Math.round(ms / 1000)}s`;
+      }
+      // Named every (e.g. "5m", "1h")
+      if (s.every) return `Every ${s.every}`;
+      // One-shot "at" timestamp
+      if (s.at) {
+        try { return `At ${new Date(s.at).toLocaleString()}`; } catch(e) { return `At ${s.at}`; }
+      }
+      // kind label as last resort before raw JSON
+      if (s.kind) return `${s.kind} schedule`;
+      return JSON.stringify(s);
     },
 
     async fetch() {
