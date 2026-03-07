@@ -93,11 +93,24 @@ log_ok "OCI API key found"
 ###############################################################################
 # 2. Install OCI CLI (if needed)
 ###############################################################################
+# Check known install locations first (sudo may not inherit PATH)
+for p in "$HOME/bin/oci" "/root/bin/oci" "/home/deploy/bin/oci" "/usr/local/bin/oci" \
+         "$HOME/lib/oracle-cli/bin/oci" "/root/lib/oracle-cli/bin/oci"; do
+    if [ -x "$p" ]; then
+        export PATH="$(dirname "$p"):$PATH"
+        break
+    fi
+done
+
 if command -v oci &>/dev/null; then
     log_ok "OCI CLI already installed: $(oci --version 2>&1 | head -1)"
 else
     log_info "Installing OCI CLI..."
-    # Non-interactive install
+    # Non-interactive install — remove stale dirs first
+    for d in "$HOME/lib/oracle-cli" "/root/lib/oracle-cli" "/home/deploy/lib/oracle-cli"; do
+        [ -d "$d" ] && rm -rf "$d"
+    done
+
     curl -fsSL https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh | \
         bash -s -- --accept-all-defaults
 
@@ -107,22 +120,21 @@ else
         source "$HOME/.bashrc" 2>/dev/null || true
     fi
 
-    if command -v oci &>/dev/null; then
-        log_ok "OCI CLI installed: $(oci --version 2>&1 | head -1)"
-    else
-        # Try common install locations
-        for p in "$HOME/bin/oci" "/usr/local/bin/oci" "$HOME/lib/oracle-cli/bin/oci"; do
+    if ! command -v oci &>/dev/null; then
+        for p in "$HOME/bin/oci" "/root/bin/oci" "/usr/local/bin/oci"; do
             if [ -x "$p" ]; then
                 export PATH="$(dirname "$p"):$PATH"
-                log_ok "OCI CLI found at $p"
                 break
             fi
         done
-        if ! command -v oci &>/dev/null; then
-            log_error "OCI CLI installation failed. Install manually:"
-            log_error "  bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)\" -- --accept-all-defaults"
-            exit 1
-        fi
+    fi
+
+    if command -v oci &>/dev/null; then
+        log_ok "OCI CLI installed: $(oci --version 2>&1 | head -1)"
+    else
+        log_error "OCI CLI installation failed. Install manually:"
+        log_error "  bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)\" -- --accept-all-defaults"
+        exit 1
     fi
 fi
 
