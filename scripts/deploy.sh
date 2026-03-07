@@ -159,7 +159,17 @@ if [ "$UPDATED_ENV" = true ]; then
 fi
 
 ###############################################################################
-# 4. Clean up old Docker images to prevent disk-full failures
+# 4. Generate project bundle (agents read this at /workspace/project-bundle.md)
+###############################################################################
+log_info "Generating project bundle for agents..."
+if bash scripts/generate-project-bundle.sh; then
+    log_ok "Project bundle generated"
+else
+    log_warn "Bundle generation failed (non-fatal)"
+fi
+
+###############################################################################
+# 5. Clean up old Docker images to prevent disk-full failures
 ###############################################################################
 log_info "Cleaning up unused Docker images..."
 docker image prune -f > /dev/null 2>&1
