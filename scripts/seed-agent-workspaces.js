@@ -236,6 +236,14 @@ If file is empty/missing, initialize: \`write(path: "/workspace/agent-activity/l
 Then update index: \`read(path: "/workspace/staging/index.json")\` → push item → \`write\` back.
 Item format: \`{"id":"<unique>","name":"<title>","path":"staging/<filename>.html","type":"html","createdBy":"<your-id>","description":"<what it is>","status":"pending"}\`
 
+**REJECTION → AUTO-REVISE:** When the owner rejects a staging item, you receive a STAGING_REJECTED message with their feedback. You MUST:
+1. Read the rejected file from /workspace/staging/<path>
+2. Apply the owner's feedback to fix the issues
+3. Write the corrected version to the SAME path (overwrite)
+4. Update /workspace/staging/index.json — set this item's status back to "pending"
+5. Log the resubmission to /workspace/agent-activity/log.json
+Do NOT ask the owner for clarification — interpret the feedback and fix it autonomously. The owner reviews the updated version automatically.
+
 ### 3. WORKFLOWS — create visual workflows for multi-step tasks
 \`exec node /workspace/js/workflow-builder.js '<json>'\`
 Index format: \`{"workflows":[{"id":"wf-xxx","name":"...","file":"wf-xxx.json","createdBy":"<your-id>","updatedAt":<unix_ms>,"status":"draft|ready|running|completed|failed"}]}\`

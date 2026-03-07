@@ -3845,8 +3845,18 @@ document.addEventListener('alpine:init', () => {
           const id = item.id || item.path;
           const serverStatus = item.status || 'pending';
           const localStatus = this._localStatuses[id];
-          // Local approval/rejection overrides server until server catches up
-          const status = (localStatus && serverStatus === 'pending') ? localStatus : serverStatus;
+          let status;
+          if (localStatus === 'rejected' && serverStatus === 'pending') {
+            // Agent resubmitted after rejection — clear override, show as pending again
+            delete this._localStatuses[id];
+            storage.save('staging-statuses', this._localStatuses);
+            status = 'pending';
+          } else if (localStatus && serverStatus === 'pending') {
+            // Local approval/rejection overrides server until server catches up
+            status = localStatus;
+          } else {
+            status = serverStatus;
+          }
           // Clear local override once server matches
           if (localStatus && serverStatus === localStatus) {
             delete this._localStatuses[id];
@@ -3903,8 +3913,9 @@ document.addEventListener('alpine:init', () => {
 
       if (window.openclawClient?.authenticated) {
         const agentId = item.createdBy !== 'user' ? item.createdBy : 'lead';
+        const feedback = reason ? `\n\nOwner feedback: "${reason}"` : '';
         window.openclawClient.injectChat(
-          `STAGING_REJECTED: ${item.name} rejected. Reason: ${reason || 'Not specified'}. Please revise and update /workspace/staging/index.json.`,
+          `STAGING_REJECTED: "${item.name}" (${item.path}) was rejected by the owner.${feedback}\n\nACTION REQUIRED — autonomously fix and resubmit:\n1. Read the rejected file: read(path: "/workspace/staging/${item.path}")\n2. Apply the owner's feedback to fix the issues\n3. Write the corrected version to the SAME path: write(path: "/workspace/staging/${item.path}", content: "...")\n4. Update /workspace/staging/index.json — set this item's status back to "pending"\n5. Log the resubmission to /workspace/agent-activity/log.json\n\nDo NOT ask the owner for clarification — interpret the feedback and fix it now. The owner will review the updated version automatically.`,
           { sessionKey: 'agent:' + agentId + ':main', label: 'system-staging' }
         ).catch(() => {});
       }
