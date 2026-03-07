@@ -607,10 +607,11 @@
                 </div>
               </div>
 
-              <!-- Agent Activity (server-side events) -->
+              <!-- Agent Activity (live + server events) -->
               <div x-show="($store.app._dashActivity || 'agents') === 'agents'" class="space-y-1 max-h-48 overflow-y-auto">
                 <template x-for="(ev, i) in $store.activity.events.slice(0, 10)" :key="ev.time + '-' + i">
                   <div class="flex items-start gap-2 px-2 py-1.5 rounded text-xs hover:bg-mc-elevated/50 transition-colors">
+                    <span class="text-[10px] flex-shrink-0 w-4 text-center" x-text="$store.activity.typeIcon(ev.type)"></span>
                     <span class="text-mc-text-muted whitespace-nowrap flex-shrink-0" x-text="$store.activity.formatTime(ev.time)"></span>
                     <span class="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
                           :class="$store.activity.typeColor(ev.type)"
@@ -619,7 +620,7 @@
                   </div>
                 </template>
                 <div x-show="$store.activity.events.length === 0" class="text-center py-4 text-xs text-mc-text-muted">
-                  No agent activity yet. Agents log events as they work.
+                  No agent activity yet. Live events appear when agents are working.
                 </div>
               </div>
 
@@ -1579,53 +1580,76 @@
         </div>
 
         <!-- ==========================================
-             VIEW: ACTIVITY — server-side agent event feed
+             VIEW: ACTIVITY — mission control event feed
              ========================================== -->
         <div x-show="$store.app.view === 'activity'"
              x-transition:enter="animate-fade-up"
              class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
 
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-mc-text">Agent Activity Log</h2>
-            <div class="flex items-center gap-2">
-              <!-- Filter pills -->
-              <div class="flex gap-1">
-                <button @click="$store.activity.filter = 'all'"
-                        class="px-2 py-1 rounded text-[11px] transition-all"
-                        :class="$store.activity.filter === 'all' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-muted hover:text-mc-text'">All</button>
-                <button @click="$store.activity.filter = 'task-complete'"
-                        class="px-2 py-1 rounded text-[11px] transition-all"
-                        :class="$store.activity.filter === 'task-complete' ? 'bg-emerald-500/15 text-emerald-400' : 'text-mc-text-muted hover:text-mc-text'">Tasks</button>
-                <button @click="$store.activity.filter = 'workflow-complete'"
-                        class="px-2 py-1 rounded text-[11px] transition-all"
-                        :class="$store.activity.filter === 'workflow-complete' ? 'bg-cyan-500/15 text-cyan-400' : 'text-mc-text-muted hover:text-mc-text'">Workflows</button>
-                <button @click="$store.activity.filter = 'staging-new'"
-                        class="px-2 py-1 rounded text-[11px] transition-all"
-                        :class="$store.activity.filter === 'staging-new' ? 'bg-amber-500/15 text-amber-400' : 'text-mc-text-muted hover:text-mc-text'">Staging</button>
-                <button @click="$store.activity.filter = 'error'"
-                        class="px-2 py-1 rounded text-[11px] transition-all"
-                        :class="$store.activity.filter === 'error' ? 'bg-red-500/15 text-red-400' : 'text-mc-text-muted hover:text-mc-text'">Errors</button>
+          <!-- Header + filters -->
+          <div class="mb-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-mc-text">Mission Control</h2>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono"
+                      :class="$store.app.ocConnected ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'"
+                      x-text="$store.app.ocConnected ? 'LIVE' : 'POLLING'"></span>
+                <span class="text-[10px] text-mc-text-muted" x-text="$store.activity.events.length + ' events'"></span>
               </div>
+            </div>
+
+            <!-- Agent filter -->
+            <div class="flex gap-1.5 flex-wrap">
+              <button @click="$store.activity.agentFilter = 'all'"
+                      class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all min-h-[32px]"
+                      :class="$store.activity.agentFilter === 'all' ? 'bg-mc-primary-dim text-cyan-400 border border-cyan-500/30' : 'bg-mc-surface border border-mc-border text-mc-text-muted hover:text-mc-text'">All Agents</button>
+              <template x-for="aid in $store.activity.agents" :key="aid">
+                <button @click="$store.activity.agentFilter = aid"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all min-h-[32px]"
+                        :class="$store.activity.agentFilter === aid ? 'bg-mc-primary-dim text-cyan-400 border border-cyan-500/30' : 'bg-mc-surface border border-mc-border text-mc-text-muted hover:text-mc-text'"
+                        x-text="aid"></button>
+              </template>
+            </div>
+
+            <!-- Type filter pills -->
+            <div class="flex gap-1 flex-wrap">
+              <template x-for="f in [
+                {key:'all', label:'All', cls:'bg-mc-primary-dim text-cyan-400'},
+                {key:'tool', label:'Tools', cls:'bg-blue-500/15 text-blue-400'},
+                {key:'comms', label:'Comms', cls:'bg-violet-500/15 text-violet-400'},
+                {key:'file-op', label:'Files', cls:'bg-teal-500/15 text-teal-400'},
+                {key:'chat', label:'Chat', cls:'bg-cyan-500/15 text-cyan-400'},
+                {key:'task-complete', label:'Tasks', cls:'bg-emerald-500/15 text-emerald-400'},
+                {key:'staging-new', label:'Staging', cls:'bg-amber-500/15 text-amber-400'},
+                {key:'error', label:'Errors', cls:'bg-red-500/15 text-red-400'},
+                {key:'rate-limit', label:'Rate Limits', cls:'bg-orange-500/15 text-orange-400'}
+              ]" :key="f.key">
+                <button @click="$store.activity.filter = f.key"
+                        class="px-2 py-1 rounded text-[11px] transition-all min-h-[28px]"
+                        :class="$store.activity.filter === f.key ? f.cls : 'text-mc-text-muted hover:text-mc-text'"
+                        x-text="f.label"></button>
+              </template>
             </div>
           </div>
 
           <!-- Activity event list -->
-          <div class="space-y-1">
-            <template x-for="(ev, i) in $store.activity.filtered" :key="ev.time + '-' + i">
-              <div class="bg-mc-surface border border-mc-border rounded-lg px-4 py-3 flex items-start gap-3 hover:border-mc-border/80 transition-colors">
-                <!-- Level indicator -->
-                <div class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                     :class="ev.level === 'error' ? 'bg-red-400' : ev.level === 'warn' ? 'bg-amber-400' : 'bg-emerald-400'"></div>
+          <div class="space-y-1.5">
+            <template x-for="(ev, i) in $store.activity.filtered.slice(0, 200)" :key="ev.time + '-' + i">
+              <div class="bg-mc-surface border border-mc-border rounded-lg px-3 py-2.5 flex items-start gap-2.5 hover:border-mc-border/80 transition-colors">
+                <!-- Type icon -->
+                <span class="text-sm flex-shrink-0 mt-0.5 w-5 text-center" x-text="$store.activity.typeIcon(ev.type)"></span>
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-0.5">
-                    <span class="text-[11px] px-1.5 py-0.5 rounded-full font-medium"
+                  <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                           :class="$store.activity.typeColor(ev.type)"
                           style="background: rgba(255,255,255,0.05)"
                           x-text="$store.activity.typeLabel(ev.type)"></span>
-                    <span x-show="ev.agent" class="text-[11px] text-mc-text-muted" x-text="ev.agent"></span>
-                    <span class="text-[11px] text-mc-text-muted ml-auto flex-shrink-0" x-text="$store.activity.formatTime(ev.time)"></span>
+                    <span x-show="ev.agent" class="text-[10px] font-mono px-1 py-0.5 rounded bg-mc-elevated text-mc-text-muted" x-text="ev.agent"></span>
+                    <span x-show="ev.source === 'live'" class="text-[9px] px-1 rounded bg-emerald-500/10 text-emerald-500">LIVE</span>
+                    <span class="text-[10px] text-mc-text-muted ml-auto flex-shrink-0" x-text="$store.activity.formatTime(ev.time)"></span>
                   </div>
-                  <div class="text-xs text-mc-text-sec" x-text="ev.message"></div>
+                  <div class="text-xs text-mc-text-sec leading-relaxed" x-text="ev.message"></div>
+                  <div x-show="ev.detail" class="text-[11px] text-mc-text-muted mt-0.5 font-mono truncate" x-text="ev.detail"></div>
                 </div>
               </div>
             </template>
@@ -1637,7 +1661,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <div class="text-xs">No agent activity recorded yet.</div>
-            <div class="text-[11px] mt-1">Agents log events as they complete tasks, create workflows, and stage content.</div>
+            <div class="text-[11px] mt-1">When connected live, all agent operations (tool calls, messaging, file writes, errors) appear here in real-time.</div>
+            <div class="text-[11px] mt-0.5">Server-side events from /workspace/agent-activity/log.json are polled every 15s.</div>
           </div>
         </div>
 

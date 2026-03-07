@@ -1162,12 +1162,16 @@ document.addEventListener('alpine:init', () => {
         const merged = sessions
           // Skip sessions the user deleted — canonical sessions (agent:X:main)
           // persist on the server even after reset/delete, so we filter them here.
-          // Also skip heartbeat/cron sessions — these are internal OpenClaw sessions
-          // that shouldn't appear in the chat UI.
+          // Also skip heartbeat/cron sessions — but NEVER filter :main sessions,
+          // which are the user's primary chat session with each agent. A :main
+          // session may inherit displayName "heartbeat" from the initial heartbeat
+          // run, but it's still the real chat session.
           .filter(s => {
             const sk = s.key || s.sessionKey || '';
             if (sessionStore._deletedKeys.has(sk)) return false;
-            // Filter out heartbeat/cron/system sessions by displayName or label
+            // Never filter main sessions — they are the user's primary chat
+            if (/^agent:[^:]+:main$/.test(sk)) return true;
+            // Filter non-main heartbeat/cron/system sessions by displayName or label
             const dn = (s.displayName || '').toLowerCase();
             const lb = (s.label || '').toLowerCase();
             if (/heartbeat|cron|system-event/.test(dn) || /heartbeat|cron|system-event/.test(lb)) return false;
@@ -1233,8 +1237,8 @@ document.addEventListener('alpine:init', () => {
       if (oc._mcEventsRegistered) return;
       oc._mcEventsRegistered = true;
 
-      // Wildcard listener — log ALL events from OpenClaw for diagnostics.
-      // This helps debug missing chat events by showing exactly what OpenClaw sends.
+      // Wildcard listener — log ALL events from OpenClaw for diagnostics
+      // AND push structured events to the Activity store for mission control.
       oc.on('*', (eventName, payload) => {
         // Skip noisy periodic events
         if (eventName === 'tick' || eventName === 'health') return;
@@ -1246,12 +1250,85 @@ document.addEventListener('alpine:init', () => {
           : '';
         Alpine.store('monitor').addLog('info', `Event[${eventName}]: ${summary || JSON.stringify(payload).slice(0, 120)}`);
 
-        // Push human-readable events to the chat event feed
+        // --- Activity store: push structured events for mission control ---
+        const activity = Alpine.store('activity');
+        // Extract agent ID from sessionKey (agent:lead:main → lead)
+        const _agentFromSK = (sk) => {
+          if (!sk) return '';
+          const m = sk.match(/^agent:([^:]+):/);
+          return m ? m[1] : '';
+        };
+        const agentId = _agentFromSK(payload.sessionKey) || payload.agentId || '';
+
+        if (eventName === 'agent') {
+          // Agent turn events — tool calls, state changes, errors
+          if (payload.tool) {
+            // Tool invocation
+            const toolName = payload.tool || 'unknown';
+            const isError = payload.status === 'error' || payload.error;
+            const isFileOp = /^(read|write|edit)$/.test(toolName);
+            const isComms = /^sessions_/.test(toolName);
+            activity.pushEvent({
+              type: isError ? 'error' : isComms ? 'comms' : isFileOp ? 'file-op' : 'tool',
+              level: isError ? 'error' : 'info',
+              agent: agentId,
+              message: `${agentId || 'Agent'} → ${toolName}${isError ? ' (FAILED)' : ''}`,
+              detail: payload.errorMessage || payload.error?.message || '',
+            });
+          } else if (payload.state === 'error' || payload.error || payload.errorMessage) {
+            const errMsg = payload.errorMessage || payload.error?.message || payload.error || 'Unknown error';
+            activity.pushEvent({
+              type: /rate.?limit/i.test(errMsg) ? 'rate-limit' : 'error',
+              level: 'error',
+              agent: agentId,
+              message: `${agentId || 'Agent'}: ${errMsg.slice(0, 120)}`,
+            });
+          } else if (payload.state === 'running') {
+            // Only log the start of a run, not every state update
+            if (!activity._lastRunAgent || activity._lastRunAgent !== agentId) {
+              activity._lastRunAgent = agentId;
+              activity.pushEvent({
+                type: 'system',
+                level: 'info',
+                agent: agentId,
+                message: `${agentId || 'Agent'} started processing`,
+              });
+            }
+          } else if (payload.state === 'done' || payload.state === 'completed' || payload.state === 'idle') {
+            activity._lastRunAgent = null;
+            activity.pushEvent({
+              type: 'task-complete',
+              level: 'info',
+              agent: agentId,
+              message: `${agentId || 'Agent'} finished turn`,
+            });
+          }
+        } else if (eventName === 'chat') {
+          const state = payload.state;
+          if (state === 'final') {
+            activity.pushEvent({
+              type: 'chat',
+              level: 'info',
+              agent: agentId,
+              message: `${agentId || 'Agent'} response complete`,
+            });
+          } else if (state === 'error') {
+            const errMsg = payload.errorMessage || 'Chat error';
+            activity.pushEvent({
+              type: /rate.?limit/i.test(errMsg) ? 'rate-limit' : 'error',
+              level: 'error',
+              agent: agentId,
+              message: `${agentId || 'Agent'}: ${errMsg.slice(0, 120)}`,
+            });
+          }
+          // Skip delta events — too noisy
+        }
+
+        // --- Chat event feed (status bar) ---
         const app = Alpine.store('app');
         if (eventName === 'chat') {
           const state = payload.state;
           if (state === 'delta') {
-            // Don't spam delta events — just update "last event"
             app.lastEvent = 'Streaming response...';
             app.lastEventTime = Date.now();
           } else if (state === 'final') {
@@ -3813,20 +3890,66 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // STORE: ACTIVITY — server-side agent events from /workspace/agent-activity/
+  // STORE: ACTIVITY — comprehensive mission control event feed
+  // --------------------------------------------------------------------------
+  // Two data sources:
+  // 1. Server-side log.json (polled) — events agents wrote while browser closed
+  // 2. Live WS events (pushed) — real-time tool calls, comms, errors, file ops
   // --------------------------------------------------------------------------
 
   Alpine.store('activity', {
-    events: [],        // { time, level, type, message, agent }
+    events: [],        // { time, level, type, message, agent, detail?, source }
+    liveEvents: [],    // WS events captured in real-time (survives poll merge)
     newCount: 0,       // events since last dismissal
-    filter: 'all',     // 'all' | 'task-complete' | 'workflow-complete' | 'staging-new' | 'error'
+    filter: 'all',     // filter key
+    agentFilter: 'all', // 'all' | specific agent id
     _pollTimer: null,
-    _lastFetchTime: 0, // track to avoid re-processing
+    _lastFetchTime: 0,
+    _maxEvents: 500,
 
     get filtered() {
-      if (this.filter === 'all') return this.events;
-      if (this.filter === 'error') return this.events.filter(e => e.level === 'error');
-      return this.events.filter(e => e.type === this.filter);
+      let list = this.events;
+      // Agent filter
+      if (this.agentFilter !== 'all') {
+        list = list.filter(e => e.agent === this.agentFilter);
+      }
+      // Type filter
+      if (this.filter === 'all') return list;
+      if (this.filter === 'error') return list.filter(e => e.level === 'error' || e.type === 'error');
+      return list.filter(e => e.type === this.filter);
+    },
+
+    get agents() {
+      // Unique agents that have events, for filter dropdown
+      const seen = new Set();
+      for (const e of this.events) {
+        if (e.agent) seen.add(e.agent);
+      }
+      return [...seen].sort();
+    },
+
+    // Push a live event from WS (tool call, chat, error, etc.)
+    pushEvent(ev) {
+      const event = {
+        time: ev.time || Date.now(),
+        level: ev.level || 'info',
+        type: ev.type || 'system',
+        message: ev.message || '',
+        agent: ev.agent || '',
+        detail: ev.detail || '',
+        source: 'live',
+      };
+      this.events.unshift(event);
+      this.liveEvents.unshift(event);
+      // Cap size
+      if (this.events.length > this._maxEvents) this.events.length = this._maxEvents;
+      if (this.liveEvents.length > 200) this.liveEvents.length = 200;
+      // Update badge
+      const lastSeen = parseInt(localStorage.getItem('mc-last-activity-seen') || '0');
+      if (event.time > lastSeen) {
+        this.newCount++;
+        mcAudio.activityEvent();
+      }
     },
 
     startPolling(intervalMs = 15000) {
@@ -3852,18 +3975,30 @@ document.addEventListener('alpine:init', () => {
         const data = await resp.json();
         const serverEvents = (data.events || []).sort((a, b) => (b.time || 0) - (a.time || 0));
 
-        // Only update if we got new events
         if (serverEvents.length > 0 && serverEvents[0]?.time !== this._lastFetchTime) {
           const prevCount = this.newCount;
           this._lastFetchTime = serverEvents[0].time;
-          // Keep last 200 events, newest first
-          this.events = serverEvents.slice(0, 200).map(e => ({
+
+          // Merge server events with live WS events (dedup by time+message)
+          const serverMapped = serverEvents.slice(0, 200).map(e => ({
             time: e.time || Date.now(),
             level: e.level || 'info',
             type: e.type || 'unknown',
             message: e.message || '',
             agent: e.agent || e.createdBy || '',
+            detail: e.detail || '',
+            source: 'server',
           }));
+          // Combine: live events + server events, dedup, sort newest first
+          const combined = new Map();
+          for (const e of this.liveEvents) combined.set(e.time + '|' + e.message, e);
+          for (const e of serverMapped) {
+            const key = e.time + '|' + e.message;
+            if (!combined.has(key)) combined.set(key, e);
+          }
+          this.events = [...combined.values()]
+            .sort((a, b) => b.time - a.time)
+            .slice(0, this._maxEvents);
 
           // Count events since last visit for badge
           const lastSeen = parseInt(localStorage.getItem('mc-last-activity-seen') || '0');
@@ -3891,6 +4026,13 @@ document.addEventListener('alpine:init', () => {
         'task-complete': 'text-emerald-400',
         'workflow-complete': 'text-cyan-400',
         'staging-new': 'text-amber-400',
+        'comms': 'text-violet-400',
+        'tool': 'text-blue-400',
+        'file-op': 'text-teal-400',
+        'chat': 'text-cyan-400',
+        'error': 'text-red-400',
+        'rate-limit': 'text-orange-400',
+        'system': 'text-mc-text-muted',
       };
       return colors[type] || 'text-mc-text-muted';
     },
@@ -3900,8 +4042,26 @@ document.addEventListener('alpine:init', () => {
         'task-complete': 'Task',
         'workflow-complete': 'Workflow',
         'staging-new': 'Staging',
+        'comms': 'Comms',
+        'tool': 'Tool',
+        'file-op': 'File',
+        'chat': 'Chat',
+        'error': 'Error',
+        'rate-limit': 'Rate Limit',
+        'system': 'System',
       };
       return labels[type] || type;
+    },
+
+    typeIcon(type) {
+      const icons = {
+        'task-complete': '\u2705', 'workflow-complete': '\u26A1',
+        'staging-new': '\uD83D\uDCE6', 'comms': '\uD83D\uDCAC',
+        'tool': '\uD83D\uDD27', 'file-op': '\uD83D\uDCC4',
+        'chat': '\uD83D\uDDE8\uFE0F', 'error': '\u274C',
+        'rate-limit': '\u23F3', 'system': '\u2699\uFE0F',
+      };
+      return icons[type] || '\u2022';
     },
   });
 
