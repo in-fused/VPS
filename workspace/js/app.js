@@ -25,6 +25,7 @@ const AGENT_TOOLS = [
 
 // Fallback models if LiteLLM is unreachable
 const FALLBACK_MODELS = [
+  // FREE — Cloud providers (rate-limited but fast)
   { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K RPD)' },
   { id: 'groq-qwen3-32b', name: 'Qwen 3 32B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Dual-mode reasoning, free tier (1K RPD)' },
   { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fastest inference, 1M TPD free' },
@@ -34,9 +35,16 @@ const FALLBACK_MODELS = [
   { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 3000 RPD (3 keys)' },
   { id: 'codestral', name: 'Codestral', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Best free code model, 2 RPM' },
   { id: 'mistral-small', name: 'Mistral Small 3.1', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Fast 24B, great for agents' },
+  // FREE — Ollama (Oracle ARM, ZERO rate limits)
+  { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B', provider: 'Ollama', tier: 'free', cost: '$0/1M', desc: 'Beats GPT-OSS-120B, best tool calling' },
+  { id: 'qwen3:14b', name: 'Qwen3 14B', provider: 'Ollama', tier: 'free', cost: '$0/1M', desc: 'Strong reasoning, reliable on ARM' },
+  { id: 'qwen3-coder:30b', name: 'Qwen3 Coder 30B', provider: 'Ollama', tier: 'free', cost: '$0/1M', desc: 'MoE coding model, best open-source' },
+  // CHEAP — paid but affordable
   { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'DeepSeek', tier: 'cheap', cost: '$0.28/1M', desc: 'Excellent reasoning, very affordable' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI', tier: 'cheap', cost: '$0.15/1M', desc: 'Fast and cheap general purpose' },
+  // MID
   { id: 'claude-haiku', name: 'Claude Haiku', provider: 'Anthropic', tier: 'mid', cost: '$1/1M', desc: 'Fast, capable, great for agents' },
+  // PREMIUM
   { id: 'claude-sonnet', name: 'Claude Sonnet', provider: 'Anthropic', tier: 'premium', cost: '$3/1M', desc: 'Best balance of speed and quality' },
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI', tier: 'premium', cost: '$2.50/1M', desc: 'Strong multimodal reasoning' },
   { id: 'claude-opus', name: 'Claude Opus', provider: 'Anthropic', tier: 'premium', cost: '$15/1M', desc: 'Maximum capability, complex tasks' },
@@ -63,10 +71,10 @@ const MODEL_META = {
   'codestral': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   'mistral-small': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   'mistral-nemo': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
-  // Free — Ollama
-  'qwen2.5-coder:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
-  'deepseek-coder-v2:16b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
-  'llama3.2:8b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  // Free — Ollama (Oracle ARM, zero rate limits)
+  'qwen3.5:9b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'qwen3:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'qwen3-coder:30b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
   // Cheap
   'deepseek-chat': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },
   'deepseek-coder': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },

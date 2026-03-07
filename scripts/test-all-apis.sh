@@ -618,9 +618,9 @@ if [ "$LLM_UP" != "200" ]; then
 else
 
 subsection "TIER 1: FREE — Ollama (Oracle Cloud)"
-test_model "qwen2.5-coder:14b" "FREE/Ollama" "0.00"
-test_model "deepseek-coder-v2:16b" "FREE/Ollama" "0.00"
-test_model "llama3.2:8b" "FREE/Ollama" "0.00"
+test_model "qwen3.5:9b" "FREE/Ollama" "0.00"
+test_model "qwen3:14b" "FREE/Ollama" "0.00"
+test_model "qwen3-coder:30b" "FREE/Ollama" "0.00"
 
 subsection "TIER 2: FREE — Groq (4 accounts, load-balanced)"
 test_model "groq-llama-3.3-70b" "FREE/Groq" "0.00"

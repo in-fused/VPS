@@ -24,9 +24,9 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
                     │
 ┌─── Oracle Cloud ARM (FREE FOREVER) ──────────────┐
 │  Ollama Server (24GB RAM)                         │
-│    • qwen2.5-coder:14b   (coding)                │
-│    • deepseek-coder-v2:16b (code + general)      │
-│    • llama3.2:8b          (fast chat)            │
+│    • qwen3.5:9b           (general + agents)      │
+│    • qwen3:14b            (reasoning)             │
+│    • qwen3-coder:30b      (coding, MoE)           │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -324,9 +324,9 @@ sudo bash scripts/setup-ollama-server.sh YOUR_EC2_ELASTIC_IP
 ```
 
 This installs Ollama, hardens security, and pulls three models (~30-45 minutes for downloads):
-- **qwen2.5-coder:14b** — Your primary coding model (rivals GPT-4o for code)
-- **deepseek-coder-v2:16b** — Strong coder, 300+ languages
-- **llama3.2:8b** — Fast general chat
+- **qwen3.5:9b** — General purpose + agent tasks (beats GPT-OSS-120B, excellent tool calling)
+- **qwen3:14b** — Reasoning + general purpose (dense, reliable on ARM)
+- **qwen3-coder:30b-a3b** — Best open-source coding model (MoE, only 3.3B active per token)
 
 ### Step 2.4 — Connect Ollama to Your Hub
 
@@ -355,7 +355,7 @@ docker compose down && docker compose up -d
 
 1. Open https://in-fused.org
 2. Click the model dropdown at the top
-3. You should see local models: `qwen2.5-coder:14b`, `deepseek-coder-v2:16b`, `llama3.2:8b`
+3. You should see local models: `qwen3.5:9b`, `qwen3:14b`, `qwen3-coder:30b`
 4. Select one and send a message — this runs entirely on your Oracle server at $0 cost!
 
 ### Step 2.6 — Oracle Cloud Security Group
@@ -488,10 +488,10 @@ ollama list
 ollama pull codellama:13b
 
 # Remove a model (to free disk space)
-ollama rm deepseek-coder-v2:16b
+ollama rm model-name
 
 # Test a model directly
-ollama run qwen2.5-coder:14b "Write a Python function to reverse a linked list"
+ollama run qwen3.5:9b "Write a Python function to reverse a linked list"
 ```
 
 After adding or removing models, they automatically appear in Open WebUI.

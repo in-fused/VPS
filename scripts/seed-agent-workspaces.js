@@ -101,7 +101,7 @@ const SHARED_MEMORY = `# Project Memory
 - FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-llama-3.1-8b, cerebras-gpt-oss-120b, cerebras-zai-glm, cerebras-qwen3-235b (1M TPD)
 - FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro (load-balanced 3 keys)
 - FREE Mistral: mistral-large, codestral, mistral-small, mistral-nemo (2 RPM, 1B tokens/month)
-- FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b
+- FREE Ollama (Oracle ARM, zero rate limits): qwen3.5:9b, qwen3:14b, qwen3-coder:30b
 - CHEAP: deepseek-chat/coder ($0.28/M), gpt-4o-mini ($0.15/M)
 - MID: claude-haiku ($1/M), minimax-m2.5 ($0.30/M)
 - PREMIUM: claude-sonnet ($3/M), gpt-4o ($2.50/M), claude-opus ($15/M), o1 ($15/M)

@@ -365,9 +365,9 @@
   |              |                          |
   |              +-------> Oracle ARM       |
   |              |         (Ollama)         |
-  |  OpenClaw ---+         - llama3.2:8b   |
-  |  (agents)              - qwen2.5:14b   |
-  |                        - deepseek:16b  |
+  |  OpenClaw ---+         - qwen3.5:9b    |
+  |  (agents)              - qwen3:14b     |
+  |                        - qwen3-coder   |
   +-----------------------------------------+
 </pre>
 
@@ -379,7 +379,7 @@
 
 <p><strong>Why Oracle ARM?</strong></p>
 <ul>
-  <li>24 GB RAM runs 14B-16B parameter models comfortably</li>
+  <li>24 GB RAM runs 9B-14B dense models and 30B MoE models comfortably</li>
   <li>ARM A1.Flex is free forever (not a trial)</li>
   <li>Ollama on native ARM outperforms Docker on x86</li>
   <li>Private link from EC2: only your EC2 IP can reach the Ollama port</li>
@@ -698,16 +698,16 @@ cd /home/VPS</pre>
 
   <table>
     <tr><th>Model</th><th>Size</th><th>Purpose</th><th>Download Time</th></tr>
-    <tr><td>llama3.2:8b</td><td>~4.7 GB</td><td>Fast general chat</td><td>~3 min</td></tr>
-    <tr><td>qwen2.5-coder:14b</td><td>~9.0 GB</td><td>Primary coding model</td><td>~5 min</td></tr>
-    <tr><td>deepseek-coder-v2:16b</td><td>~9.4 GB</td><td>Code + general reasoning</td><td>~5 min</td></tr>
+    <tr><td>qwen3.5:9b</td><td>~6 GB</td><td>General purpose + agent tasks (beats GPT-OSS-120B)</td><td>~3 min</td></tr>
+    <tr><td>qwen3:14b</td><td>~9 GB</td><td>Reasoning + general purpose (dense)</td><td>~5 min</td></tr>
+    <tr><td>qwen3-coder:30b-a3b</td><td>~18 GB</td><td>Coding (MoE, 3.3B active &mdash; best open-source)</td><td>~10 min</td></tr>
   </table>
 </div>
 
 <div class="warn-box">
   <strong>Don't close the SSH session during model downloads!</strong> If your session drops, reconnect and
   check status with <code>ollama list</code>. You can re-pull any model that didn't finish:
-  <code>ollama pull qwen2.5-coder:14b</code>
+  <code>ollama pull qwen3-coder:30b-a3b</code>
 </div>
 
 <div class="step">
@@ -720,7 +720,7 @@ sudo systemctl status ollama
 ollama list
 
 # Quick test
-ollama run llama3.2 "Say hello in one sentence" --verbose</pre>
+ollama run qwen3.5:9b "Say hello in one sentence" --verbose</pre>
 </div>
 
 <div class="step">
@@ -778,7 +778,7 @@ sudo docker compose ps</pre>
   | python3 -c "import sys,json; [print(m['id']) for m in json.load(sys.stdin)['data']]" \
   | grep -i 'llama\|qwen\|deepseek'</pre>
 
-  <p>You should see the Ollama models listed (e.g., <code>qwen2.5-coder:14b</code>, <code>deepseek-coder-v2:16b</code>, <code>llama3.2:8b</code>).</p>
+  <p>You should see the Ollama models listed (e.g., <code>qwen3.5:9b</code>, <code>qwen3:14b</code>, <code>qwen3-coder:30b</code>).</p>
 </div>
 
 <!-- ================================================================== -->
@@ -800,7 +800,7 @@ curl -s http://ORACLE_PUBLIC_IP:11434/api/tags | python3 -m json.tool</pre>
 curl -s https://in-fused.org/api/litellm/v1/chat/completions \
   -H "Authorization: Bearer $MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"qwen2.5-coder:14b","messages":[{"role":"user","content":"Write a hello world in Python"}],"max_tokens":50}'</pre>
+  -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Write a hello world in Python"}],"max_tokens":50}'</pre>
 </div>
 
 <div class="step">
@@ -826,21 +826,28 @@ curl -s https://in-fused.org/api/litellm/v1/chat/completions \
 <p>SSH into the Oracle instance to manage models:</p>
 <pre>ssh -i key.pem -p 2222 deploy@ORACLE_PUBLIC_IP</pre>
 
-<h3>Available Models for 24 GB RAM</h3>
+<h3>Installed Models (24 GB RAM)</h3>
+<table>
+  <tr><th>Model</th><th>Size (Q4)</th><th>RAM Needed</th><th>Good For</th><th>Speed (est.)</th></tr>
+  <tr><td>qwen3.5:9b</td><td>~6 GB</td><td>~8 GB</td><td>General + agent tasks, tool calling</td><td>~8 t/s</td></tr>
+  <tr><td>qwen3:14b</td><td>~9 GB</td><td>~12 GB</td><td>Reasoning, general purpose (dense)</td><td>~5 t/s</td></tr>
+  <tr><td>qwen3-coder:30b-a3b</td><td>~18 GB</td><td>~20 GB</td><td>Coding (MoE, 3.3B active per token)</td><td>~3 t/s</td></tr>
+</table>
+
+<h3>Optional Models (can be pulled manually)</h3>
 <table>
   <tr><th>Model</th><th>Size</th><th>RAM Needed</th><th>Good For</th></tr>
-  <tr><td>llama3.2:8b</td><td>4.7 GB</td><td>~6 GB</td><td>Fast chat, simple tasks</td></tr>
-  <tr><td>qwen2.5-coder:14b</td><td>9.0 GB</td><td>~12 GB</td><td>Coding, best bang for size</td></tr>
-  <tr><td>deepseek-coder-v2:16b</td><td>9.4 GB</td><td>~13 GB</td><td>Code + reasoning</td></tr>
-  <tr><td>codestral:22b</td><td>13 GB</td><td>~16 GB</td><td>Advanced coding (if space)</td></tr>
-  <tr><td>llama3.1:8b</td><td>4.7 GB</td><td>~6 GB</td><td>General purpose alternative</td></tr>
-  <tr><td>phi3:14b</td><td>8.2 GB</td><td>~11 GB</td><td>Efficient reasoning</td></tr>
+  <tr><td>qwen3:8b</td><td>~5 GB</td><td>~7 GB</td><td>Lighter alternative to 14B</td></tr>
+  <tr><td>qwen3.5:4b</td><td>~3 GB</td><td>~4 GB</td><td>Ultra-fast, simple tasks</td></tr>
+  <tr><td>qwen3-coder-next</td><td>~46 GB</td><td>~48 GB</td><td>Best coding model (won't fit in 24GB)</td></tr>
 </table>
 
 <div class="info-box">
   <strong>Memory rule of thumb:</strong> Model file size &times; 1.3 = approximate RAM needed while running.
-  Ollama loads one model at a time by default (<code>OLLAMA_MAX_LOADED_MODELS=1</code>). The 8B model
-  can coexist with one 14B model in memory. Two 14B+ models will swap.
+  Ollama loads one model at a time by default (<code>OLLAMA_MAX_LOADED_MODELS=1</code>).
+  Only the active model uses RAM &mdash; inactive models stay on disk (200 GB).
+  The MoE coder model (30B) only activates 3.3B params per token, so despite its large file size it runs
+  with reasonable efficiency on ARM CPU.
 </div>
 
 <h3>Model Management Commands</h3>
@@ -851,10 +858,10 @@ ollama list
 ollama pull codestral:22b
 
 # Remove a model (to free disk space)
-ollama rm deepseek-coder-v2:16b
+ollama rm model-name
 
 # Test a model interactively
-ollama run qwen2.5-coder:14b "Explain Docker networking"
+ollama run qwen3.5:9b "Explain Docker networking"
 
 # Check disk usage
 df -h /
@@ -925,7 +932,7 @@ htop                             # Live resource monitor</pre>
     <li>Check if model is still loading: first request after idle takes longer (cold start)</li>
     <li>Check memory pressure: <code>free -h</code> (swap usage > 2 GB = too many models loaded)</li>
     <li>Reduce to 1 loaded model: <code>OLLAMA_MAX_LOADED_MODELS=1</code> (already set by script)</li>
-    <li>Use smaller quantization: <code>ollama pull qwen2.5-coder:14b-q4_K_M</code></li>
+    <li>Use smaller quantization: <code>ollama pull qwen3:14b-q4_K_M</code></li>
   </ul>
 </div>
 
@@ -989,7 +996,7 @@ ollama --version</pre>
   <tr><td>Oracle SSH</td><td><code>ORACLE_IP:2222</code> (user: deploy)</td></tr>
   <tr><td>Ollama API</td><td><code>http://ORACLE_IP:11434</code> (EC2 only)</td></tr>
   <tr><td>EC2 .env setting</td><td><code>OLLAMA_BASE_URL=http://ORACLE_IP:11434</code></td></tr>
-  <tr><td>LiteLLM model aliases</td><td><code>qwen2.5-coder:14b</code>, <code>deepseek-coder-v2:16b</code>, <code>llama3.2:8b</code></td></tr>
+  <tr><td>LiteLLM model aliases</td><td><code>qwen3.5:9b</code>, <code>qwen3:14b</code>, <code>qwen3-coder:30b</code></td></tr>
 </table>
 
 <h3>Checklist Summary</h3>
@@ -998,7 +1005,7 @@ ollama --version</pre>
   <li>ARM A1.Flex instance created (4 OCPU / 24 GB)</li>
   <li>Security List: SSH (2222) + Ollama (11434 from EC2 IP)</li>
   <li>setup-ollama-server.sh completed</li>
-  <li>Models downloaded (llama3.2, qwen2.5-coder, deepseek-coder-v2)</li>
+  <li>Models downloaded (qwen3.5:9b, qwen3:14b, qwen3-coder:30b-a3b)</li>
   <li>EC2 .env updated with OLLAMA_BASE_URL</li>
   <li>EC2 stack restarted</li>
   <li>LiteLLM shows Ollama models</li>

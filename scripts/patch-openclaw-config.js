@@ -92,10 +92,10 @@ config.models.providers.litellm = {
     { id: 'claude-opus', name: 'Claude Opus (premium)', contextWindow: 200000, maxTokens: 4096 },
     { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
     { id: 'o1', name: 'OpenAI o1 (premium)', contextWindow: 200000, maxTokens: 100000 },
-    // Local Ollama
-    { id: 'qwen2.5-coder:14b', name: 'Qwen 2.5 Coder 14B (free/local)', contextWindow: 32768, maxTokens: 8192 },
-    { id: 'llama3.2:8b', name: 'Llama 3.2 8B (free/local)', contextWindow: 8192, maxTokens: 4096 },
-    { id: 'deepseek-coder-v2:16b', name: 'DeepSeek Coder V2 16B (free/local)', contextWindow: 128000, maxTokens: 8192 }
+    // Local Ollama (Oracle ARM — zero rate limits)
+    { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B (free/local, best small)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'qwen3:14b', name: 'Qwen3 14B (free/local, reasoning)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'qwen3-coder:30b', name: 'Qwen3 Coder 30B MoE (free/local, coding)', contextWindow: 131072, maxTokens: 8192 }
   ]
 };
 

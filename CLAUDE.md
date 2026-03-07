@@ -184,7 +184,7 @@ Single password protects the entire site. Flow:
 
 | Tier | Models | Cost |
 |------|--------|------|
-| FREE | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
+| FREE | qwen3.5:9b, qwen3:14b, qwen3-coder:30b (Ollama, Oracle ARM, zero rate limits) | $0 |
 | FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 4 accounts, 100K-500K TPD) | $0 |
 | FREE | cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (Cerebras, 1M TPD) | $0 |
 | FREE | gemini-flash, gemini-flash-lite, gemini-pro (Google Gemini, 250-1000 RPD) | $0 |
@@ -757,7 +757,7 @@ These are solved — do not re-investigate or re-fix:
 - `tools.profile = 'full'` — ensures coding tools (exec, read, write, edit) are available. v2026.3.2 changed default to "messaging" which excludes these
 - `compaction.memoryFlush.softThresholdTokens = 50000` — prevents aggressive compaction loop (v2026.3.1 regression #32106)
 - `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` — env var in docker-compose, allows plaintext `ws://` on Docker bridge (v2026.3.2 restricted to loopback)
-- Missing models added to provider list: `claude-opus`, `o1`, `deepseek-coder-v2:16b`
+- Ollama models updated: `qwen3.5:9b`, `qwen3:14b`, `qwen3-coder:30b` (replaced outdated qwen2.5-coder, deepseek-coder-v2, llama3.2)
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
 - **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md per agent (idempotent)
 

@@ -218,7 +218,7 @@ Single password protects the entire site. Flow:
 
 | Tier | Models | Cost |
 |------|--------|------|
-| FREE | qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b (Ollama) | $0 |
+| FREE | qwen3.5:9b, qwen3:14b, qwen3-coder:30b (Ollama, Oracle ARM, zero rate limits) | $0 |
 | FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 4 accounts, 100K-500K TPD) | $0 |
 | FREE | cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (Cerebras, 1M TPD) | $0 |
 | FREE | gemini-flash, gemini-flash-lite, gemini-pro (Google Gemini, 250-1000 RPD) | $0 |
@@ -791,7 +791,7 @@ These are solved — do not re-investigate or re-fix:
 - `tools.profile = 'full'` — ensures coding tools (exec, read, write, edit) are available. v2026.3.2 changed default to "messaging" which excludes these
 - `compaction.memoryFlush.softThresholdTokens = 50000` — prevents aggressive compaction loop (v2026.3.1 regression #32106)
 - `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` — env var in docker-compose, allows plaintext `ws://` on Docker bridge (v2026.3.2 restricted to loopback)
-- Missing models added to provider list: `claude-opus`, `o1`, `deepseek-coder-v2:16b`
+- Ollama models updated: `qwen3.5:9b`, `qwen3:14b`, `qwen3-coder:30b` (replaced outdated qwen2.5-coder, deepseek-coder-v2, llama3.2)
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
 - **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md per agent (idempotent)
 
@@ -1504,29 +1504,29 @@ model_list:
   # These cost $0. Use for daily coding, chat, and routine tasks.
   # Requires OLLAMA_BASE_URL to be set in .env
 
-  - model_name: "qwen2.5-coder:14b"
+  - model_name: "qwen3.5:9b"
     litellm_params:
-      model: "ollama/qwen2.5-coder:14b"
+      model: "ollama/qwen3.5:9b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Best local coding model. Rivals GPT-4o for code."
+      description: "FREE — Qwen 3.5 9B. Beats GPT-OSS-120B. Best small model for agents + tool calling."
 
-  - model_name: "deepseek-coder-v2:16b"
+  - model_name: "qwen3:14b"
     litellm_params:
-      model: "ollama/deepseek-coder-v2:16b"
+      model: "ollama/qwen3:14b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Strong coder. 300+ languages. Great for debugging."
+      description: "FREE — Qwen3 14B dense. Strong reasoning, reliable on ARM CPU."
 
-  - model_name: "llama3.2:8b"
+  - model_name: "qwen3-coder:30b"
     litellm_params:
-      model: "ollama/llama3.2:8b"
+      model: "ollama/qwen3-coder:30b-a3b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Fast general-purpose chat. Good all-rounder."
+      description: "FREE — Qwen3 Coder 30B MoE (3.3B active). Best open-source coding model."
 
   # ===========================================================================
   # TIER 2: FREE — Groq API (free tier, load-balanced across 4 accounts)
@@ -2442,7 +2442,7 @@ const SHARED_MEMORY = `# Project Memory
 - FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-llama-3.1-8b, cerebras-gpt-oss-120b, cerebras-zai-glm, cerebras-qwen3-235b (1M TPD)
 - FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro (load-balanced 3 keys)
 - FREE Mistral: mistral-large, codestral, mistral-small, mistral-nemo (2 RPM, 1B tokens/month)
-- FREE Ollama: qwen2.5-coder:14b, deepseek-coder-v2:16b, llama3.2:8b
+- FREE Ollama (Oracle ARM, zero rate limits): qwen3.5:9b, qwen3:14b, qwen3-coder:30b
 - CHEAP: deepseek-chat/coder ($0.28/M), gpt-4o-mini ($0.15/M)
 - MID: claude-haiku ($1/M), minimax-m2.5 ($0.30/M)
 - PREMIUM: claude-sonnet ($3/M), gpt-4o ($2.50/M), claude-opus ($15/M), o1 ($15/M)
@@ -3468,9 +3468,9 @@ const MODEL_META = {
   'mistral-small': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   'mistral-nemo': { tier: 'free', cost: '$0/1M', provider: 'Mistral' },
   // Free — Ollama
-  'qwen2.5-coder:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
-  'deepseek-coder-v2:16b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
-  'llama3.2:8b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'qwen3.5:9b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'qwen3:14b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
+  'qwen3-coder:30b': { tier: 'free', cost: '$0/1M', provider: 'Ollama' },
   // Cheap
   'deepseek-chat': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },
   'deepseek-coder': { tier: 'cheap', cost: '$0.28/1M', provider: 'DeepSeek' },

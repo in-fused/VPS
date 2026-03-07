@@ -21,29 +21,29 @@ model_list:
   # These cost $0. Use for daily coding, chat, and routine tasks.
   # Requires OLLAMA_BASE_URL to be set in .env
 
-  - model_name: "qwen2.5-coder:14b"
+  - model_name: "qwen3.5:9b"
     litellm_params:
-      model: "ollama/qwen2.5-coder:14b"
+      model: "ollama/qwen3.5:9b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Best local coding model. Rivals GPT-4o for code."
+      description: "FREE — Qwen 3.5 9B. Beats GPT-OSS-120B. Best small model for agents + tool calling."
 
-  - model_name: "deepseek-coder-v2:16b"
+  - model_name: "qwen3:14b"
     litellm_params:
-      model: "ollama/deepseek-coder-v2:16b"
+      model: "ollama/qwen3:14b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Strong coder. 300+ languages. Great for debugging."
+      description: "FREE — Qwen3 14B dense. Strong reasoning, reliable on ARM CPU."
 
-  - model_name: "llama3.2:8b"
+  - model_name: "qwen3-coder:30b"
     litellm_params:
-      model: "ollama/llama3.2:8b"
+      model: "ollama/qwen3-coder:30b-a3b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Fast general-purpose chat. Good all-rounder."
+      description: "FREE — Qwen3 Coder 30B MoE (3.3B active). Best open-source coding model."
 
   # ===========================================================================
   # TIER 2: FREE — Groq API (free tier, load-balanced across 4 accounts)
@@ -429,22 +429,28 @@ router_settings:
   # Each free provider has ~1M TPD. Chain ensures agents never get stuck.
   # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
   fallbacks:
-    # Gemini-first strategy (3 keys = 3x quota). Free providers cascade before paid.
-    - gemini-flash: ["gemini-flash-lite", "mistral-small", "groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-flash-lite: ["gemini-flash", "mistral-small", "groq-llama-3.3-70b", "deepseek-chat"]
-    - gemini-pro: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "deepseek-chat"]
-    - groq-llama-3.3-70b: ["gemini-flash", "cerebras-llama-3.3-70b", "groq-qwen3-32b", "deepseek-chat"]
-    - groq-qwen3-32b: ["gemini-flash", "groq-llama-3.3-70b", "mistral-small", "deepseek-chat"]
-    - cerebras-llama-3.3-70b: ["gemini-flash", "groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-llama-4-scout: ["gemini-flash-lite", "groq-llama-3.3-70b", "cerebras-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-qwen3-235b: ["gemini-pro", "groq-qwen3-32b", "cerebras-zai-glm", "deepseek-chat"]
-    - cerebras-zai-glm: ["gemini-pro", "cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "deepseek-chat"]
-    - cerebras-gpt-oss-120b: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "deepseek-chat"]
-    - cerebras-llama-3.1-8b: ["gemini-flash-lite", "cerebras-llama-4-scout", "deepseek-chat"]
-    - mistral-large: ["mistral-small", "gemini-flash", "deepseek-chat"]
-    - mistral-small: ["mistral-large", "gemini-flash-lite", "deepseek-chat"]
-    - mistral-nemo: ["mistral-small", "gemini-flash-lite", "deepseek-chat"]
-    - codestral: ["mistral-small", "gemini-flash", "deepseek-coder"]
+    # Free-first strategy: exhaust ALL free cloud providers → free Ollama → paid last resort.
+    # Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) have ZERO rate limits.
+    # Cloud free tiers
+    - gemini-flash: ["gemini-flash-lite", "mistral-small", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - gemini-flash-lite: ["gemini-flash", "mistral-small", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - gemini-pro: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - groq-llama-3.3-70b: ["gemini-flash", "cerebras-llama-3.3-70b", "groq-qwen3-32b", "qwen3.5:9b", "deepseek-chat"]
+    - groq-qwen3-32b: ["gemini-flash", "groq-llama-3.3-70b", "mistral-small", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-llama-3.3-70b: ["gemini-flash", "groq-llama-3.3-70b", "qwen3:14b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["gemini-flash-lite", "groq-llama-3.3-70b", "cerebras-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-qwen3-235b: ["gemini-pro", "groq-qwen3-32b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - cerebras-zai-glm: ["gemini-pro", "cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "qwen3:14b", "deepseek-chat"]
+    - cerebras-gpt-oss-120b: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - cerebras-llama-3.1-8b: ["gemini-flash-lite", "cerebras-llama-4-scout", "qwen3.5:9b", "deepseek-chat"]
+    - mistral-large: ["mistral-small", "gemini-flash", "qwen3:14b", "deepseek-chat"]
+    - mistral-small: ["mistral-large", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
+    - mistral-nemo: ["mistral-small", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
+    - codestral: ["mistral-small", "gemini-flash", "qwen3-coder:30b", "deepseek-coder"]
+    # Ollama models fall back to each other, then cloud free, then paid
+    - "qwen3.5:9b": ["qwen3:14b", "gemini-flash-lite", "groq-llama-3.3-70b", "deepseek-chat"]
+    - "qwen3:14b": ["qwen3.5:9b", "gemini-flash", "cerebras-llama-3.3-70b", "deepseek-chat"]
+    - "qwen3-coder:30b": ["qwen3:14b", "codestral", "gemini-flash", "deepseek-coder"]
   # Allow 1 retry per deployment, then cascade to fallback chain.
   # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
   num_retries: 1
