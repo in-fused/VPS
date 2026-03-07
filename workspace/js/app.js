@@ -486,6 +486,11 @@ function timeNow() {
 //   - String: "hello"  (plain text)
 //   - Content blocks array: [{"type":"text","text":"hello"}, {"type":"tool_use",...}]
 //   - Object: { content: "hello" } or { text: "hello" }
+// Validate sessionKey format: must be "agent:<id>:main" or similar valid patterns
+function isValidSessionKey(key) {
+  return typeof key === 'string' && /^agent:[a-z0-9-]+:[a-z0-9-]+$/.test(key);
+}
+
 //   - null/undefined
 // This normalizes all formats to a plain string.
 function extractMessageText(raw) {
@@ -1485,11 +1490,16 @@ document.addEventListener('alpine:init', () => {
         // Filter by runId: only process events from our active run or retry run.
         // This prevents competing/stale runs (e.g., duplicate retry) from clobbering
         // the streaming state with empty finals.
-        if (payload.runId && sessions._activeRunId) {
-          const isOurRun = payload.runId === sessions._activeRunId
-            || payload.runId === sessions._retryRunId;
-          if (!isOurRun) {
-            Alpine.store('monitor').addLog('info', `Chat event filtered: run=${payload.runId} (active=${sessions._activeRunId}, retry=${sessions._retryRunId || 'none'})`);
+        if (payload.runId) {
+          if (sessions._activeRunId) {
+            const isOurRun = payload.runId === sessions._activeRunId
+              || payload.runId === sessions._retryRunId;
+            if (!isOurRun) {
+              Alpine.store('monitor').addLog('info', `Chat event filtered: run=${payload.runId} (active=${sessions._activeRunId}, retry=${sessions._retryRunId || 'none'})`);
+              return;
+            }
+          } else if (!sessions._sending) {
+            // Not actively waiting for a response and no tracked runId — skip stale events
             return;
           }
         }
@@ -2230,6 +2240,10 @@ document.addEventListener('alpine:init', () => {
       const sel = this.list.find(s => s.id === id);
       if (sel?.sessionKey) {
         this._activeSessionKey = sel.sessionKey;
+      } else if (sel?.agentId) {
+        // Construct sessionKey from agentId when server hasn't synced it yet
+        this._activeSessionKey = 'agent:' + sel.agentId + ':main';
+        sel.sessionKey = this._activeSessionKey;
       }
 
       // ALWAYS try loading from OpenClaw server first when connected.
@@ -2238,7 +2252,8 @@ document.addEventListener('alpine:init', () => {
       if (ocMode === 'connected' && window.openclawClient?.authenticated) {
         try {
           const session = this.list.find(s => s.id === id);
-          const historyKey = session?.sessionKey || id;
+          const historyKey = session?.sessionKey || (session?.agentId ? 'agent:' + session.agentId + ':main' : null);
+          if (!historyKey) throw new Error('No sessionKey or agentId for history load');
           const history = await window.openclawClient.getHistory(historyKey);
           if (history && history.length > 0) {
             this.messages = this._parseHistoryMessages(history);
@@ -2540,10 +2555,13 @@ document.addEventListener('alpine:init', () => {
       delete this._messageStore[sessionId];
       storage.remove('msgs-' + sessionId);
 
-      // If this was the active session, clear it
+      // If this was the active session, switch to another and update event routing
       if (this.activeId === sessionId) {
         this.activeId = this.list[0]?.id || null;
         this.messages = this.activeId ? (this._messageStore[this.activeId] || []) : [];
+        // Update _activeSessionKey to the new active session (or clear it)
+        const newActive = this.list.find(s => s.id === this.activeId);
+        this._activeSessionKey = newActive?.sessionKey || null;
       }
       this._persist();
       Alpine.store('monitor').addLog('info', `Deleted conversation with ${session.agentName}`);
@@ -2633,7 +2651,13 @@ document.addEventListener('alpine:init', () => {
           }
 
           // Session key: use server-synced key, or derive from agent ID
-          const sessionKey = session?.sessionKey || (agent?.id ? 'agent:' + agent.id + ':main' : 'agent:lead:main');
+          if (!session?.sessionKey && !agent?.id) {
+            throw new Error('No agent selected — cannot determine session key');
+          }
+          const sessionKey = session?.sessionKey || 'agent:' + agent.id + ':main';
+          if (!isValidSessionKey(sessionKey)) {
+            throw new Error(`Invalid session key format: "${sessionKey}" — expected agent:<id>:main`);
+          }
           // Store sessionKey back on session if it was missing
           if (session && !session.sessionKey) session.sessionKey = sessionKey;
           // Track active session key for event filtering (Bug #32579:
