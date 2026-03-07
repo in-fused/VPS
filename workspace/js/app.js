@@ -2319,6 +2319,10 @@ document.addEventListener('alpine:init', () => {
             /^FILES_WRITTEN:/i.test(content) ||
             /^GOVERNANCE_ADJUST:/i.test(content) ||
             /^HEARTBEAT_OK/i.test(content) ||
+            /^#?\s*HEARTBEAT/i.test(content) ||
+            /^#?\s*Heartbeat Checklist/i.test(content) ||
+            /^#?\s*Bootstrap/i.test(content) ||
+            /^Current time:/i.test(content) ||
             (content.length < 60 && /^(ok|done|acknowledged|noted|understood)/i.test(content))
           );
           if (isSystemReply) role = 'system';
