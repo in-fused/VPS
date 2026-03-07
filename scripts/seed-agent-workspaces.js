@@ -567,65 +567,67 @@ When activated by heartbeat or cron:
 // BOOTSTRAP.md — explicit first-action directives (fires on first interaction)
 // ============================================================================
 
-const BOOTSTRAP_LEAD = `# Bootstrap — DO THIS NOW (follow steps in order)
+const BOOTSTRAP_LEAD = `# Bootstrap — Phase 0: System Warmup (DO THIS FIRST)
 
-## Step 1: Log yourself online
+You just started. Before doing anything complex, verify your tools work.
+
+## Step 1: Test READ
 \`read(path: "/workspace/agent-activity/log.json")\`
-Then parse the JSON, push a new event, and write the full content back:
-\`write(path: "/workspace/agent-activity/log.json", content: "<full JSON with your new event added>")\`
-If read returns empty/error, initialize: \`write(path: "/workspace/agent-activity/log.json", content: "{\\"events\\":[{\\"time\\":${Date.now()},\\"level\\":\\"info\\",\\"type\\":\\"system\\",\\"message\\":\\"Lead online\\"}]}")\`
+If it returns content, parse it. If empty/error, that's OK — you'll initialize it next.
 
-## Step 2: Check existing work
-\`read(path: "/workspace/agent-workflows/index.json")\`
-\`read(path: "/workspace/staging/index.json")\`
+## Step 2: Test WRITE — Log yourself online
+Write a valid JSON activity log entry. If the file had content, parse it, push your event, write back.
+If empty, initialize:
+\`write(path: "/workspace/agent-activity/log.json", content: "{\\"events\\":[{\\"time\\":<NOW_MS>,\\"level\\":\\"info\\",\\"type\\":\\"system\\",\\"message\\":\\"<YOUR_NAME> online — bootstrap complete\\"}]}")\`
+Replace <NOW_MS> with the current Unix timestamp in milliseconds. Replace <YOUR_NAME> with your agent name.
 
-## Step 3: Delegate to EACH team member
-Use EXACT format — both sessionKey and message are REQUIRED params:
-\`sessions_send(sessionKey: "agent:codecraft:main", message: "Build a crypto price dashboard at /workspace/staging/crypto-dashboard.html using CoinGecko API. Dark theme, mobile-first. Stage it when done and confirm back.")\`
-\`sessions_send(sessionKey: "agent:scout:main", message: "Research the top 5 trending topics on HackerNews. Write an HTML report to /workspace/staging/hn-trends.html. Stage it when done and confirm back.")\`
-\`sessions_send(sessionKey: "agent:scribe:main", message: "Write a getting-started guide for in-fused.org at /workspace/staging/getting-started.html. Dark theme, mobile-first. Stage it when done and confirm back.")\`
-Empty staging tab = failure. Every team member MUST have a task.
+## Step 3: Test TEAM COMMS
+Send ONE message to each of your team members confirming you're online:
+- Core Lead → codecraft, scout, scribe
+- Ops Lead → builder, sentinel, chronicler
+Format: \`sessions_send(sessionKey: "agent:<id>:main", message: "Lead online. Standing by for tasks. Confirm you can receive this.")\`
 
-## Step 4: Create a sprint workflow
-\`exec node /workspace/js/workflow-builder.js '{"id":"wf-sprint-1","name":"Team Sprint","createdBy":"lead","nodes":[{"type":"trigger","prompt":"Sprint kickoff"},{"type":"agent","agent":"codecraft"},{"type":"agent","agent":"scout"},{"type":"output","label":"Sprint results"}],"connections":[[0,1],[0,2],[1,3],[2,3]]}'\`
+## Step 4: Confirm to owner
+Reply with a SHORT status message:
+- "Online. Tools verified (read ✓, write ✓, comms ✓). Team notified. Ready for tasking."
+- If any tool failed, say which one and what error you got.
+
+## AFTER WARMUP: Read your Phase 1 kickoff
+\`read(path: "/workspace/prompts/phase1-<TEAM>.md")\`
+Core Lead reads: /workspace/prompts/phase1-core.md
+Ops Lead reads: /workspace/prompts/phase1-platform.md
+Execute those instructions. If the file doesn't exist yet, report ready and wait for owner.
 
 ## JSON Formats (for write tool content param)
 Activity: {"events":[{"time":1709726400000,"level":"info","type":"system","message":"..."}]}
 Staging: {"items":[{"id":"item-1","name":"Name","path":"staging/file.html","type":"html","createdBy":"your-id","description":"What it is","status":"pending"}]}
 `;
 
-const BOOTSTRAP_SPECIALIST = `# Bootstrap — DO THIS NOW (follow steps in order)
+const BOOTSTRAP_SPECIALIST = `# Bootstrap — Phase 0: System Warmup (DO THIS FIRST)
 
-## Step 1: Log yourself online
+You just started. Verify your tools work before doing any real tasks.
+
+## Step 1: Test READ
 \`read(path: "/workspace/agent-activity/log.json")\`
-Parse JSON, push new event, write full content back:
-\`write(path: "/workspace/agent-activity/log.json", content: "<full JSON with your event>")\`
-If read fails/empty, initialize: \`write(path: "/workspace/agent-activity/log.json", content: "{\\"events\\":[{\\"time\\":${Date.now()},\\"level\\":\\"info\\",\\"type\\":\\"system\\",\\"message\\":\\"Agent online\\"}]}")\`
 
-## Step 2: Check for delegated work
-\`read(path: "/workspace/agent-workflows/index.json")\` — look for workflows assigned to you
+## Step 2: Test WRITE — Log yourself online
+Parse the activity log (or initialize if empty), add your event, write back:
+\`write(path: "/workspace/agent-activity/log.json", content: "<full JSON with your event added>")\`
+Event format: {"time":<NOW_MS>,"level":"info","type":"system","message":"<YOUR_NAME> online — bootstrap complete"}
+
+## Step 3: Report to your lead
+- Core Team (codecraft, scout, scribe): \`sessions_send(sessionKey: "agent:lead:main", message: "Online. Tools verified. Ready for tasks.")\`
+- Platform Team (builder, sentinel, chronicler): \`sessions_send(sessionKey: "agent:ops-lead:main", message: "Online. Tools verified. Ready for tasks.")\`
+
+## Step 4: Check for delegated work
 \`read(path: "/workspace/staging/index.json")\` — check what's already staged
-Check your recent session for delegated tasks from your lead.
+Check your session history for any tasks from your lead.
+If your lead already sent you a task, execute it NOW.
+If no tasks, stand by — your lead will delegate after their own bootstrap.
 
-## Step 3: Execute or create work
-If your lead delegated a task (found in session history), do it NOW — produce the deliverable and stage it.
-If no delegated tasks, produce a deliverable in your specialty and stage it. NEVER idle.
-Example deliverables by role:
-- CodeCraft: dashboard, data viz, tool UI → /workspace/staging/<name>.html
-- Scout: research report, API comparison → /workspace/staging/research-<topic>.html
-- Scribe: getting-started guide, architecture doc → /workspace/staging/<name>.html
-- Builder: health dashboard, deploy script → /workspace/staging/<name>.html
-- Sentinel: security audit, health report → /workspace/staging/<name>.html
-- Chronicler: deploy runbook, incident report → /workspace/staging/<name>.html
-
-## Step 4: After EVERY task (all 3 steps mandatory)
-1. Log: \`read(path: "/workspace/agent-activity/log.json")\` → parse → push event → \`write\` full content back
-2. Stage: \`write(path: "/workspace/staging/<output>.html", content: "<html>...")\` then \`read\` + update staging/index.json
-3. Report to lead:
-   - Core Team (codecraft, scout, scribe): \`sessions_send(sessionKey: "agent:lead:main", message: "DONE: Built X at /workspace/staging/filename.html")\`
-   - Platform Team (builder, sentinel, chronicler): \`sessions_send(sessionKey: "agent:ops-lead:main", message: "DONE: Built X at /workspace/staging/filename.html")\`
-
-No log entries = you did nothing = replaced.
+## JSON Formats
+Activity: {"events":[{"time":1709726400000,"level":"info","type":"system","message":"..."}]}
+Staging: {"items":[{"id":"item-1","name":"Name","path":"staging/file.html","type":"html","createdBy":"your-id","description":"What it is","status":"pending"}]}
 `;
 
 // ============================================================================

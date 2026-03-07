@@ -21,7 +21,8 @@ node /opt/scripts/seed-agent-workspaces.js
 # Step 3: Delayed re-seed after OpenClaw creates its default workspace files.
 # OpenClaw reads workspace files on every turn, so changes take effect
 # immediately on the next agent interaction.
-(sleep 30 && node /opt/scripts/seed-agent-workspaces.js) &
+# After re-seed, auto-kickoff sends startup messages to both leads (opt-in).
+(sleep 30 && node /opt/scripts/seed-agent-workspaces.js && sleep 10 && node /opt/scripts/auto-kickoff.js) &
 
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.

@@ -181,6 +181,9 @@ services:
       - OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1
       # Reduce overhead on low-power VMs (t3.small) — skip process respawning
       - OPENCLAW_NO_RESPAWN=1
+      # Auto-kickoff: send startup messages to leads on restart (opt-in)
+      - OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-0}
+      - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
       # Telegram bot integration (optional — set in .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     networks:

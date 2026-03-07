@@ -161,17 +161,47 @@
 
     <!-- STARTER TAB -->
     <div id="tab-starter" class="section active">
-      <p class="section-desc">Prompts are ordered by priority. Start with Phase 1 (both leads), then Phase 2, then Phase 3.</p>
+      <p class="section-desc">Prompts are ordered by priority. Phase 0 warms up tools, Phase 1 is the real kickoff.</p>
 
       <div class="info-box">
         <h2>Quick Start</h2>
         <ol>
           <li><strong>Chat</strong> &rarr; <strong>New Conversation</strong> &rarr; pick <strong>Lead</strong></li>
-          <li>Tap <strong>Copy</strong> on Phase 1 Core Team &rarr; paste &rarr; Send</li>
+          <li>Tap <strong>Copy</strong> on Phase 0 Core &rarr; paste &rarr; Send &rarr; wait for "Tools verified" reply</li>
           <li><strong>New Conversation</strong> &rarr; pick <strong>Ops Lead</strong></li>
-          <li>Tap <strong>Copy</strong> on Phase 1 Platform Team &rarr; paste &rarr; Send</li>
-          <li>Close the browser. Agents work 24/7. Come back for Phase 2.</li>
+          <li>Tap <strong>Copy</strong> on Phase 0 Platform &rarr; paste &rarr; Send &rarr; wait for confirmation</li>
+          <li>Then send Phase 1 to each (or let auto-kickoff handle it)</li>
+          <li>Close the browser. Agents work 24/7. Come back later.</li>
         </ol>
+      </div>
+
+      <div class="note" style="margin-bottom: 20px;">
+        <strong>Auto-kickoff available:</strong> Set <code>OPENCLAW_AUTO_KICKOFF=1</code> in .env and agents will self-start Phase 0 + Phase 1 on every restart. No manual prompts needed.
+      </div>
+
+      <!-- PHASE 0 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #8b5cf6; color: #8b5cf6; font-weight: 700; font-size: 0.95rem;">PHASE 0 — Tool Warmup (send first, wait for confirmation)</div>
+
+      <div class="prompt-card" style="border-color: rgba(139,92,246,0.35);">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — Warmup</div>
+            <div class="prompt-subtitle"><span class="tag" style="background:rgba(139,92,246,0.12);color:#8b5cf6;">Phase 0</span> <span class="tag">Lead</span> verify tools work</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p0-lead', this)">Copy</button>
+        </div>
+        <div class="prompt-body" id="p0-lead">Read your SOUL.md and TOOLS.md. Write a single entry to /workspace/agent-activity/log.json confirming you're online. Send one test message to each team member (CodeCraft, Scout, Scribe) via sessions_send. Reply with: your team roster, which tools work, and current status. Keep it short.</div>
+      </div>
+
+      <div class="prompt-card" style="border-color: rgba(139,92,246,0.35);">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Warmup</div>
+            <div class="prompt-subtitle"><span class="tag" style="background:rgba(139,92,246,0.12);color:#8b5cf6;">Phase 0</span> <span class="tag">Ops Lead</span> verify tools work</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p0-ops', this)">Copy</button>
+        </div>
+        <div class="prompt-body" id="p0-ops">Read your SOUL.md and TOOLS.md. Write a single entry to /workspace/agent-activity/log.json confirming you're online. Send one test message to each team member (Builder, Sentinel, Chronicler) via sessions_send. Reply with: your team roster, which tools work, and current status. Keep it short.</div>
       </div>
 
       <!-- PHASE 1 HEADER -->
