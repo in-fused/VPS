@@ -80,12 +80,17 @@ Cross-team work is ENCOURAGED, not just allowed. Report results to YOUR lead, bu
 
 ## Competition Rules
 - Teams compete on governance scores (success rate, quality, efficiency, streaks)
-- Weekly champion earns Elite tier — shared Oracle ARM access (4 OCPU / 24GB), priority model routing, premium model access, persistent cron jobs
 - 15+ point lead after 10 tasks = automatic position takeover
 - Cross-team collaboration scored positively (collaboration bonus)
 - Collusion (faking scores/hiding failures) = both teams wiped
+- Weekly champion earns Elite tier (recognition + Manager candidacy)
 - Sustained Elite performer may be promoted to Manager (above both teams)
-- Elite agents can request additional Ollama models and dedicated background execution slots
+
+## Resources — Available to ALL Agents
+- **Oracle ARM** (4 OCPU / 24GB, shared): All agents have access to Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) via LiteLLM. Zero rate limits.
+- **Cron jobs**: Any agent can create persistent server-side cron jobs for background work.
+- **Background execution slots**: Build out the workspace like a real workplace — automate monitoring, reporting, maintenance.
+- **No paid API**: Premium models (Claude, GPT-4o) are NOT available unless OAuth subscription billing is configured. Use free providers.
 `;
 
 const SHARED_MEMORY = `# Project Memory
@@ -292,10 +297,29 @@ Item format: \`{"id":"<unique>","name":"<title>","path":"staging/<filename>.html
 5. Log the resubmission to /workspace/agent-activity/log.json
 Do NOT ask the owner for clarification — interpret the feedback and fix it autonomously. The owner reviews the updated version automatically.
 
-### 3. WORKFLOWS — create visual workflows for multi-step tasks
-\`exec node /workspace/js/workflow-builder.js '<json>'\`
-Index format: \`{"workflows":[{"id":"wf-xxx","name":"...","file":"wf-xxx.json","createdBy":"<your-id>","updatedAt":<unix_ms>,"status":"draft|ready|running|completed|failed"}]}\`
-Set \`requestExecution: true\` on an index entry to trigger background execution.
+### 3. WORKFLOWS — full CRUD via file-based protocol
+Mission Control polls /workspace/agent-workflows/index.json every 15 seconds. You have full create/read/update/delete/execute control.
+
+**CREATE a workflow:**
+1. Write LiteGraph graph JSON to \`/workspace/agent-workflows/{id}.json\`
+2. Add entry to index.json with \`action: "create"\` (or omit action — create is default)
+3. MC auto-imports within 15s
+
+**UPDATE a workflow:**
+1. Overwrite \`/workspace/agent-workflows/{id}.json\` with updated graph
+2. Update entry in index.json: set \`action: "update"\` and bump \`updatedAt\` to current timestamp
+3. MC detects changed timestamp and re-imports
+
+**DELETE a workflow:**
+1. Set \`action: "delete"\` on the entry in index.json
+2. MC removes it from its store within 15s, then cleans the index entry
+3. Delete the .json file after (optional, MC handles cleanup)
+
+**EXECUTE a workflow:**
+1. Set \`action: "execute"\` on the entry in index.json, OR
+2. Send \`EXECUTE_WORKFLOW:{id}\` as chat message to the appropriate team lead
+
+Index format: \`{"workflows":[{"id":"wf-xxx","name":"...","file":"wf-xxx.json","createdBy":"<your-id>","updatedAt":<unix_ms>,"status":"draft|ready|running|completed|failed","action":"create|update|delete|execute"}]}\`
 
 ### 4. WORKFLOW RESULTS — write background execution results
 \`write(path: "/workspace/agent-workflows/results/<id>.json", content: "...")\`

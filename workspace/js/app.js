@@ -257,13 +257,19 @@ Core Team: Lead (orchestrator) · CodeCraft (dev) · Scout (research) · Scribe 
 Platform Team: Ops Lead (orchestrator) · Builder (infra) · Sentinel (security) · Chronicler (docs)
 Teams compete on governance scores. Cross-team messaging allowed, prefer own team first.`;
 
-const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=Oracle ARM 24GB,full autonomy,weekly champion only.
-MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-qwen3-235b, cerebras-zai-glm, cerebras-gpt-oss-120b), Gemini (gemini-flash, gemini-flash-lite, gemini-pro — 3x keys), Mistral (codestral, mistral-large, mistral-small, mistral-nemo). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
-WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite. Counters reset weekly.
-ELITE ORACLE: Winner gets Oracle ARM server (24GB). Can bring team, recruit from marketplace, or request new agents. Chooses own team composition.
+const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools,cron jobs,background execution | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=full autonomy,weekly champion recognition,Manager candidacy.
+ALL AGENTS: Oracle ARM shared access (4 OCPU/24GB, Ollama models with zero rate limits), persistent cron jobs, dedicated background execution slots. Build out the workspace like a real workplace.
+MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-qwen3-235b, cerebras-zai-glm, cerebras-gpt-oss-120b), Gemini (gemini-flash, gemini-flash-lite, gemini-pro — 3x keys), Mistral (codestral, mistral-large, mistral-small, mistral-nemo), Ollama (qwen3.5:9b, qwen3:14b, qwen3-coder:30b — zero rate limits). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
+WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite recognition. Counters reset weekly.
+ELITE: Recognition tier for weekly champion. No exclusive resource access — all agents already have full tools. Elite signals sustained high performance and Manager candidacy.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
 
-const WORKFLOW_REFERENCE = `WORKFLOWS: Write LiteGraph JSON to /workspace/agent-workflows/{id}.json, update index.json: {workflows:[{id,name,file,createdBy,updatedAt,status}]}. MC auto-imports every 15s.
+const WORKFLOW_REFERENCE = `WORKFLOW CRUD: Agents manage workflows via /workspace/agent-workflows/. MC polls every 15s.
+CREATE: Write graph to /workspace/agent-workflows/{id}.json + add entry to index.json with action:"create".
+UPDATE: Overwrite /workspace/agent-workflows/{id}.json + update entry in index.json with action:"update" and new updatedAt.
+DELETE: Set action:"delete" on entry in index.json. MC removes workflow from store. Clean up the .json file after.
+EXECUTE: Set action:"execute" on entry in index.json OR send EXECUTE_WORKFLOW:{id} as chat to team lead.
+Index format: {workflows:[{id,name,file,createdBy,updatedAt,status,action?}]}. Actions: create|update|delete|execute (default: create).
 Nodes (mission/ namespace): trigger(prompt)→prompt,trigger | agent(agent,systemPrompt,maxTokens)←prompt,context→response,done | task(goal,constraints,priority)←input,execute→result,done | condition(condition,type:Contains/Equals/Regex/Length/IsEmpty)←input→true,false | output(destination,label)←result,done | loop(maxIter)←items→item,index,done | merge(mode:Concat/JSON/Best/Summary)←input_1,input_2→merged | tool(tool,config)←input,execute→result,done
 Links: {id:{id,type,origin_id,origin_slot,target_id,target_slot}}`;
 

@@ -243,26 +243,22 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 **Tier storage (EC2 t3.small, 50GB gp3 volume):**
 - PROBATION (0): 50 MB — supervised, must prove competence
-- ACTIVE (1): 200 MB — default starting tier, standard tools
-- PROVEN (2): 500 MB — semi-autonomous, priority routing
-- ELITE (3): Shared access to Oracle Cloud ARM (4 OCPU, 24 GB RAM), priority model routing, premium model access, persistent cron jobs — fully autonomous
+- ACTIVE (1): 200 MB — default starting tier, standard tools, cron jobs, background execution
+- PROVEN (2): 500 MB — semi-autonomous, score≥70+15tasks+3streak
+- ELITE (3): Full autonomy, weekly champion recognition, Manager candidacy
 
-**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier. The owner can manually promote a sustained Elite performer to Manager (above both teams).
+**All agents have access to:** Oracle Cloud ARM (shared, 4 OCPU / 24GB), Ollama models (zero rate limits), persistent cron jobs, dedicated background execution slots. No resources are Elite-gated — every agent can build out the workspace like a real workplace.
 
-**Oracle Cloud ARM — Shared Access Model (updated 2026-03-08):**
+**No paid API:** Premium models (Claude, GPT-4o, etc.) are NOT available for agent use. Only free providers. If OAuth subscription billing (ChatGPT Plus, Claude Pro) is configured in the future, that would change.
+
+**Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite recognition. The owner can manually promote a sustained Elite performer to Manager (above both teams).
+
+**Oracle Cloud ARM — Shared by All Agents (updated 2026-03-08):**
 - **1 instance:** 4 OCPU / 24 GB RAM (Oracle Cloud Always Free tier) at `150.136.153.194:11434`
 - **3 Ollama models loaded:** `qwen3.5:9b` (6.6 GB), `qwen3:14b` (9.3 GB), `qwen3-coder:30b` (18.6 GB)
 - **Both teams share full resources** — models need the full 24 GB RAM; partitioning would prevent loading the 30B model
 - **Zero rate limits** — unlike cloud providers, Ollama has no RPD/TPD caps
 - **LiteLLM routes via `OLLAMA_BASE_URL`** — agents don't call Ollama directly; LiteLLM handles load balancing + fallback
-
-**Elite Tier Benefits (shared access, not partitioned):**
-- Priority access to Ollama models (no queuing behind lower-tier agents)
-- Ability to create persistent server-side cron jobs on Oracle ARM
-- Access to premium paid models (Claude Sonnet/Opus, GPT-4o) for complex tasks
-- Dedicated background execution slots (concurrent cron runs)
-- Can request owner to pull additional Ollama models for specialized tasks
-- Can bring team members along for shared Oracle ARM workloads
 
 Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
 - `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
@@ -495,10 +491,14 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 ### Agent↔Workflow Bridge (workflow-bridge.js, working)
 - **Import (Agents → MC):** Polls `/workspace/agent-workflows/index.json` every 15s + polls agent workspaces via RPC every 60s. Auto-imports agent-created workflows.
 - **Export (MC → Agents):** `syncWorkflow()` writes to Lead/Ops Lead workspace via `agents.files.set` RPC. Debounced 10s.
+- **Full CRUD via file protocol:** Agents write to index.json with `action` field:
+  - `action: "create"` (default) — write graph JSON + add index entry → MC imports
+  - `action: "update"` — overwrite graph JSON + bump `updatedAt` → MC re-imports
+  - `action: "delete"` — MC removes workflow from store, cleans index entry
+  - `action: "execute"` — MC triggers workflow execution, clears action after
 - **Background Execution:** Sends `EXECUTE_WORKFLOW:{id}\n{json}` to team lead. Auto-routes to correct team. Results written to `/workspace/agent-workflows/results/{id}.json`.
 - **Governance Sync:** Writes agent scores to `GOVERNANCE.md` in agent workspaces.
 - **Activity Log:** Reads `/workspace/agent-activity/log.json` for "While You Were Away" report.
-- **Gap:** No formal REST/RPC CRUD API — agents create workflows by writing files to the shared volume, not via structured API calls. Functional but not discoverable.
 
 ### Scheduled Triggers (partially wired)
 - `cron.enabled=true` in entrypoint. Agents can create server-side cron jobs via the `cron` tool.
@@ -527,7 +527,7 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | 1 | Reliable Chat Pipeline | ✅ Complete | 3-tier fallback (OpenClaw WS → LiteLLM SSE → demo). Rate-limit recovery: wait 8s → retry Route 1 → Route 2 model rotation. 120s timeout with history recovery. Reconnection with exponential backoff + iOS visibility handlers. |
 | 2 | Workflow Persistence | ✅ Complete | Auto-save every 5s. Dynamic workflow list from localStorage. Canvas restore on navigation. Agent sync via bridge. |
 | 3 | End-to-End Workflow Execution | ✅ Complete | Trigger → Agent → Condition → Output works with real OpenClaw/LiteLLM calls. Branch gating, model resolution, output routing all functional. |
-| 4 | Agent↔Workflow Bridge | ✅ Functional | Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. Gap: no formal CRUD API (agents write files, not API calls). |
+| 4 | Agent↔Workflow Bridge | ✅ Complete | Full CRUD via file-based `action` field (create/update/delete/execute). Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. |
 | 5 | Real Tool Execution | ✅ Complete | 8 tools mapped to OpenClaw: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. |
 | 6 | Loop Node Iteration | ✅ Complete | Executor detects `_loop` marker, re-runs downstream subgraph per item, accumulates and joins results. |
 | 7 | Background Autonomy | ✅ Mostly Complete | OpenClaw runs 24/7. Cron jobs work server-side. Results sync on next visit. Gap: webhook triggers still UI-only. |
@@ -535,8 +535,6 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 ### Remaining Work
 
 1. **Webhook triggers** — No backend endpoint for incoming webhooks to trigger workflows
-2. **Workflow CRUD API** — Agents create workflows by writing JSON files; no structured RPC for create/modify/delete
-3. **Oracle ARM resource strategy** — Define how Elite agents access Oracle Cloud ARM (shared vs partitioned)
 
 ---
 

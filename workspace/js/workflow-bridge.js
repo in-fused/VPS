@@ -76,8 +76,40 @@ class WorkflowBridge {
     if (!resp.ok) return;
 
     const index = await resp.json();
+    let indexModified = false;
 
     for (const entry of (index.workflows || [])) {
+      const action = entry.action || 'create';
+
+      // Handle delete action — remove workflow from MC store
+      if (action === 'delete') {
+        const wfStore = Alpine?.store('workflows');
+        if (wfStore) {
+          wfStore.list = wfStore.list.filter(w => w.id !== entry.id);
+          localStorage.removeItem('mc-workflow-' + entry.id);
+          wfStore._persist();
+          Alpine.store('monitor')?.addLog('info',
+            `Agent deleted workflow: ${entry.name || entry.id} (by ${entry.createdBy || 'agent'})`
+          );
+        }
+        // Mark entry for removal from index
+        entry._remove = true;
+        indexModified = true;
+        continue;
+      }
+
+      // Handle execute action — trigger workflow execution
+      if (action === 'execute') {
+        if (entry.status !== 'running') {
+          this._executeAgentWorkflow(entry.id);
+        }
+        // Clear the action after processing
+        entry.action = undefined;
+        indexModified = true;
+        continue;
+      }
+
+      // Handle create/update — import or re-import workflow
       const key = entry.id + ':' + entry.updatedAt;
       if (this._knownFiles.has(key)) continue;
 
@@ -88,13 +120,46 @@ class WorkflowBridge {
 
       const wfData = await wfResp.json();
       this._importWorkflow(entry, wfData);
+
+      // Clear action after successful import
+      if (entry.action) {
+        entry.action = undefined;
+        indexModified = true;
+      }
     }
 
-    // Check for execution requests
+    // Clean up processed delete entries from index and write back
+    if (indexModified) {
+      index.workflows = (index.workflows || []).filter(e => !e._remove);
+      // Clean up action fields and _remove markers
+      for (const e of index.workflows) {
+        delete e._remove;
+        if (e.action === undefined) delete e.action;
+      }
+      this._writeBackIndex(index);
+    }
+
+    // Legacy: check for requestExecution flag (backwards compat)
     for (const entry of (index.workflows || [])) {
       if (entry.requestExecution && entry.status !== 'running') {
         this._executeAgentWorkflow(entry.id);
       }
+    }
+  }
+
+  // Write cleaned index back to volume (best-effort, non-blocking)
+  async _writeBackIndex(index) {
+    try {
+      if (!window.openclawClient?.authenticated) return;
+      // Write via agent file RPC (Lead workspace syncs to volume)
+      await window.openclawClient.syncWorkflowIndex(
+        index.workflows.map(e => ({
+          id: e.id, name: e.name, file: e.file,
+          createdBy: e.createdBy, updatedAt: e.updatedAt, status: e.status,
+        }))
+      );
+    } catch {
+      // Best-effort — next poll will re-process if needed
     }
   }
 
