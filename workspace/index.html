@@ -473,10 +473,16 @@
                 <div class="text-sm font-semibold text-mc-text">While You Were Away</div>
                 <div class="text-xs text-mc-text-muted" x-text="($store.app.awayReport?.duration || '') + ' since last visit'"></div>
               </div>
-              <button @click="$store.app.awayReport = null"
-                      class="text-mc-text-muted hover:text-mc-text text-xs px-2 py-1 rounded hover:bg-mc-elevated transition-all">
-                Dismiss
-              </button>
+              <div class="flex items-center gap-2">
+                <button @click="$store.app.setView('activity')"
+                        class="text-violet-400 hover:text-violet-300 text-xs px-2 py-1 rounded hover:bg-violet-500/10 transition-all">
+                  View All
+                </button>
+                <button @click="$store.app.awayReport = null"
+                        class="text-mc-text-muted hover:text-mc-text text-xs px-2 py-1 rounded hover:bg-mc-elevated transition-all">
+                  Dismiss
+                </button>
+              </div>
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div class="bg-mc-bg rounded-lg p-3">
@@ -496,6 +502,18 @@
                 <div class="text-lg font-bold text-red-400" x-text="$store.app.awayReport?.errors || 0"></div>
               </div>
             </div>
+            <!-- Top active agents while away -->
+            <template x-if="$store.app.awayReport?.topAgents?.length > 0">
+              <div class="mt-3 flex items-center gap-2 flex-wrap text-xs">
+                <span class="text-mc-text-muted">Most active:</span>
+                <template x-for="ta in $store.app.awayReport.topAgents" :key="ta.id">
+                  <span class="px-2 py-1 rounded-lg bg-mc-bg border border-mc-border/50">
+                    <span class="text-mc-text-sec" x-text="ta.id"></span>
+                    <span class="text-mc-text-muted ml-1" x-text="ta.count + ' events'"></span>
+                  </span>
+                </template>
+              </div>
+            </template>
           </div>
 
           <!-- Stats Row -->
@@ -541,6 +559,9 @@
                     <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2">
                         <span class="font-semibold text-mc-text truncate" x-text="agent.name"></span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                              :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agent.id).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agent.id).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
+                              x-text="$store.governance.getTierName(agent.id)"></span>
                         <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
                       </div>
                       <div class="text-xs text-mc-text-muted truncate" x-text="agent.description"></div>
@@ -684,6 +705,9 @@
                           <div class="flex items-center gap-2">
                             <span class="font-semibold text-mc-text" x-text="agent.name"></span>
                             <span x-show="team.lead === agent.id" class="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded font-medium">LEAD</span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                                  :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agent.id).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agent.id).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
+                                  x-text="$store.governance.getTierName(agent.id)"></span>
                             <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
                           </div>
                           <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
@@ -694,6 +718,7 @@
                         <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
                         <div class="flex justify-between"><span class="text-mc-text-muted">Tokens Used</span><span class="text-mc-text-sec" x-text="formatTokens(agent.tokensUsed)"></span></div>
                         <div class="flex justify-between"><span class="text-mc-text-muted">Score</span><span class="text-mc-text-sec font-semibold" x-text="$store.governance.getScore(agent.id)"></span></div>
+                        <div class="flex justify-between"><span class="text-mc-text-muted">Tier</span><span class="font-semibold" :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'text-amber-400' : $store.governance._getMetrics(agent.id).tier === 2 ? 'text-cyan-400' : $store.governance._getMetrics(agent.id).tier === 0 ? 'text-red-400' : 'text-mc-text-sec'" x-text="$store.governance.getTierName(agent.id) + ' (' + $store.governance._getMetrics(agent.id).tier + '/3)'"></span></div>
                       </div>
                       <div x-show="agent.tools && agent.tools.length > 0" class="mt-3 flex flex-wrap gap-1">
                         <template x-for="toolId in agent.tools" :key="toolId">
@@ -1082,7 +1107,14 @@
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="text-lg flex-shrink-0" x-text="$store.sessions.active?.agentEmoji"></span>
                   <span class="text-sm font-semibold text-mc-text truncate" x-text="$store.sessions.active?.agentName"></span>
-                  <span class="text-xs text-mc-text-muted truncate hidden sm:inline" x-text="$store.sessions.active?.title"></span>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                        x-data="{ get agentId() { return $store.sessions.active?.agentId || '' } }"
+                        :class="$store.governance._getMetrics(agentId).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agentId).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agentId).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
+                        x-text="$store.governance.getTierName(agentId)"></span>
+                  <span class="text-[10px] font-mono text-mc-text-muted flex-shrink-0 hidden sm:inline"
+                        x-data="{ get agentId() { return $store.sessions.active?.agentId || '' } }"
+                        x-text="'Score: ' + $store.governance.getScore(agentId)"></span>
+                  <span class="text-xs text-mc-text-muted truncate hidden md:inline" x-text="$store.sessions.active?.title"></span>
                 </div>
               </template>
               <template x-if="!$store.sessions.active">

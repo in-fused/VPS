@@ -1091,6 +1091,9 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('staging').startPolling(15000);
       }
 
+      // Generate "While You Were Away" report from activity log
+      await this._generateAwayReport();
+
       // Track last active timestamp for away-report (localStorage persists across sessions)
       localStorage.setItem('mc-last-active', Date.now().toString());
       this._lastActiveTimer = setInterval(() => {
@@ -1133,6 +1136,85 @@ document.addEventListener('alpine:init', () => {
           healthChecker._interval = setInterval(() => healthChecker.check().then(hh => this._applyHealth(hh)), 45000);
         }
       }, pollInterval);
+    },
+
+    async _generateAwayReport() {
+      try {
+        const lastActive = parseInt(localStorage.getItem('mc-last-active') || '0');
+        if (!lastActive) return; // first visit ever — no "away" period
+
+        const awayMs = Date.now() - lastActive;
+        // Only show if away for at least 5 minutes
+        if (awayMs < 5 * 60 * 1000) return;
+
+        // Format duration string
+        const awayHours = Math.floor(awayMs / 3600000);
+        const awayDays = Math.floor(awayHours / 24);
+        const duration = awayDays > 0
+          ? `${awayDays}d ${awayHours % 24}h`
+          : awayHours > 0
+            ? `${awayHours}h ${Math.floor((awayMs % 3600000) / 60000)}m`
+            : `${Math.floor(awayMs / 60000)}m`;
+
+        // Fetch server-side activity log
+        let serverEvents = [];
+        try {
+          const resp = await fetch('/workspace/agent-activity/log.json', {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            serverEvents = (data.events || []).filter(e => e.time > lastActive);
+          }
+        } catch {}
+
+        // Also check staging items created while away
+        let stagingItems = 0;
+        try {
+          const resp = await fetch('/workspace/staging/index.json', {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            stagingItems = (data.items || []).filter(item =>
+              new Date(item.createdAt || item.updatedAt || 0).getTime() > lastActive
+            ).length;
+          }
+        } catch {}
+
+        // Count by type
+        const tasksCompleted = serverEvents.filter(e => e.type === 'task-complete').length;
+        const workflowsRun = serverEvents.filter(e => e.type === 'workflow-complete').length;
+        const stagingNew = serverEvents.filter(e => e.type === 'staging-new').length + stagingItems;
+        const errors = serverEvents.filter(e => e.level === 'error' || e.type === 'error').length;
+
+        // Only show report if there's something to report
+        if (tasksCompleted + workflowsRun + stagingNew + errors + serverEvents.length === 0) return;
+
+        this.awayReport = {
+          duration,
+          tasksCompleted,
+          workflowsRun,
+          stagingItems: stagingNew,
+          errors,
+          totalEvents: serverEvents.length,
+          topAgents: this._getTopAgentsFromEvents(serverEvents),
+        };
+      } catch {}
+    },
+
+    _getTopAgentsFromEvents(events) {
+      const counts = {};
+      for (const e of events) {
+        const agent = e.agent || e.createdBy || '';
+        if (agent) counts[agent] = (counts[agent] || 0) + 1;
+      }
+      return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([id, count]) => ({ id, count }));
     },
 
     async _syncAgentsFromOpenClaw() {
