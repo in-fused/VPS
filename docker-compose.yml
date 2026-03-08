@@ -184,7 +184,7 @@ services:
       # Reduce overhead on low-power VMs (t3.small) — skip process respawning
       - OPENCLAW_NO_RESPAWN=1
       # Auto-kickoff: send startup messages to leads on restart (opt-in)
-      - OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-0}
+      - OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-1}
       - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
       # Oracle Cloud ARM — agents SSH here for builds, deploys, background compute
       - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
