@@ -136,9 +136,7 @@ PermitEmptyPasswords no
 PermitRootLogin no
 MaxAuthTries 3
 MaxSessions 3
-ChallengeResponseAuthentication no
-KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+KbdInteractiveAuthentication no
 ClientAliveInterval 300
 ClientAliveCountMax 2
 LogLevel VERBOSE
