@@ -287,6 +287,35 @@ systemctl enable unattended-upgrades
 log_ok "Unattended upgrades enabled"
 
 ###############################################################################
+# 9. Agent Workspace — directories for autonomous agent builds
+###############################################################################
+log_info "Creating agent workspace directories..."
+AGENT_WS="/home/$DEPLOY_USER/agent-workspace"
+mkdir -p "$AGENT_WS"
+mkdir -p "$AGENT_WS/builds"
+mkdir -p "$AGENT_WS/services"
+mkdir -p "$AGENT_WS/logs"
+mkdir -p "$AGENT_WS/data"
+chown -R "$DEPLOY_USER:$DEPLOY_USER" "$AGENT_WS"
+
+# Install Node.js (LTS) for agent builds if not present
+if ! command -v node &>/dev/null; then
+    log_info "Installing Node.js LTS for agent builds..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null
+    apt-get install -y nodejs 2>/dev/null || log_warn "Node.js install failed — agents can install manually"
+fi
+if command -v node &>/dev/null; then
+    log_ok "Node.js $(node -v) available for agent builds"
+fi
+
+# Install Python3 pip if not present
+if ! command -v pip3 &>/dev/null; then
+    apt-get install -y python3-pip 2>/dev/null || log_warn "pip3 install failed"
+fi
+
+log_ok "Agent workspace ready: $AGENT_WS"
+
+###############################################################################
 # Done!
 ###############################################################################
 echo ""

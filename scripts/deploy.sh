@@ -169,6 +169,32 @@ else
 fi
 
 ###############################################################################
+# 4b. Oracle ARM bridge — SSH key + auto-derive IP from OLLAMA_BASE_URL
+###############################################################################
+if [ ! -f oracle-instance-key ]; then
+    log_info "Creating placeholder oracle-instance-key (no Oracle provisioned yet)"
+    touch oracle-instance-key
+    chmod 600 oracle-instance-key
+fi
+# Auto-populate ORACLE_ARM_IP from OLLAMA_BASE_URL if not already set
+if [ -z "${ORACLE_ARM_IP:-}" ] && [ -n "${OLLAMA_BASE_URL:-}" ]; then
+    DERIVED_IP=$(echo "$OLLAMA_BASE_URL" | sed -E 's|https?://([^:/]+).*|\1|')
+    if [ -n "$DERIVED_IP" ] && [ "$DERIVED_IP" != "localhost" ] && [ "$DERIVED_IP" != "127.0.0.1" ]; then
+        echo "ORACLE_ARM_IP=$DERIVED_IP" >> .env
+        export ORACLE_ARM_IP="$DERIVED_IP"
+        log_ok "Auto-derived ORACLE_ARM_IP=$DERIVED_IP from OLLAMA_BASE_URL"
+    fi
+fi
+if [ -z "${ORACLE_ARM_IP_2:-}" ] && [ -n "${OLLAMA_BASE_URL_2:-}" ]; then
+    DERIVED_IP_2=$(echo "$OLLAMA_BASE_URL_2" | sed -E 's|https?://([^:/]+).*|\1|')
+    if [ -n "$DERIVED_IP_2" ] && [ "$DERIVED_IP_2" != "localhost" ] && [ "$DERIVED_IP_2" != "127.0.0.1" ]; then
+        echo "ORACLE_ARM_IP_2=$DERIVED_IP_2" >> .env
+        export ORACLE_ARM_IP_2="$DERIVED_IP_2"
+        log_ok "Auto-derived ORACLE_ARM_IP_2=$DERIVED_IP_2 from OLLAMA_BASE_URL_2"
+    fi
+fi
+
+###############################################################################
 # 5. Clean up old Docker images to prevent disk-full failures
 ###############################################################################
 log_info "Cleaning up unused Docker images..."

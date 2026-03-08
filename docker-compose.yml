@@ -162,6 +162,8 @@ services:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
       - ./scripts:/opt/scripts:ro
+      # Oracle ARM SSH key — agents use exec ssh to access Oracle for builds/deploys
+      - ./oracle-instance-key:/opt/oracle/ssh-key:ro
     command: ["/bin/sh", "/opt/scripts/openclaw-entrypoint.sh"]
     environment:
       # Skip entry.js respawn — we supply the V8 flags and warning suppression directly
@@ -184,6 +186,9 @@ services:
       # Auto-kickoff: send startup messages to leads on restart (opt-in)
       - OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-0}
       - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
+      # Oracle Cloud ARM — agents SSH here for builds, deploys, background compute
+      - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
+      - ORACLE_ARM_IP_2=${ORACLE_ARM_IP_2:-}
       # Telegram bot integration (optional — set in .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     networks:

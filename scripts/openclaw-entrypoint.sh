@@ -7,6 +7,21 @@
 # 3. Starts the OpenClaw gateway
 # =============================================================================
 
+# Step 0: Ensure SSH client is available for oracle-bridge.sh
+# OpenClaw image is Node.js-based and may not include ssh/scp.
+# Install silently in background to avoid delaying startup.
+if ! command -v ssh >/dev/null 2>&1; then
+  echo "[entrypoint] Installing SSH client for Oracle ARM bridge..."
+  (
+    if command -v apk >/dev/null 2>&1; then
+      apk add --no-cache openssh-client >/dev/null 2>&1
+    elif command -v apt-get >/dev/null 2>&1; then
+      apt-get update -qq && apt-get install -y -qq openssh-client >/dev/null 2>&1
+    fi
+    echo "[entrypoint] SSH client installed"
+  ) &
+fi
+
 # Step 1: Patch openclaw.json config
 node /opt/scripts/patch-openclaw-config.js
 if [ $? -ne 0 ]; then

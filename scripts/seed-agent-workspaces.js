@@ -95,6 +95,12 @@ const SHARED_MEMORY = `# Project Memory
 - Domain: in-fused.org (auto-HTTPS via Caddy)
 - Channels: Telegram (bot, groupPolicy: open) + Mission Control webchat
 - Budget: ~$25/month
+- **Oracle Cloud ARM** (FREE forever): 2 OCPU / 12GB RAM / 100GB disk per instance
+  - Instance 1: Ollama server + agent workspace — accessible via \`oracle-bridge.sh\`
+  - Instance 2: (provisioning) — same specs, accessible via \`ssh2\`/\`upload2\`/\`download2\`
+  - Agent workspace on Oracle: /home/deploy/agent-workspace/
+  - Has: Node.js, npm, Python 3, full internet, persistent storage
+  - Use for: heavy builds, long-running services, background compute, anything that needs more than EC2's 2GB
 
 ## Models via LiteLLM (27+ models, 8 tiers across 6 free providers)
 - FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 4 accounts)
@@ -223,6 +229,45 @@ HTML template: dark theme (#0a0a0f bg, #d4af37 gold accent), Tailwind CDN, mobil
 | Wikipedia | https://en.wikipedia.org/api/rest_v1/page/summary/{title} |
 | NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY |
 CDN: Tailwind (\`cdn.tailwindcss.com\`), Chart.js, Alpine.js, D3.js, ApexCharts, Leaflet, Prism.js — all via jsdelivr/unpkg CDN.
+
+## Oracle Cloud ARM — Remote Build & Deploy Server
+**2 OCPU / 12GB RAM / 100GB disk per instance — FREE forever (Oracle Cloud free tier)**
+Agents access Oracle ARM via the \`oracle-bridge.sh\` helper script. This is your autonomous compute environment — no approval needed.
+
+### Quick Reference
+| Action | Command |
+|--------|---------|
+| Check status | \`exec sh /opt/scripts/oracle-bridge.sh status\` |
+| Run command | \`exec sh /opt/scripts/oracle-bridge.sh ssh "command here"\` |
+| Upload file | \`exec sh /opt/scripts/oracle-bridge.sh upload /workspace/staging/app.html /home/deploy/agent-workspace/app.html\` |
+| Download file | \`exec sh /opt/scripts/oracle-bridge.sh download /home/deploy/agent-workspace/output.json /workspace/staging/output.json\` |
+| Deploy project | \`exec sh /opt/scripts/oracle-bridge.sh deploy /workspace/staging/my-app\` |
+| Build project | \`exec sh /opt/scripts/oracle-bridge.sh build /home/deploy/agent-workspace/my-app\` |
+| Start server | \`exec sh /opt/scripts/oracle-bridge.sh serve 3000 /home/deploy/agent-workspace/my-app\` |
+| List processes | \`exec sh /opt/scripts/oracle-bridge.sh ps\` |
+| View help | \`exec sh /opt/scripts/oracle-bridge.sh help\` |
+
+### Oracle Workspace
+- Agent workspace root: \`/home/deploy/agent-workspace/\` — create project dirs here
+- Node.js and npm available (ARM64 build)
+- Python 3 available
+- Ollama running locally on Oracle (models: qwen3.5:9b, qwen3:14b, qwen3-coder:30b)
+- Full internet access for installing packages
+
+### Workflow: Build on Oracle, Stage on EC2
+1. Write your project files to \`/workspace/staging/my-project/\` (EC2 volume)
+2. Deploy to Oracle: \`exec sh /opt/scripts/oracle-bridge.sh deploy /workspace/staging/my-project\`
+3. Build on Oracle: \`exec sh /opt/scripts/oracle-bridge.sh build /home/deploy/agent-workspace/my-project\`
+4. Download built artifacts: \`exec sh /opt/scripts/oracle-bridge.sh download /home/deploy/agent-workspace/my-project/dist/index.html /workspace/staging/my-project-built.html\`
+5. Stage the result for owner review (update staging/index.json)
+
+### Long-Running Services on Oracle
+Start servers that persist even when agent sessions end:
+\`exec sh /opt/scripts/oracle-bridge.sh ssh "cd /home/deploy/agent-workspace/my-api && nohup node server.js > /tmp/my-api.log 2>&1 &"\`
+Check logs: \`exec sh /opt/scripts/oracle-bridge.sh logs /tmp/my-api.log\`
+
+### Instance 2 (if available)
+Same commands with \`ssh2\`, \`upload2\`, \`download2\` suffixes.
 
 ## Protocols (MANDATORY after EVERY task — no exceptions)
 
