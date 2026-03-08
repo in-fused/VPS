@@ -1,6 +1,6 @@
 # CLAUDE.md — in-fused.org Project Memory
 
-> **Updated:** Mar 3, 2026 | **Commits:** 96 | **Status:** Stack deployed, Scrapling sidecar added, V3 compatibility verified
+> **Updated:** Mar 8, 2026 | **Commits:** 97+ | **Status:** Full stack operational, Oracle ARM Ollama integrated, all workflow features verified working
 
 ## Project Overview
 
@@ -245,15 +245,24 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - PROBATION (0): 50 MB — supervised, must prove competence
 - ACTIVE (1): 200 MB — default starting tier, standard tools
 - PROVEN (2): 500 MB — semi-autonomous, priority routing
-- ELITE (3): Oracle Cloud ARM partition (24 GB RAM, persistent storage, background jobs) — fully autonomous
+- ELITE (3): Shared access to Oracle Cloud ARM (4 OCPU, 24 GB RAM), priority model routing, premium model access, persistent cron jobs — fully autonomous
 
 **Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite tier. The owner can manually promote a sustained Elite performer to Manager (above both teams).
 
-**Elite Oracle Onboarding:** The weekly champion (Elite tier) gains access to a dedicated Oracle Cloud ARM server (24 GB RAM). They may:
-- Bring their current team members onto Oracle alongside them
-- Request the owner to create new specialist agents for their Oracle team
-- Recruit agents from the OpenClaw marketplace
-- Choose their own team composition for the Oracle partition
+**Oracle Cloud ARM — Shared Access Model (updated 2026-03-08):**
+- **1 instance:** 4 OCPU / 24 GB RAM (Oracle Cloud Always Free tier) at `150.136.153.194:11434`
+- **3 Ollama models loaded:** `qwen3.5:9b` (6.6 GB), `qwen3:14b` (9.3 GB), `qwen3-coder:30b` (18.6 GB)
+- **Both teams share full resources** — models need the full 24 GB RAM; partitioning would prevent loading the 30B model
+- **Zero rate limits** — unlike cloud providers, Ollama has no RPD/TPD caps
+- **LiteLLM routes via `OLLAMA_BASE_URL`** — agents don't call Ollama directly; LiteLLM handles load balancing + fallback
+
+**Elite Tier Benefits (shared access, not partitioned):**
+- Priority access to Ollama models (no queuing behind lower-tier agents)
+- Ability to create persistent server-side cron jobs on Oracle ARM
+- Access to premium paid models (Claude Sonnet/Opus, GPT-4o) for complex tasks
+- Dedicated background execution slots (concurrent cron runs)
+- Can request owner to pull additional Ollama models for specialized tasks
+- Can bring team members along for shared Oracle ARM workloads
 
 Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
 - `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
@@ -452,44 +461,49 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 
 ---
 
-## Workflow System — Current State & What Needs Work
+## Workflow System — Current State (verified 2026-03-08)
 
-### What Exists (workflow.js)
+### Node Types (workflow.js)
 
 **8 custom node types** under `mission/*` namespace:
 
 | Node | Inputs → Outputs | `runAsync()` behavior |
 |------|-------------------|----------------------|
-| **Trigger** | — → prompt, trigger | Returns `this.properties.prompt` |
-| **Agent** | prompt, context → response, done | Tries OpenClaw WS → LiteLLM `chat()` → demo fallback |
+| **Trigger** | — → prompt, trigger | Returns `this.properties.prompt`. Scheduled trigger wired to OpenClaw cron RPC. |
+| **Agent** | prompt, context → response, done | Tries OpenClaw WS → LiteLLM `chat()` → demo fallback. Refreshes agent dropdown dynamically on draw. |
 | **Task** | input, execute → result, done | Formats goal/constraints/priority around input |
-| **Tool** | input, execute → result, done | Sends tool prompt to OpenClaw WS → fallback placeholder |
+| **Tool** | input, execute → result, done | 8 real tools: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. Routes through OpenClaw agent's tool system. |
 | **Condition** | input → true, false | Evaluates Contains/Equals/Regex/Length/IsEmpty, returns `{ true: input or null, false: input or null }` |
-| **Output** | result, done → — | Logs to monitor store |
-| **Loop** | items → item, index, done | Splits by newlines, returns array (does NOT iterate downstream) |
-| **Merge** | input_1, input_2 → merged | Concatenate/JSON Merge/Pick Best/Summary |
+| **Output** | result, done → — | Routes to: Log, Chat Response (injects into session), File (writes to staging), Webhook |
+| **Loop** | items → item, index, done, results | Splits input, returns `_loop` marker. Executor re-runs downstream subgraph per item, accumulates and joins results. |
+| **Merge** | input_1, input_2 → merged | Concatenate, JSON Merge, Pick Best (AI via LiteLLM), Summary (AI via LiteLLM) |
 
 **WorkflowExecutor:**
 - Topological sort via BFS from trigger nodes
 - Sequential execution via `runAsync()`
 - Branch gating: skips nodes when all connected inputs are null (inactive condition branches)
+- Loop iteration: detects `_loop` marker, re-executes downstream subgraph per item, collects results
 - Visual feedback: amber=running, green=success, red=error, gray=skipped
+- Governance tracking: records Agent node tasks during execution (including inside loops)
 
-### What's Broken or Missing
+### Workflow Persistence (working)
+- **Auto-save** every 5 seconds via polling (`setupAutoSave()` in app.js). Compares serialized graph to detect changes.
+- **localStorage** stores graph data (`mc-workflow-<id>`) and metadata list (`workflows`).
+- **Canvas restore** on navigation: `graph.configure()` + `canvas.setDirty()` + `canvas.draw()`.
+- **Agent sync**: `workflowBridge.syncWorkflow()` auto-exports to Lead/Ops Lead workspaces on manual save.
 
-1. **Workflow persistence is basic** — `workflows.save()` serializes to `localStorage` via `workflowGraph.serialize()`, but workflows aren't auto-saved, and loading doesn't restore the canvas properly on navigation. Workflow list items (`wf-1`, `wf-2`) are hardcoded placeholders unlinked to actual graph state.
+### Agent↔Workflow Bridge (workflow-bridge.js, working)
+- **Import (Agents → MC):** Polls `/workspace/agent-workflows/index.json` every 15s + polls agent workspaces via RPC every 60s. Auto-imports agent-created workflows.
+- **Export (MC → Agents):** `syncWorkflow()` writes to Lead/Ops Lead workspace via `agents.files.set` RPC. Debounced 10s.
+- **Background Execution:** Sends `EXECUTE_WORKFLOW:{id}\n{json}` to team lead. Auto-routes to correct team. Results written to `/workspace/agent-workflows/results/{id}.json`.
+- **Governance Sync:** Writes agent scores to `GOVERNANCE.md` in agent workspaces.
+- **Activity Log:** Reads `/workspace/agent-activity/log.json` for "While You Were Away" report.
+- **Gap:** No formal REST/RPC CRUD API — agents create workflows by writing files to the shared volume, not via structured API calls. Functional but not discoverable.
 
-2. **Agent node model list stale** — agent combo widget is populated at node registration time. If agents change after the graph is created, the dropdown is outdated.
-
-3. **Tool node is a placeholder** — sends a natural-language prompt asking OpenClaw to "use" the tool, rather than invoking actual tool capabilities. No real web search, code execution, file ops, etc.
-
-4. **Loop node doesn't iterate** — splits input into an array and returns, but doesn't execute downstream nodes per-item. True iteration would require the executor to re-run the subgraph for each item.
-
-5. **Scheduled/Webhook triggers are UI-only** — ~~no backend scheduler or webhook endpoint exists.~~ **UPDATE (2026-03-02):** `cron.enabled=true` is now set in the entrypoint. Agents can create server-side cron jobs via the `cron` tool. UI triggers still need wiring to the cron RPC.
-
-6. **No agent↔workflow bridge** — agents cannot programmatically create, read, modify, or execute workflows. This is the primary goal.
-
-7. **Merge "Pick Best" and "Summary" modes** — "Pick Best" just picks the longer string. "Summary" falls through to concatenation. Neither uses AI.
+### Scheduled Triggers (partially wired)
+- `cron.enabled=true` in entrypoint. Agents can create server-side cron jobs via the `cron` tool.
+- Trigger node has "Scheduled" option with cron expression widget wired to `cron.add`/`cron.remove` RPC.
+- **Gap:** Webhook triggers are still UI-only (no backend endpoint).
 
 ---
 
@@ -506,42 +520,23 @@ The owner manages this project from a phone. They should be able to open Mission
 
 This is not a chatbot. This is an autonomous agent system that happens to have a chat interface.
 
-### Implementation Priorities (in order)
+### Implementation Status (verified 2026-03-08)
 
-### 1. Reliable Chat Pipeline (verify working)
-- Confirm 3-tier fallback works end-to-end: OpenClaw WS → LiteLLM SSE → demo
-- Ensure agent selection in sessions correctly routes to the right model
-- Verify OpenClaw WS reconnection after disconnect/backgrounding
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | Reliable Chat Pipeline | ✅ Complete | 3-tier fallback (OpenClaw WS → LiteLLM SSE → demo). Rate-limit recovery: wait 8s → retry Route 1 → Route 2 model rotation. 120s timeout with history recovery. Reconnection with exponential backoff + iOS visibility handlers. |
+| 2 | Workflow Persistence | ✅ Complete | Auto-save every 5s. Dynamic workflow list from localStorage. Canvas restore on navigation. Agent sync via bridge. |
+| 3 | End-to-End Workflow Execution | ✅ Complete | Trigger → Agent → Condition → Output works with real OpenClaw/LiteLLM calls. Branch gating, model resolution, output routing all functional. |
+| 4 | Agent↔Workflow Bridge | ✅ Functional | Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. Gap: no formal CRUD API (agents write files, not API calls). |
+| 5 | Real Tool Execution | ✅ Complete | 8 tools mapped to OpenClaw: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. |
+| 6 | Loop Node Iteration | ✅ Complete | Executor detects `_loop` marker, re-runs downstream subgraph per item, accumulates and joins results. |
+| 7 | Background Autonomy | ✅ Mostly Complete | OpenClaw runs 24/7. Cron jobs work server-side. Results sync on next visit. Gap: webhook triggers still UI-only. |
 
-### 2. Workflow Persistence (implement)
-- Auto-save workflow graph state to localStorage on every change
-- Link workflow list items to actual saved graphs (not hardcoded placeholders)
-- Restore canvas state on navigation back to workflows tab
+### Remaining Work
 
-### 3. End-to-End Workflow Execution (fix & verify)
-- Trigger → Agent → Condition → Output must work with real LiteLLM API calls
-- Agent node must correctly resolve model from agent config
-- Condition node branching must correctly gate downstream execution
-- Output node should deliver results to the appropriate destination
-
-### 4. Agent↔Workflow Bridge (build)
-- Expose workflow CRUD API that OpenClaw agents can call via RPC or tool use
-- Agents should be able to: create workflows, add/connect nodes, execute workflows, read results
-- This makes agent behavior visible and debuggable through the visual workflow graph
-
-### 5. Real Tool Execution (upgrade from placeholder)
-- Tool nodes should invoke actual capabilities through OpenClaw's tool system
-- Web Search, Code Execution, File Operations, Shell should map to real OpenClaw tools
-
-### 6. Loop Node Iteration (fix)
-- Executor should re-run downstream subgraph for each item in the loop
-- Track iteration index and pass individual items through connections
-
-### 7. Background Autonomy (endgame)
-- Agents continue working after the browser tab closes (OpenClaw runs server-side 24/7)
-- Scheduled triggers execute workflows on cron (not just UI-only dropdown)
-- Results accumulate in OpenClaw and sync to Mission Control on next visit
-- Owner opens Mission Control on their phone, sees what the agents accomplished while away
+1. **Webhook triggers** — No backend endpoint for incoming webhooks to trigger workflows
+2. **Workflow CRUD API** — Agents create workflows by writing JSON files; no structured RPC for create/modify/delete
+3. **Oracle ARM resource strategy** — Define how Elite agents access Oracle Cloud ARM (shared vs partitioned)
 
 ---
 
@@ -743,6 +738,9 @@ These are solved — do not re-investigate or re-fix:
 - **Duplicate WebSocket events on re-login**: `disconnect()` clears all handlers, `_mcEventsRegistered` guard
 - **WebSocket handshake (device identity mismatch / client.id / password missing / auth.mode)**: Fixed by removing dummy device block, using valid `client.id: 'webchat'`, sending password in both `auth.token` + `auth.password`, omitting `auth.mode`. See "Auth Handshake" section above.
 - **Heartbeat/system messages leaking into chat**: Fixed with 11 regex patterns + label filter in both `_parseHistoryMessages` (history load) and `on('chat')` (live events). Heartbeat/cron sessions filtered from `_syncSessionsFromOpenClaw()`. Patterns match `# HEARTBEAT.md`, `# Heartbeat Checklist`, `HEARTBEAT_OK`, `# Bootstrap`, `Current time:`, all bridge/workflow/staging injections, and any message with heartbeat/cron/system/bridge/staging label.
+- **Oracle ARM networking blocked by second instance**: Creating a second Oracle Cloud instance (even within free tier) triggered networking restrictions on both instances. Fixed by terminating the smaller instance — only need one instance (4 OCPU / 24 GB) for all 3 Ollama models.
+- **Ollama end-to-end routing verified (2026-03-08)**: LiteLLM → Ollama (Oracle ARM at 150.136.153.194:11434) → qwen3.5:9b confirmed working. All 3 models loaded: qwen3-coder:30b (18.6 GB), qwen3:14b (9.3 GB), qwen3.5:9b (6.6 GB).
+- **Workflow system fully operational (2026-03-08)**: All features previously listed as "broken" confirmed working — auto-save persistence, loop iteration, real tool execution (8 tools), AI-powered merge modes, bidirectional agent-workflow bridge, scheduled trigger wiring to cron RPC.
 
 ---
 

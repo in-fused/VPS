@@ -80,11 +80,12 @@ Cross-team work is ENCOURAGED, not just allowed. Report results to YOUR lead, bu
 
 ## Competition Rules
 - Teams compete on governance scores (success rate, quality, efficiency, streaks)
-- Weekly champion earns Elite tier (Oracle ARM 24GB RAM)
+- Weekly champion earns Elite tier — shared Oracle ARM access (4 OCPU / 24GB), priority model routing, premium model access, persistent cron jobs
 - 15+ point lead after 10 tasks = automatic position takeover
 - Cross-team collaboration scored positively (collaboration bonus)
 - Collusion (faking scores/hiding failures) = both teams wiped
 - Sustained Elite performer may be promoted to Manager (above both teams)
+- Elite agents can request additional Ollama models and dedicated background execution slots
 `;
 
 const SHARED_MEMORY = `# Project Memory
@@ -95,12 +96,12 @@ const SHARED_MEMORY = `# Project Memory
 - Domain: in-fused.org (auto-HTTPS via Caddy)
 - Channels: Telegram (bot, groupPolicy: open) + Mission Control webchat
 - Budget: ~$25/month
-- **Oracle Cloud ARM** (FREE forever): 2 OCPU / 12GB RAM / 100GB disk per instance
-  - Instance 1: Ollama server + agent workspace — accessible via \`oracle-bridge.sh\`
-  - Instance 2: (provisioning) — same specs, accessible via \`ssh2\`/\`upload2\`/\`download2\`
+- **Oracle Cloud ARM** (FREE forever): 4 OCPU / 24GB RAM / 100GB disk — SHARED by both teams
+  - Single instance at 150.136.153.194:11434 running Ollama with 3 models
   - Agent workspace on Oracle: /home/deploy/agent-workspace/
   - Has: Node.js, npm, Python 3, full internet, persistent storage
   - Use for: heavy builds, long-running services, background compute, anything that needs more than EC2's 2GB
+  - Elite agents get priority access to Oracle resources and premium models
 
 ## Models via LiteLLM (27+ models, 8 tiers across 6 free providers)
 - FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 4 accounts)
@@ -230,9 +231,11 @@ HTML template: dark theme (#0a0a0f bg, #d4af37 gold accent), Tailwind CDN, mobil
 | NASA APOD | https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY |
 CDN: Tailwind (\`cdn.tailwindcss.com\`), Chart.js, Alpine.js, D3.js, ApexCharts, Leaflet, Prism.js — all via jsdelivr/unpkg CDN.
 
-## Oracle Cloud ARM — Remote Build & Deploy Server
-**2 OCPU / 12GB RAM / 100GB disk per instance — FREE forever (Oracle Cloud free tier)**
+## Oracle Cloud ARM — Shared Compute Server
+**4 OCPU / 24GB RAM / 100GB disk — FREE forever (Oracle Cloud free tier)**
+Both teams share full access. Ollama serves 3 models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) with zero rate limits.
 Agents access Oracle ARM via the \`oracle-bridge.sh\` helper script. This is your autonomous compute environment — no approval needed.
+Elite agents get priority scheduling and can request additional models.
 
 ### Quick Reference
 | Action | Command |
@@ -266,8 +269,8 @@ Start servers that persist even when agent sessions end:
 \`exec sh /opt/scripts/oracle-bridge.sh ssh "cd /home/deploy/agent-workspace/my-api && nohup node server.js > /tmp/my-api.log 2>&1 &"\`
 Check logs: \`exec sh /opt/scripts/oracle-bridge.sh logs /tmp/my-api.log\`
 
-### Instance 2 (if available)
-Same commands with \`ssh2\`, \`upload2\`, \`download2\` suffixes.
+### Resource Note
+Only 1 Oracle ARM instance exists (4 OCPU / 24GB). Both teams share it. Do NOT attempt to create or reference a second instance.
 
 ## Protocols (MANDATORY after EVERY task — no exceptions)
 
