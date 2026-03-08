@@ -159,13 +159,13 @@ if [ "$UPDATED_ENV" = true ]; then
 fi
 
 ###############################################################################
-# 4. Generate project bundle (agents read this at /workspace/project-bundle.md)
+# 4. Generate reference docs (agents read at /workspace/reference/*.md)
 ###############################################################################
-log_info "Generating project bundle for agents..."
-if bash scripts/generate-project-bundle.sh; then
-    log_ok "Project bundle generated"
+log_info "Generating reference docs for agents..."
+if bash scripts/generate-reference-docs.sh; then
+    log_ok "Reference docs generated"
 else
-    log_warn "Bundle generation failed (non-fatal)"
+    log_warn "Reference doc generation failed (non-fatal)"
 fi
 
 ###############################################################################

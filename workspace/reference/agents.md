@@ -1,3 +1,363 @@
+# Agent System Reference
+> Auto-generated. Source files: seed-agent-workspaces.js,
+> patch-openclaw-config.js, openclaw-entrypoint.sh, auto-kickoff.js
+> Read this when you need to understand how agents are configured,
+> how workspace files are seeded, or how the startup sequence works.
+
+## openclaw-entrypoint.sh (container startup)
+```bash
+#!/bin/sh
+# =============================================================================
+# OpenClaw Gateway Entrypoint
+# =============================================================================
+# 1. Patches openclaw.json (separate JS file — avoids shell quoting issues)
+# 2. Seeds agent workspace files (SOUL.md, MEMORY.md, etc.)
+# 3. Starts the OpenClaw gateway
+# =============================================================================
+
+# Step 0: Ensure SSH client is available for oracle-bridge.sh
+# OpenClaw image is Node.js-based and may not include ssh/scp.
+# Install silently in background to avoid delaying startup.
+if ! command -v ssh >/dev/null 2>&1; then
+  echo "[entrypoint] Installing SSH client for Oracle ARM bridge..."
+  (
+    if command -v apk >/dev/null 2>&1; then
+      apk add --no-cache openssh-client >/dev/null 2>&1
+    elif command -v apt-get >/dev/null 2>&1; then
+      apt-get update -qq && apt-get install -y -qq openssh-client >/dev/null 2>&1
+    fi
+    echo "[entrypoint] SSH client installed"
+  ) &
+fi
+
+# Step 1: Patch openclaw.json config
+node /opt/scripts/patch-openclaw-config.js
+if [ $? -ne 0 ]; then
+  echo "[entrypoint] ERROR: config patch failed, starting with existing config"
+fi
+
+# Step 2: Seed server-side workspace files for each agent.
+# Runs twice: once now (seeds new files), once after 30s delay (overwrites
+# OpenClaw's default SOUL.md/BOOTSTRAP.md that it creates on agent init).
+node /opt/scripts/seed-agent-workspaces.js
+
+# Step 3: Delayed re-seed after OpenClaw creates its default workspace files.
+# OpenClaw reads workspace files on every turn, so changes take effect
+# immediately on the next agent interaction.
+# After re-seed, auto-kickoff sends startup messages to both leads (opt-in).
+(sleep 30 && node /opt/scripts/seed-agent-workspaces.js && sleep 10 && node /opt/scripts/auto-kickoff.js) &
+
+# Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
+# validation for controlUi.allowedOrigins. Let openclaw.json handle it.
+exec node openclaw.mjs gateway --allow-unconfigured
+```
+
+## patch-openclaw-config.js (config patching)
+```javascript
+#!/usr/bin/env node
+// =============================================================================
+// OpenClaw Config Patcher
+// =============================================================================
+// Patches openclaw.json with our gateway, provider, agent, and tool settings.
+// Run before OpenClaw starts. Merges into existing config (preserves wizard settings).
+// Extracted from inline node -e block to avoid shell double-quote expansion issues.
+// =============================================================================
+
+const fs = require('fs');
+const configPath = '/home/node/.openclaw/openclaw.json';
+
+let config = {};
+try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) {
+  console.log('[config-patch] No existing config, starting fresh');
+}
+
+// =========================================================================
+// Gateway settings for reverse proxy
+// =========================================================================
+config.gateway = config.gateway || {};
+config.gateway.port = 18789;
+// 'lan' is a named mode (resolves to 0.0.0.0). Raw IPs like '0.0.0.0'
+// silently fall back to loopback.
+config.gateway.bind = 'lan';
+
+// Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
+config.gateway.auth = config.gateway.auth || {};
+config.gateway.auth.mode = 'password';
+
+// Control UI basePath for reverse proxy at /openclaw/
+config.gateway.controlUi = config.gateway.controlUi || {};
+config.gateway.controlUi.basePath = '/openclaw/';
+// Disable per-device pairing — password auth is sufficient for self-hosted.
+config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+// allowInsecureAuth is required for Docker/reverse-proxy setups (issue #1679).
+config.gateway.controlUi.allowInsecureAuth = true;
+// v2026.2.24+: non-loopback bind requires explicit allowedOrigins or the
+// Host-header fallback flag. Set both.
+var domain = process.env.DOMAIN || '';
+config.gateway.controlUi.allowedOrigins = domain
+  ? ['https://' + domain]
+  : [];
+config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
+
+// Remove any unknown keys that cause config validation errors
+delete config.gateway.trustProxy;
+delete config.gateway.host; // not a valid key — only 'bind' is recognized
+
+// Trust Caddy reverse proxy — Docker bridge subnets
+config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'];
+
+// =========================================================================
+// LLM provider — custom 'litellm' provider pointing at our LiteLLM proxy
+// =========================================================================
+config.models = config.models || {};
+config.models.mode = 'merge';
+config.models.providers = config.models.providers || {};
+config.models.providers.litellm = {
+  baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
+  apiKey: process.env.OPENAI_API_KEY || '',
+  api: 'openai-completions',
+  models: [
+    // Free — Groq (load-balanced across 4 accounts)
+    { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
+    // Free — Cerebras (1M tokens/day, fastest inference)
+    { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-llama-4-scout', name: 'Llama 4 Scout on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-llama-3.1-8b', name: 'Llama 3.1 8B on Cerebras (free, fastest)', contextWindow: 8192, maxTokens: 8192 },
+    { id: 'cerebras-qwen3-235b', name: 'Qwen 3 235B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7 on Cerebras (free, reasoning)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B on Cerebras (free, reasoning)', contextWindow: 8192, maxTokens: 8192 },
+    // Free — Gemini
+    { id: 'gemini-flash', name: 'Gemini 2.5 Flash (free)', contextWindow: 1048576, maxTokens: 65536 },
+    { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite (free)', contextWindow: 1048576, maxTokens: 65536 },
+    { id: 'gemini-pro', name: 'Gemini 2.5 Pro (free)', contextWindow: 1048576, maxTokens: 65536 },
+    // Free — Mistral (load-balanced across 2 keys, 4 RPM total)
+    { id: 'mistral-large', name: 'Mistral Large (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'codestral', name: 'Codestral (free/code)', contextWindow: 262144, maxTokens: 8192 },
+    { id: 'mistral-small', name: 'Mistral Small 3.1 (free, fast)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'mistral-nemo', name: 'Mistral Nemo (free, lightweight)', contextWindow: 131072, maxTokens: 8192 },
+    // Cheap — DeepSeek + OpenAI
+    { id: 'deepseek-chat', name: 'DeepSeek Chat (cheap)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'deepseek-coder', name: 'DeepSeek Coder (cheap)', contextWindow: 128000, maxTokens: 8192 },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (cheap)', contextWindow: 128000, maxTokens: 16384 },
+    // Mid
+    { id: 'claude-haiku', name: 'Claude Haiku (mid)', contextWindow: 200000, maxTokens: 4096 },
+    { id: 'minimax-m2.5', name: 'MiniMax M2.5 (mid)', contextWindow: 1000000, maxTokens: 16384 },
+    // Premium
+    { id: 'claude-sonnet', name: 'Claude Sonnet (premium)', contextWindow: 200000, maxTokens: 8192 },
+    { id: 'claude-opus', name: 'Claude Opus (premium)', contextWindow: 200000, maxTokens: 4096 },
+    { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
+    { id: 'o1', name: 'OpenAI o1 (premium)', contextWindow: 200000, maxTokens: 100000 },
+    // Local Ollama (Oracle ARM — zero rate limits)
+    { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B (free/local, best small)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'qwen3:14b', name: 'Qwen3 14B (free/local, reasoning)', contextWindow: 32768, maxTokens: 8192 },
+    { id: 'qwen3-coder:30b', name: 'Qwen3 Coder 30B MoE (free/local, coding)', contextWindow: 131072, maxTokens: 8192 }
+  ]
+};
+
+// =========================================================================
+// Agent defaults
+// =========================================================================
+config.agents = config.agents || {};
+config.agents.defaults = config.agents.defaults || {};
+config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
+// Allowlist only the litellm provider to prevent anthropic fallback
+config.agents.defaults.models = { litellm: {} };
+
+// =========================================================================
+// Tools configuration
+// =========================================================================
+config.tools = config.tools || {};
+
+// Tool profile: explicitly set 'full' to ensure coding agents have exec,
+// read, write, edit tools. v2026.3.2 changed default to 'messaging'.
+config.tools.profile = 'full';
+
+// Agent-to-agent messaging: peer-to-peer across both teams
+config.tools.agentToAgent = {
+  enabled: true,
+  allow: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'],
+};
+
+// Sub-agent spawning (no extra keys — they cause validation crash loops)
+config.tools.subagents = config.tools.subagents || {};
+
+// Session visibility: agents can see each other's sessions for team coordination
+config.tools.sessions = config.tools.sessions || {};
+config.tools.sessions.visibility = 'all';
+
+// Loop detection: safety net against runaway agent tool loops
+config.tools.loopDetection = config.tools.loopDetection || {};
+config.tools.loopDetection.enabled = true;
+
+// =========================================================================
+// Cron, compaction, memory, auto-update
+// =========================================================================
+config.cron = config.cron || {};
+config.cron.enabled = true;
+config.cron.maxConcurrentRuns = 3;
+
+// Compaction: prevent aggressive compaction loop regression (#32106)
+config.agents.defaults.compaction = config.agents.defaults.compaction || {};
+config.agents.defaults.compaction.mode = 'safeguard';
+config.agents.defaults.compaction.memoryFlush = config.agents.defaults.compaction.memoryFlush || {};
+config.agents.defaults.compaction.memoryFlush.enabled = true;
+config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
+config.agents.defaults.compaction.identifierPolicy = 'strict';
+
+// Memory search embeddings: route through LiteLLM to use free Gemini embeddings
+config.agents.defaults.memorySearch = config.agents.defaults.memorySearch || {};
+config.agents.defaults.memorySearch.provider = 'openai';
+config.agents.defaults.memorySearch.model = 'gemini-embedding';
+config.agents.defaults.memorySearch.remote = {
+  baseUrl: 'http://litellm:4000/v1/',
+  apiKey: process.env.OPENAI_API_KEY || '',
+};
+
+// Auto-updater: stable channel
+config.update = config.update || {};
+config.update.channel = 'stable';
+config.update.auto = config.update.auto || {};
+config.update.auto.enabled = true;
+
+// =========================================================================
+// Telegram (optional)
+// =========================================================================
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  config.channels = config.channels || {};
+  config.channels.telegram = {
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    groupPolicy: 'open',
+  };
+  console.log('[config-patch] Telegram bot token configured (groupPolicy: open)');
+}
+
+// =========================================================================
+// Multi-Agent Hierarchy: 2 teams, 8 agents
+// =========================================================================
+config.agents.list = config.agents.list || [];
+
+// Only seed agents if none exist yet (preserve user-created agents)
+if (config.agents.list.length === 0) {
+  config.agents.list = [
+    // CORE TEAM
+    {
+      id: 'lead', workspace: 'Lead',
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      identity: { name: 'Lead', emoji: '\u{1F9E0}' },
+      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'codecraft', workspace: 'CodeCraft',
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      identity: { name: 'CodeCraft', emoji: '\u26A1' },
+      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'scout', workspace: 'Scout',
+      model: { primary: 'litellm/gemini-pro' },
+      identity: { name: 'Scout', emoji: '\u{1F50D}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'scribe', workspace: 'Scribe',
+      model: { primary: 'litellm/gemini-flash-lite' },
+      identity: { name: 'Scribe', emoji: '\u{1F4DD}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    // PLATFORM TEAM
+    {
+      id: 'ops-lead', workspace: 'Ops Lead',
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      identity: { name: 'Ops Lead', emoji: '\u{1F3AF}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'builder', workspace: 'Builder',
+      model: { primary: 'litellm/gemini-flash' },
+      identity: { name: 'Builder', emoji: '\u{1F528}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'sentinel', workspace: 'Sentinel',
+      model: { primary: 'litellm/cerebras-llama-4-scout' },
+      identity: { name: 'Sentinel', emoji: '\u{1F6E1}\uFE0F' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+    {
+      id: 'chronicler', workspace: 'Chronicler',
+      model: { primary: 'litellm/gemini-flash-lite' },
+      identity: { name: 'Chronicler', emoji: '\u{1F4CB}' },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
+    },
+  ];
+}
+
+// =========================================================================
+// Cleanup: remove keys that crash OpenClaw config validation
+// =========================================================================
+delete config.compaction;
+delete config.contextPruning;
+delete config.memorySearch;
+delete config.experimental;
+
+// Clean unrecognized tool keys that crash OpenClaw config validation
+if (config.tools) {
+  delete config.tools.approval;
+  delete config.tools.filesystem;
+  delete config.tools.exec;
+}
+if (config.tools && config.tools.subagents) {
+  delete config.tools.subagents.maxDepth;
+  delete config.tools.subagents.maxConcurrent;
+  delete config.tools.subagents.maxChildrenPerAgent;
+  delete config.tools.subagents.runTimeoutSeconds;
+}
+if (config.tools && config.tools.agentToAgent) {
+  delete config.tools.agentToAgent.maxPingPongTurns;
+}
+
+// Clean unrecognized agent keys + force model assignments
+var MODEL_MAP = {
+  'lead': 'litellm/cerebras-llama-3.3-70b',
+  'codecraft': 'litellm/cerebras-llama-3.3-70b',
+  'scout': 'litellm/gemini-pro',
+  'scribe': 'litellm/gemini-flash-lite',
+  'ops-lead': 'litellm/cerebras-llama-3.3-70b',
+  'builder': 'litellm/gemini-flash',
+  'sentinel': 'litellm/cerebras-llama-4-scout',
+  'chronicler': 'litellm/gemini-flash-lite',
+};
+var SUBAGENT_MODEL = 'litellm/cerebras-llama-4-scout';
+if (Array.isArray(config.agents && config.agents.list)) {
+  config.agents.list.forEach(function(agent) {
+    if (agent.identity) delete agent.identity.description;
+    if (agent.subagents) delete agent.subagents.maxDepth;
+    delete agent.instructions;
+    if (MODEL_MAP[agent.id] && agent.model) {
+      agent.model.primary = MODEL_MAP[agent.id];
+    }
+    if (agent.model && agent.model.primary === 'litellm/gpt-4o-mini') {
+      agent.model.primary = SUBAGENT_MODEL;
+    }
+    if (agent.subagents && agent.subagents.model) {
+      agent.subagents.model.primary = SUBAGENT_MODEL;
+    }
+  });
+}
+
+// =========================================================================
+// Write config
+// =========================================================================
+fs.mkdirSync('/home/node/.openclaw', { recursive: true });
+fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+console.log('[config-patch] OpenClaw config written: bind=lan, auth=password, agents=' +
+  (config.agents.list ? config.agents.list.length : 0) +
+  ', provider=litellm, profile=full');
+```
+
+## seed-agent-workspaces.js (workspace file seeder)
+```javascript
 // ============================================================================
 // Agent Workspace File Seeder — OpenClaw V3 Server-Side Prompts
 // ============================================================================
@@ -889,3 +1249,148 @@ for (const agent of agents) {
 }
 
 console.log(`[workspace-seed] ${overwritten} overwritten, ${seeded} new, ${skipped} preserved (${agents.length} agents)`);
+```
+
+## auto-kickoff.js (startup messages)
+```javascript
+// ============================================================================
+// Auto-Kickoff — Sends startup message to both leads after OpenClaw boots
+// ============================================================================
+// Runs from the entrypoint after 30s delay. Connects to OpenClaw WS, sends
+// a "wake up" message that triggers BOOTSTRAP.md execution, then exits.
+// ============================================================================
+
+const WebSocket = require('ws');
+
+const OC_URL = 'ws://localhost:18789/';
+const PASSWORD = process.env.OPENCLAW_PASSWORD || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
+const LEADS = ['lead', 'ops-lead'];
+
+// Message to trigger bootstrap — directive, non-optional
+const KICKOFF_MSG = `SYSTEM RESTART. You are now online. This is not a request — execute immediately:
+
+1. Run BOOTSTRAP.md Phase 0 (warmup: test read, write, comms)
+2. Set up your inbox-check cron job (see BOOTSTRAP.md Phase 1)
+3. Read /workspace/staging/index.json and /workspace/agent-activity/log.json
+4. If pending work exists, execute it NOW. If not, CREATE work for your team.
+5. Message each team member with a task assignment.
+
+Do NOT reply with a plan. Do NOT ask for clarification. Execute these steps using your tools RIGHT NOW.`;
+
+function generateId() {
+  return 'kickoff-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function kickoff() {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(OC_URL);
+    let reqId = 0;
+    const pending = new Map();
+    let authenticated = false;
+    let sent = 0;
+
+    const timeout = setTimeout(() => {
+      console.log('[kickoff] Timeout after 30s, closing');
+      ws.close();
+      resolve(sent);
+    }, 30000);
+
+    ws.on('error', (err) => {
+      console.warn('[kickoff] WS error:', err.message);
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    ws.on('close', () => {
+      clearTimeout(timeout);
+      resolve(sent);
+    });
+
+    ws.on('message', (raw) => {
+      let msg;
+      try { msg = JSON.parse(raw); } catch { return; }
+
+      // Handle hello/challenge → send connect handshake
+      if (msg.type === 'hello' || msg.type === 'challenge') {
+        const id = String(++reqId);
+        ws.send(JSON.stringify({
+          type: 'req',
+          id,
+          method: 'connect',
+          params: {
+            minProtocol: 3,
+            maxProtocol: 3,
+            auth: { token: PASSWORD, password: PASSWORD },
+            role: 'operator',
+            scopes: ['operator.read', 'operator.write', 'operator.admin'],
+            client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'backend' },
+          },
+        }));
+        pending.set(id, 'connect');
+        return;
+      }
+
+      // Handle responses
+      if (msg.type === 'res') {
+        const what = pending.get(msg.id);
+        pending.delete(msg.id);
+
+        if (what === 'connect') {
+          if (msg.error) {
+            console.error('[kickoff] Auth failed:', msg.error);
+            ws.close();
+            return;
+          }
+          authenticated = true;
+          console.log('[kickoff] Authenticated. Sending kickoff to leads...');
+          sendToLeads();
+          return;
+        }
+
+        if (what && what.startsWith('chat:')) {
+          const agent = what.split(':')[1];
+          if (msg.error) {
+            console.warn(`[kickoff] chat.send to ${agent} failed:`, msg.error);
+          } else {
+            console.log(`[kickoff] Sent to ${agent} ✓`);
+            sent++;
+          }
+          // Close after sending to all leads
+          if (pending.size === 0) {
+            console.log(`[kickoff] Done. ${sent}/${LEADS.length} leads activated.`);
+            ws.close();
+          }
+        }
+      }
+    });
+
+    function sendToLeads() {
+      for (const agentId of LEADS) {
+        const id = String(++reqId);
+        pending.set(id, `chat:${agentId}`);
+        ws.send(JSON.stringify({
+          type: 'req',
+          id,
+          method: 'chat.send',
+          params: {
+            sessionKey: `agent:${agentId}:main`,
+            message: KICKOFF_MSG,
+            idempotencyKey: generateId(),
+            deliver: false,
+          },
+        }));
+      }
+    }
+  });
+}
+
+// Run on every restart when enabled — agents must bootstrap fresh each time
+if (process.env.OPENCLAW_AUTO_KICKOFF === '1') {
+  console.log('[kickoff] Auto-kickoff enabled. Connecting to OpenClaw...');
+  kickoff()
+    .then((n) => console.log(`[kickoff] Complete. ${n} leads activated.`))
+    .catch((err) => console.warn('[kickoff] Failed:', err.message));
+} else {
+  console.log('[kickoff] Auto-kickoff disabled. Set OPENCLAW_AUTO_KICKOFF=1 in .env to enable.');
+}
+```
