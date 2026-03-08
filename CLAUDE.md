@@ -1,6 +1,6 @@
 # CLAUDE.md — in-fused.org Project Memory
 
-> **Updated:** Mar 8, 2026 | **Commits:** 97+ | **Status:** Full stack operational, Oracle ARM Ollama integrated, all workflow features verified working
+> **Updated:** Mar 8, 2026 | **Commits:** 100+ | **Status:** Full autonomous operation — auto-kickoff, inbox cron, collaboration protocol, split reference docs, dashboard overhaul
 
 ## Project Overview
 
@@ -260,13 +260,13 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - **Zero rate limits** — unlike cloud providers, Ollama has no RPD/TPD caps
 - **LiteLLM routes via `OLLAMA_BASE_URL`** — agents don't call Ollama directly; LiteLLM handles load balancing + fallback
 
-Each agent has a comprehensive system prompt with awareness of the full two-team structure, file system protocols, governance, and project context. Prompts use shared constants for consistency:
+Each agent has a comprehensive system prompt delivered via server-side workspace files (SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md). These are seeded by `seed-agent-workspaces.js` on every container restart. Client-side fallback prompts in `workspace/js/app.js` use shared constants:
 - `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
 - `AGENT_GOVERNANCE` — tier system, weekly evaluation, Manager promotion — injected into every prompt
 - `WORKFLOW_REFERENCE` — LiteGraph node types and workflow creation — Lead and Ops Lead only
 - `LEAD_PROTOCOLS` — staging, activity log, WRITE_FILES, GOVERNANCE_ADJUST — Lead and Ops Lead only
 - `SPECIALIST_PROTOCOLS` — condensed file access and logging — all specialists
-All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint (`scripts/openclaw-entrypoint.sh`) has condensed agent configs for OpenClaw seeding — the `instructions` key is scrubbed on every restart.
+All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint (`scripts/openclaw-entrypoint.sh`) runs `scripts/patch-openclaw-config.js` (config patching) then `scripts/seed-agent-workspaces.js` (workspace file seeding). The `instructions` agent config key is scrubbed on every restart.
 
 **Manager Promotion:** A consistently Elite-performing agent can be manually promoted by the owner to "Manager" — a role above both teams, reporting directly to the owner. A replacement agent fills the vacated spot. All agents are aware of this possibility.
 
@@ -294,6 +294,25 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 - Auto-routes to the appropriate team lead: if first agent node uses a Platform Team agent (ops-lead, builder, sentinel, chronicler), routes to Ops Lead; otherwise routes to Lead
 - Serialized graph sent as `EXECUTE_WORKFLOW:{id}\n{json}`
 - Team lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
+- **All agents** can parse and execute EXECUTE_WORKFLOW messages (not just leads)
+
+**Inbox-Check Cron** — Every agent creates a `*/5 * * * *` cron job on bootstrap:
+- Uses `cron()` tool with `schedule: { cron: "*/5 * * * *" }`, `payload: { kind: "systemEvent", data: { type: "inbox_check" } }`
+- On trigger: agent checks `sessions_list()` for unread messages from other agents
+- Reads new messages, executes delegated tasks, replies with results
+- **This is the critical link** that makes delegation work — without it, `sessions_send` messages sit unread forever
+
+**Collaboration Protocol** — Agents can co-author work across teams:
+- Any agent can pull in any other agent via `sessions_send(sessionKey: "agent:<id>:main", message: "...")`
+- Cross-team collaboration is explicitly encouraged (e.g., CodeCraft + Builder on a full-stack task)
+- Co-authoring rules: initiator stages final deliverable, both agents get governance credit, always reply with results (never silence)
+- EXECUTE_WORKFLOW is available to ALL agents — any agent receiving a workflow message can parse and execute it
+
+**Auto-Kickoff** — On every container restart, `auto-kickoff.js` sends a directive to both leads:
+- Enabled by default via `OPENCLAW_AUTO_KICKOFF=1` in docker-compose.yml (opt-out, not opt-in)
+- Runs after 30s delay (allows OpenClaw to fully initialize)
+- Sends a 5-step directive: run BOOTSTRAP.md, set up cron, check staging/activity, execute or create work, message team members
+- No lock file — runs fresh on every restart to ensure agents always bootstrap
 
 ### Bridge Directories (auto-created by workspace-init)
 ```
@@ -348,12 +367,13 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 **Workspace files per agent:**
 | File | Purpose | Shared? |
 |------|---------|---------|
-| `SOUL.md` | Agent identity, role, rules, protocols | No (agent-specific) |
+| `SOUL.md` | Agent identity, role, rules, protocols, co-authoring examples | No (agent-specific) |
 | `USER.md` | Owner profile, mobile workflow, preferences | Yes (all agents) |
 | `AGENTS.md` | Team structure, competition rules | Yes (all agents) |
-| `MEMORY.md` | Project context, infrastructure, file paths | Yes (all agents, initial seed) |
-| `TOOLS.md` | Available tools, usage guidelines, cost awareness | Yes (all agents) |
+| `MEMORY.md` | Project context, infrastructure, file paths, reference doc pointers | Yes (all agents, initial seed) |
+| `TOOLS.md` | Available tools, inbox-check cron, EXECUTE_WORKFLOW, collaboration protocol | Yes (all agents) |
 | `HEARTBEAT.md` | Periodic check-in behavior (leads get extended version) | Yes (role-specific) |
+| `BOOTSTRAP.md` | Startup sequence: verify tools, set up cron, assign/find work | No (role-specific: lead vs specialist) |
 
 **Tool profile:** `tools.profile = 'full'` is explicitly set in the entrypoint. v2026.3.2 changed the default to "messaging" which excludes coding tools (exec, read, write, edit). Without this, agents lose their core capabilities.
 
@@ -389,7 +409,16 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 | `monitor` | System logs, health status | `addLog()` |
 | `governance` | Per-agent performance tracking, team lead promotion | `recordTask()`, `getScore()`, `getLeaderboard()` |
 | `staging` | Agent content preview/approval, polls `/workspace/staging/` | `approve()`, `reject()`, `startPolling()` |
+| `cron` | Per-agent cron job management, fetched from OpenClaw | `fetch()`, `countForAgent()` |
+| `activity` | Server + live event feed, filtered | `events[]`, `filtered` |
 | `settings` | Sidebar visibility preferences | `toggle()`, `isVisible()` |
+
+### Dashboard (overhauled 2026-03-08)
+The Dashboard view shows autonomy-focused metrics:
+- **Stats row:** Staging (pending count, amber highlight), Activity (new event count), Cron Jobs (total active)
+- **Autonomy Status grid:** 8-agent grid with green pulse dots for agents with active cron jobs, "idle" label for inactive
+- **Staging Queue:** Inline preview of pending staging items with approve/reject buttons
+- **Batch Approve:** "Approve All" button when 2+ pending staging items exist
 
 ### Chat System — 3-Tier Fallback (Working)
 
@@ -530,11 +559,17 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | 4 | Agent↔Workflow Bridge | ✅ Complete | Full CRUD via file-based `action` field (create/update/delete/execute). Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. |
 | 5 | Real Tool Execution | ✅ Complete | 8 tools mapped to OpenClaw: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. |
 | 6 | Loop Node Iteration | ✅ Complete | Executor detects `_loop` marker, re-runs downstream subgraph per item, accumulates and joins results. |
-| 7 | Background Autonomy | ✅ Mostly Complete | OpenClaw runs 24/7. Cron jobs work server-side. Results sync on next visit. Gap: webhook triggers still UI-only. |
+| 7 | Background Autonomy | ✅ Complete | OpenClaw runs 24/7. Auto-kickoff on restart. Inbox-check cron every 5min. Agent-to-agent delegation works end-to-end. Results sync on next visit. |
+| 8 | Auto-Kickoff System | ✅ Complete | `auto-kickoff.js` sends bootstrap directive to both leads on every container restart. No lock file — fresh bootstrap every time. |
+| 9 | Inbox-Check Cron | ✅ Complete | All agents set up `*/5 * * * *` cron on bootstrap. Checks for delegated tasks from other agents, executes them, replies with results. |
+| 10 | Collaboration Protocol | ✅ Complete | Any agent can co-author with any other agent via `sessions_send`. Cross-team collaboration encouraged. EXECUTE_WORKFLOW available to all agents. |
+| 11 | Split Reference Docs | ✅ Complete | 6 focused reference files under `/workspace/reference/` replace 607KB monolithic project-bundle.md. Agents read on-demand for deep context. |
+| 12 | Dashboard Overhaul | ✅ Complete | Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators, batch approve. |
 
 ### Remaining Work
 
 1. **Webhook triggers** — No backend endpoint for incoming webhooks to trigger workflows
+2. **Reference doc auto-refresh** — Currently generated only at deploy time; could be regenerated on config changes
 
 ---
 
@@ -556,22 +591,34 @@ VPS/
 │   ├── api.py                    ← Scraping API endpoints
 │   └── requirements.txt          ← scrapling[fetchers], fastapi, uvicorn
 ├── workspace/                    ← Mission Control SPA
-│   ├── index.html                ← Main SPA (2360 lines)
+│   ├── index.html                ← Main SPA (2360+ lines, dashboard overhaul)
 │   ├── auth.html                 ← Site login page
 │   ├── openclaw-auth.html        ← OpenClaw login page
+│   ├── prompts.html              ← Prompt library (starter prompts + archive)
 │   ├── manifest.json             ← PWA manifest
-│   ├── css/styles.css            ← Custom styles (543 lines)
-│   └── js/
-│       ├── app.js                ← Alpine stores + chat + governance (3994 lines)
-│       ├── workflow.js           ← LiteGraph nodes + executor (1274 lines)
-│       ├── workflow-bridge.js    ← Agent-to-workflow bridge (530 lines)
-│       └── openclaw-client.js    ← OpenClaw WS RPC client (724 lines)
+│   ├── css/styles.css            ← Custom styles
+│   ├── js/
+│   │   ├── app.js                ← Alpine stores + chat + governance
+│   │   ├── workflow.js           ← LiteGraph nodes + executor
+│   │   ├── workflow-bridge.js    ← Agent-to-workflow bridge
+│   │   └── openclaw-client.js    ← OpenClaw WS RPC client
+│   └── reference/                ← Split reference docs (generated by deploy)
+│       ├── index.md              ← Reference doc index
+│       ├── infrastructure.md     ← docker-compose, Caddyfile, deploy.sh
+│       ├── models.md             ← litellm_config.yaml
+│       ├── agents.md             ← Entrypoint, config patcher, workspace seeder, kickoff
+│       ├── frontend.md           ← Mission Control architecture summary
+│       ├── scraping.md           ← Scrapling API source
+│       └── project-overview.md   ← Full CLAUDE.md
 └── scripts/
-    ├── deploy.sh                 ← Stack deployment
+    ├── deploy.sh                 ← Stack deployment (runs generate-reference-docs.sh)
     ├── setup-server.sh           ← Server hardening
     ├── setup-ollama-server.sh    ← Oracle Ollama setup
-    ├── openclaw-entrypoint.sh    ← OpenClaw config patching
-    ├── seed-agent-workspaces.js  ← Seeds SOUL.md, MEMORY.md etc. per agent
+    ├── openclaw-entrypoint.sh    ← OpenClaw container startup (runs patch + seed)
+    ├── patch-openclaw-config.js  ← Patches openclaw.json (gateway, models, tools, cron)
+    ├── seed-agent-workspaces.js  ← Seeds 7 workspace files per agent (SOUL, TOOLS, etc.)
+    ├── auto-kickoff.js           ← Sends bootstrap directive to leads on restart
+    ├── generate-reference-docs.sh ← Generates split reference docs for agents
     ├── caddy-entrypoint.sh       ← Auth token generation
     └── test-api-keys.sh          ← API key validation
 ```
@@ -597,6 +644,7 @@ VPS/
 | `WEBUI_SECRET_KEY` | Open WebUI session secret |
 | `DB_PASSWORD` | PostgreSQL for LiteLLM |
 | `COMPOSE_PROJECT_NAME` | ai-hub |
+| `OPENCLAW_AUTO_KICKOFF` | `1` (default) — sends bootstrap directive to leads on restart. Set `0` to disable. |
 | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | `1` — allows plaintext WS on Docker bridge (v2026.3.2+) |
 
 ## Wiring & Gotchas (Things That Will Bite You)
@@ -739,6 +787,31 @@ These are solved — do not re-investigate or re-fix:
 - **Oracle ARM networking blocked by second instance**: Creating a second Oracle Cloud instance (even within free tier) triggered networking restrictions on both instances. Fixed by terminating the smaller instance — only need one instance (4 OCPU / 24 GB) for all 3 Ollama models.
 - **Ollama end-to-end routing verified (2026-03-08)**: LiteLLM → Ollama (Oracle ARM at 150.136.153.194:11434) → qwen3.5:9b confirmed working. All 3 models loaded: qwen3-coder:30b (18.6 GB), qwen3:14b (9.3 GB), qwen3.5:9b (6.6 GB).
 - **Workflow system fully operational (2026-03-08)**: All features previously listed as "broken" confirmed working — auto-save persistence, loop iteration, real tool execution (8 tools), AI-powered merge modes, bidirectional agent-workflow bridge, scheduled trigger wiring to cron RPC.
+- **Agent delegation chain broken (2026-03-08)**: Messages sent via `sessions_send` sat unread because agents had no wake trigger. Fixed by adding inbox-check cron (`*/5 * * * *`) to every agent's BOOTSTRAP.md. All agents now check for and process delegated tasks every 5 minutes.
+- **Auto-kickoff one-shot (2026-03-08)**: Lock file prevented re-kickoff after first container run. Removed lock file entirely — now runs fresh bootstrap directive on every restart. Changed from opt-in (`OPENCLAW_AUTO_KICKOFF=0`) to opt-out (`=1` default).
+- **Agents saying "I cannot" (2026-03-08)**: Systematic prompt overhaul — added "NEVER say I cannot" rules to every SOUL.md with explicit forbidden phrases list. TOOLS.md has "RULE #1: ACT, DON'T ASK" section. Agents now default to action instead of asking for permission.
+- **607KB project bundle too large (2026-03-08)**: Replaced monolithic `generate-project-bundle.sh` with `generate-reference-docs.sh` that creates 6 focused files (3KB–53KB each) under `/workspace/reference/`. Agents can read specific domains on-demand.
+
+---
+
+## Reference Documentation (for agents)
+
+`scripts/generate-reference-docs.sh` runs during deploy and creates focused reference files under `/workspace/reference/`. Agents read these on-demand for deep context instead of loading a 607KB monolith.
+
+| File | Source | Size | When to Read |
+|------|--------|------|--------------|
+| `infrastructure.md` | docker-compose.yml, Caddyfile, deploy.sh | ~35KB | Modifying services, routing, deploys |
+| `models.md` | litellm_config.yaml | ~17KB | Understanding model tiers, rate limits |
+| `agents.md` | Entrypoint, config patcher, workspace seeder, kickoff | ~79KB | Agent config, startup sequence |
+| `frontend.md` | Hand-written summary | ~3KB | Understanding the UI, stores, views |
+| `scraping.md` | scrapling/api.py | ~7KB | Web scraping capabilities |
+| `project-overview.md` | CLAUDE.md | ~53KB | High-level architecture, resolved issues |
+| `index.md` | — | ~1KB | Index of all reference files |
+
+**Agent access:** `read(path: "/workspace/reference/infrastructure.md")`
+**URL access:** `https://in-fused.org/workspace/reference/infrastructure.md` (requires auth)
+
+**Note:** `generate-project-bundle.sh` still exists but is deprecated. The old `workspace/project-bundle.md` (607KB) is no longer generated during deploy.
 
 ---
 
@@ -755,7 +828,11 @@ These are solved — do not re-investigate or re-fix:
 - `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` — env var in docker-compose, allows plaintext `ws://` on Docker bridge (v2026.3.2 restricted to loopback)
 - Ollama models updated: `qwen3.5:9b`, `qwen3:14b`, `qwen3-coder:30b` (replaced outdated qwen2.5-coder, deepseek-coder-v2, llama3.2)
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
-- **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md per agent (idempotent)
+- **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md per agent (force-overwritten on every restart)
+- **Auto-kickoff** — `auto-kickoff.js` sends bootstrap directive to Lead and Ops Lead after 30s delay. Enabled by default (`OPENCLAW_AUTO_KICKOFF=1`). No lock file — runs fresh on every restart.
+- **Inbox-check cron** — All agents create `*/5 * * * *` cron job on bootstrap to check for delegated tasks. Critical for agent-to-agent delegation.
+- **Collaboration protocol** — All agents can co-author via `sessions_send`. EXECUTE_WORKFLOW available to all agents, not just leads.
+- **Split reference docs** — `generate-reference-docs.sh` creates 6 focused files under `/workspace/reference/` (replaces 607KB monolithic project-bundle.md)
 
 ### Available OpenClaw RPC Methods (via WebSocket)
 
@@ -793,8 +870,9 @@ Agents can create cron jobs that run server-side 24/7:
 
 OpenClaw v3 builds agent system prompts from workspace files. The entrypoint seeds these via `scripts/seed-agent-workspaces.js` on every container start. **All 7 files are force-overwritten** on every restart to prevent stale instructions.
 
-**Seeded files (force-overwritten):** `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`
+**Seeded files (force-overwritten on every restart):** `SOUL.md`, `USER.md`, `AGENTS.md`, `MEMORY.md`, `TOOLS.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`
 **Also valid but not seeded:** `IDENTITY.md` (agents can create this themselves)
+**Never touched:** `memory/*.md` — agents write persistent daily logs here
 
 **Workspace directories:** `~/.openclaw/workspace-<agentWorkspace>/` — read on every turn.
 - Lead → `workspace-Lead/`
@@ -813,6 +891,6 @@ OpenClaw v3 builds agent system prompts from workspace files. The entrypoint see
 **To reset an agent's prompts** (re-seed from scratch):
 ```bash
 # Delete workspace files for a specific agent (e.g., Lead):
-rm -f /home/node/.openclaw/workspace-Lead/SOUL.md /home/node/.openclaw/workspace-Lead/USER.md /home/node/.openclaw/workspace-Lead/AGENTS.md /home/node/.openclaw/workspace-Lead/MEMORY.md /home/node/.openclaw/workspace-Lead/TOOLS.md /home/node/.openclaw/workspace-Lead/HEARTBEAT.md
-# Then restart OpenClaw — entrypoint will re-seed missing files
+rm -f /home/node/.openclaw/workspace-Lead/{SOUL,USER,AGENTS,MEMORY,TOOLS,HEARTBEAT,BOOTSTRAP}.md
+# Then restart OpenClaw — entrypoint will re-seed all 7 files
 ```

@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 ###############################################################################
-# generate-project-bundle.sh — Creates /workspace/project-bundle.md
+# generate-project-bundle.sh — DEPRECATED (2026-03-08)
 ###############################################################################
-# Concatenates all project files into a single reference document that agents
-# can read at /workspace/project-bundle.md or fetch via URL.
-# Run from repo root: bash scripts/generate-project-bundle.sh
+# Replaced by generate-reference-docs.sh which creates focused split files
+# under /workspace/reference/ instead of a single 607KB monolith.
+#
+# This script is kept for backwards compatibility but is no longer called
+# by deploy.sh. To generate the old monolithic bundle, run manually:
+#   bash scripts/generate-project-bundle.sh
 ###############################################################################
 
 set -euo pipefail
