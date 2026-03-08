@@ -11,7 +11,7 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 ┌─── AWS EC2 t3.small ──────────────────────────┐
 │                                                  │
 │  Caddy ── reverse proxy + auto-HTTPS ── :443    │
-│    ├──► Open WebUI ── Chat Frontend             │
+│    ├──► Mission Control ── Agent Management SPA  │
 │    └──► LiteLLM ── API Gateway                  │
 │           ├──► Remote Ollama (Oracle Cloud)      │
 │           ├──► Groq API (free)                   │
@@ -238,7 +238,7 @@ This will:
 1. Validate your `.env` has API keys
 2. Auto-generate security secrets
 3. Download Docker images (~1-2 minutes — you'll see progress bars)
-4. Start all services (Caddy, Open WebUI, LiteLLM, OpenClaw)
+4. Start all services (Caddy, LiteLLM, OpenClaw, Scrapling)
 5. Run health checks
 6. Print a status report showing what's running
 
@@ -252,13 +252,10 @@ Go to: **https://in-fused.org**
 
 > **If HTTPS isn't working yet** (DNS can take up to 24 hours to propagate), try: `http://50.17.251.154` (using http, not https)
 
-1. You'll see the **Open WebUI** login page
-2. Click **Sign Up** — create a username and password
-3. **The first user to sign up becomes the admin** — that's you!
-4. After logging in, you'll see a chat interface (looks like ChatGPT)
-5. Click the **model dropdown** at the top
-6. Select `gpt-4o-mini` (cheapest cloud model) or `claude-haiku` (fast + smart)
-7. Type a message and hit Enter — you're live!
+1. You'll see the **login page** — enter the site password from your `.env`
+2. After logging in, you'll see **Mission Control** — the agent management dashboard
+3. Go to **Chat** → **New Conversation** → pick **Lead** (the orchestrator)
+4. Type a message and hit Enter — you're live!
 
 ---
 
@@ -413,9 +410,9 @@ MiniMax M2.5 is a strong coding model at $0.30/1M tokens. Add when you need it:
 
 ## Part 4: Daily Usage Guide
 
-### Choosing Models in Open WebUI
+### Choosing Models
 
-When you open https://in-fused.org, you'll see a model dropdown at the top. Models are labeled by cost tier:
+Models are available across multiple tiers in Mission Control and LiteLLM:
 
 - **"FREE — ..."** → Local Ollama models, $0 cost. Use these for daily work!
 - **"FREE (1K/day) — ..."** → Groq models, $0 but rate-limited
@@ -494,7 +491,7 @@ ollama rm model-name
 ollama run qwen3.5:9b "Write a Python function to reverse a linked list"
 ```
 
-After adding or removing models, they automatically appear in Open WebUI.
+After adding or removing models, they automatically appear in Mission Control and LiteLLM.
 
 ### Monitoring API Spend
 
@@ -531,7 +528,7 @@ docker compose up -d
 | TLS | Auto-HTTPS | Caddy + Let's Encrypt for in-fused.org |
 | Docker | Network isolation | Services on internal network only |
 | Docker | Memory limits | Prevents OOM crashes on 2GB instance |
-| App | User auth | Open WebUI requires login (first user = admin) |
+| App | User auth | Site-wide password protects all services |
 | App | Security headers | HSTS, XSS protection, no-sniff |
 | Secrets | .env file | Never committed to git |
 | Ollama | IP whitelist | Only accepts connections from EC2 |
@@ -552,7 +549,6 @@ docker compose ps
 docker compose logs -f
 
 # View specific service logs
-docker compose logs -f open-webui
 docker compose logs -f litellm
 docker compose logs -f openclaw
 
@@ -585,7 +581,7 @@ Services are still starting. Wait 30-60 seconds and refresh.
 - Check Caddy: `docker compose logs caddy`
 - Check Security Groups: ports 80 and 443 must be open
 
-### Models not showing in Open WebUI
+### Models not showing
 - Check LiteLLM: `docker compose logs litellm`
 - Verify API keys in `.env`
 - If Ollama models missing: check `OLLAMA_BASE_URL` in `.env`

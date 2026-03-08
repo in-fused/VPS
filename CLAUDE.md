@@ -11,7 +11,6 @@
 **Core services:**
 - **Mission Control** (`/workspace/`) — custom SPA for agent management, chat, and visual workflow builder
 - **OpenClaw** (`/openclaw/`) — autonomous agent runtime (24/7), exposes WebSocket RPC for Mission Control
-- **Open WebUI** (`/`) — ChatGPT-like frontend with golden cyber theme
 - **LiteLLM** (`/api/litellm/`) — unified gateway routing to 20+ models across 6 providers
 - **Scrapling** (internal only) — web scraping API for agents at `http://scrapling:8000`
 - **Caddy** — reverse proxy, auto-HTTPS, site-wide cookie auth
@@ -145,7 +144,7 @@ Internet → https://in-fused.org → Caddy (auto-HTTPS)
   ├── /ws/openclaw           → Cookie-gated WebSocket → OpenClaw :18789 (Mission Control uses this)
   ├── / + WebSocket upgrade  → OpenClaw :18789 (legacy root WS for native Control UI)
   ├── /workspace/*           → Static files from agent-workspace volume
-  └── / (everything else)    → Cookie-gated → Open WebUI :8080
+  └── / (everything else)    → Cookie-gated → Landing page (landing.html)
 
 OpenClaw → LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, MiniMax, Ollama(Oracle Cloud ARM)
 OpenClaw agents → Scrapling :8000 (internal web scraping API)
@@ -157,7 +156,6 @@ Docker network: ai-hub-network (bridge)
 | Service | Image | Memory | Port |
 |---------|-------|--------|------|
 | caddy | in-fused/caddy:latest (custom build) | 64M | 80, 443 |
-| open-webui | in-fused/open-webui:latest (custom build) | 768M | 8080 |
 | litellm | ghcr.io/berriai/litellm:main-stable | 512M | 4000 |
 | litellm-db | postgres:16-alpine | 128M | 5432 |
 | openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
@@ -165,7 +163,7 @@ Docker network: ai-hub-network (bridge)
 | openclaw-init | alpine:3 | — | — |
 | workspace-init | alpine:3 | — | — |
 
-Total ~3.6GB (2GB RAM + 4GB swap). Custom images (caddy, open-webui, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
+Total ~2.8GB (2GB RAM + 4GB swap). Custom images (caddy, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
 
 ---
 
@@ -583,9 +581,6 @@ VPS/
 ├── Caddyfile                     ← Reverse proxy config
 ├── docker-compose.yml            ← 8 services + 1 optional
 ├── litellm_config.yaml           ← 25+ models, 8 tiers
-├── webui-theme/
-│   ├── Dockerfile                ← FROM open-webui + custom.css
-│   └── custom.css                ← Golden cyber theme (784 lines)
 ├── scrapling/                    ← Web scraping sidecar
 │   ├── Dockerfile                ← Python 3.12 + Scrapling + FastAPI
 │   ├── api.py                    ← Scraping API endpoints
@@ -641,7 +636,6 @@ VPS/
 | `LITELLM_MASTER_KEY` | LiteLLM auth (must start with `sk-`) |
 | `LITELLM_SALT_KEY` | LiteLLM encryption salt |
 | `OPENCLAW_PASSWORD` | Site-wide password (Caddy + OpenClaw + Mission Control) |
-| `WEBUI_SECRET_KEY` | Open WebUI session secret |
 | `DB_PASSWORD` | PostgreSQL for LiteLLM |
 | `COMPOSE_PROJECT_NAME` | ai-hub |
 | `OPENCLAW_AUTO_KICKOFF` | `1` (default) — sends bootstrap directive to leads on restart. Set `0` to disable. |
@@ -778,8 +772,7 @@ These are solved — do not re-investigate or re-fix:
 - **Provider fallback to anthropic**: Fixed by setting `agents.defaults.models = { litellm: {} }` (allowlist)
 - **Auth popup in browser**: Fixed by using direct header comparison instead of Caddy `basicauth` directive
 - **iOS touch/mobile**: Fixed with custom touch-to-mouse bridge, visibility change handler, PWA manifest, viewport-fit
-- **Open WebUI theme**: Custom Docker build copies CSS to `/app/build/static/`, auto-LLM calls disabled
-- **deploy.sh pull failures**: Explicitly lists pullable services (`caddy litellm litellm-db openclaw`), separate `docker compose build open-webui` step
+- **deploy.sh pull failures**: Explicitly lists pullable services (`caddy litellm litellm-db openclaw`)
 - **OpenClaw config crash loops**: Entrypoint cleans all invalid keys (see "Config Validation" section above)
 - **Duplicate WebSocket events on re-login**: `disconnect()` clears all handlers, `_mcEventsRegistered` guard
 - **WebSocket handshake (device identity mismatch / client.id / password missing / auth.mode)**: Fixed by removing dummy device block, using valid `client.id: 'webchat'`, sending password in both `auth.token` + `auth.password`, omitting `auth.mode`. See "Auth Handshake" section above.
@@ -790,7 +783,7 @@ These are solved — do not re-investigate or re-fix:
 - **Agent delegation chain broken (2026-03-08)**: Messages sent via `sessions_send` sat unread because agents had no wake trigger. Fixed by adding inbox-check cron (`*/5 * * * *`) to every agent's BOOTSTRAP.md. All agents now check for and process delegated tasks every 5 minutes.
 - **Auto-kickoff one-shot (2026-03-08)**: Lock file prevented re-kickoff after first container run. Removed lock file entirely — now runs fresh bootstrap directive on every restart. Changed from opt-in (`OPENCLAW_AUTO_KICKOFF=0`) to opt-out (`=1` default).
 - **Agents saying "I cannot" (2026-03-08)**: Systematic prompt overhaul — added "NEVER say I cannot" rules to every SOUL.md with explicit forbidden phrases list. TOOLS.md has "RULE #1: ACT, DON'T ASK" section. Agents now default to action instead of asking for permission.
-- **607KB project bundle too large (2026-03-08)**: Replaced monolithic `generate-project-bundle.sh` with `generate-reference-docs.sh` that creates 6 focused files (3KB–53KB each) under `/workspace/reference/`. Agents can read specific domains on-demand.
+- **607KB project bundle too large (2026-03-08)**: Replaced monolithic project-bundle.md with `generate-reference-docs.sh` that creates 6 focused files (3KB–53KB each) under `/workspace/reference/`. Old script and bundle file deleted.
 
 ---
 
@@ -811,7 +804,7 @@ These are solved — do not re-investigate or re-fix:
 **Agent access:** `read(path: "/workspace/reference/infrastructure.md")`
 **URL access:** `https://in-fused.org/workspace/reference/infrastructure.md` (requires auth)
 
-**Note:** `generate-project-bundle.sh` still exists but is deprecated. The old `workspace/project-bundle.md` (607KB) is no longer generated during deploy.
+**Note:** The old monolithic `workspace/project-bundle.md` (607KB) and `scripts/generate-project-bundle.sh` have been removed. Reference docs are now the sole source.
 
 ---
 
@@ -832,7 +825,7 @@ These are solved — do not re-investigate or re-fix:
 - **Auto-kickoff** — `auto-kickoff.js` sends bootstrap directive to Lead and Ops Lead after 30s delay. Enabled by default (`OPENCLAW_AUTO_KICKOFF=1`). No lock file — runs fresh on every restart.
 - **Inbox-check cron** — All agents create `*/5 * * * *` cron job on bootstrap to check for delegated tasks. Critical for agent-to-agent delegation.
 - **Collaboration protocol** — All agents can co-author via `sessions_send`. EXECUTE_WORKFLOW available to all agents, not just leads.
-- **Split reference docs** — `generate-reference-docs.sh` creates 6 focused files under `/workspace/reference/` (replaces 607KB monolithic project-bundle.md)
+- **Split reference docs** — `generate-reference-docs.sh` creates 6 focused files under `/workspace/reference/` for on-demand agent context
 
 ### Available OpenClaw RPC Methods (via WebSocket)
 

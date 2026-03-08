@@ -43,4 +43,3 @@ node_modules/
 
 # Generated docs (created at deploy time by generate-reference-docs.sh)
 workspace/reference/
-workspace/project-bundle.md
