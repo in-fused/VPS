@@ -483,6 +483,11 @@ scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
     "$VPS_DIR/scripts/setup-ollama-server.sh" \
     ubuntu@"$ORACLE_IP":/tmp/setup-ollama-server.sh
 
+log_info "Waiting for apt lock to clear (Ubuntu auto-updates on first boot)..."
+ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
+    ubuntu@"$ORACLE_IP" \
+    "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'waiting for apt lock...'; sleep 5; done" 2>&1 | tee -a "$LOG_FILE"
+
 log_info "Running setup-ollama-server.sh on Oracle instance (this takes 15-20 min)..."
 ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
     ubuntu@"$ORACLE_IP" \
