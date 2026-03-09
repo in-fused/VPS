@@ -226,7 +226,7 @@ function seedViaRpc() {
             method: 'agents.files.set',
             params: {
               agentId: item.agentId,
-              path: item.path,
+              name: item.path,
               content: item.content,
             },
           }));

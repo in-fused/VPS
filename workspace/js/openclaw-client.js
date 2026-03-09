@@ -651,11 +651,11 @@ class OpenClawClient {
   }
 
   async getAgentFile(agentId, path) {
-    return this.request('agents.files.get', { agentId, path });
+    return this.request('agents.files.get', { agentId, name: path });
   }
 
   async setAgentFile(agentId, path, content) {
-    return this.request('agents.files.set', { agentId, path, content });
+    return this.request('agents.files.set', { agentId, name: path, content });
   }
 
   // ---------------------------------------------------------------------------
