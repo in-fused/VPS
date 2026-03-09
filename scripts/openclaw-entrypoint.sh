@@ -28,16 +28,18 @@ if [ $? -ne 0 ]; then
   echo "[entrypoint] ERROR: config patch failed, starting with existing config"
 fi
 
-# Step 2: Seed server-side workspace files for each agent.
-# Runs twice: once now (seeds new files), once after 30s delay (overwrites
-# OpenClaw's default SOUL.md/BOOTSTRAP.md that it creates on agent init).
+# Step 2: Seed server-side workspace files for each agent (filesystem).
+# This pre-seeds files before OpenClaw starts. Step 3 re-pushes them via RPC
+# after OpenClaw is running to ensure they aren't overwritten by defaults.
 node /opt/scripts/seed-agent-workspaces.js
 
-# Step 3: Delayed re-seed after OpenClaw creates its default workspace files.
-# OpenClaw reads workspace files on every turn, so changes take effect
-# immediately on the next agent interaction.
-# After re-seed, auto-kickoff sends startup messages to both leads (opt-in).
-(sleep 30 && node /opt/scripts/seed-agent-workspaces.js && sleep 10 && node /opt/scripts/auto-kickoff.js) &
+# Step 3: RPC-based re-seed after OpenClaw starts.
+# The RPC seeder waits for OpenClaw to be healthy, then pushes all workspace
+# files via agents.files.set — the API treats these as operator-managed, so
+# OpenClaw won't overwrite them with its defaults. This replaces the old
+# filesystem-based delayed second seed (which had a race condition).
+# After RPC seed, auto-kickoff sends startup messages to both leads.
+(node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
 
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.
