@@ -147,7 +147,7 @@ The `memory_search` tool uses hybrid vector + BM25 search across:
 - `memory/*.md` (daily logs)
 
 ### Embedding Provider
-Auto-detected from available API keys. In our setup, OpenAI-compatible embeddings via LiteLLM master key.
+Configured via `agents.defaults.memorySearch` in `openclaw.json`. In our setup: `provider: 'gemini'`, `model: 'text-embedding-004'`, with `GEMINI_API_KEY` passed directly (free, 1500 RPM). OpenClaw calls Gemini's native embedding API — no LiteLLM proxy hop for embeddings.
 
 ### Memory Persistence
 - Workspace files (SOUL, USER, etc.) → force-overwritten on restart

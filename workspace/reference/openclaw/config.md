@@ -297,7 +297,7 @@ See `tools.md` for full tool reference. Key config keys:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `tools.profile` | string | `"full"` | Default tool profile |
+| `tools.profile` | string | `"messaging"` | Default tool profile (v2026.3.2 changed from `"full"` — our entrypoint explicitly sets `"full"`) |
 | `tools.allow` | array | — | Global allow list |
 | `tools.deny` | array | — | Global deny list |
 | `tools.byProvider.<model>.profile` | string | — | Per-model tool profile |
@@ -398,23 +398,53 @@ See `tools.md` for full tool reference. Key config keys:
 
 ---
 
-## memorySearch
+## agents.defaults.memorySearch
+
+**IMPORTANT:** This is nested under `agents.defaults`, NOT at the top level. A top-level `memorySearch` key is invalid and will cause config validation errors. The config patcher explicitly deletes any stray top-level `config.memorySearch`.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `memorySearch.enabled` | boolean | auto | Enable memory search |
-| `memorySearch.provider` | string | auto-select | `"local"`, `"openai"`, `"gemini"`, `"voyage"`, `"mistral"`, `"ollama"`, `"none"` |
-| `memorySearch.model` | string | provider-specific | Embedding model |
-| `memorySearch.store.path` | string | `~/.openclaw/memory/<agentId>.sqlite` | Store path |
-| `memorySearch.store.vector.enabled` | boolean | `true` | Enable vector store |
-| `memorySearch.sync.watch` | boolean | `true` | Watch for file changes |
-| `memorySearch.sync.onBoot` | boolean | `true` | Sync on boot |
-| `memorySearch.query.hybrid.enabled` | boolean | `false` | Enable hybrid search |
-| `memorySearch.query.hybrid.vectorWeight` | number | `0.7` | Vector weight |
-| `memorySearch.query.hybrid.textWeight` | number | `0.3` | Text weight |
-| `memorySearch.sources` | array | `["memory"]` | Search sources |
+| `enabled` | boolean | auto | Enable memory search |
+| `provider` | string | auto-select | `"local"`, `"openai"`, `"gemini"`, `"voyage"`, `"mistral"`, `"ollama"`, `"none"` |
+| `model` | string | provider-specific | Embedding model name |
+| `remote.baseUrl` | string | — | Custom OpenAI-compatible endpoint URL (must end with `/v1/`) |
+| `remote.apiKey` | string | — | API key for the remote/native endpoint |
+| `remote.headers` | object | — | Optional custom headers |
+| `remote.batch.enabled` | boolean | — | Enable batch embedding requests |
+| `remote.batch.concurrency` | number | — | Batch concurrency |
+| `store.path` | string | `~/.openclaw/memory/<agentId>.sqlite` | SQLite store path |
+| `store.vector.enabled` | boolean | `true` | Enable vector store |
+| `sync.watch` | boolean | `true` | Watch for file changes |
+| `sync.onBoot` | boolean | `true` | Sync on boot |
+| `query.hybrid.enabled` | boolean | `false` | Enable hybrid search |
+| `query.hybrid.vectorWeight` | number | `0.7` | Vector weight |
+| `query.hybrid.textWeight` | number | `0.3` | Text weight |
+| `query.hybrid.mmr.enabled` | boolean | — | Maximal marginal relevance dedup |
+| `query.hybrid.temporalDecay.enabled` | boolean | — | Down-weight older chunks |
+| `sources` | array | `["memory"]` | Search sources |
+| `cache.enabled` | boolean | — | Embedding cache |
+| `cache.maxEntries` | number | — | Cache size |
 | `memory.citations` | string | `"auto"` | `"auto"`, `"on"`, `"off"` |
 | `memory.backend` | string | `"sqlite"` | `"sqlite"`, `"qmd"` |
+
+### Our Setup
+```json
+{
+  "agents": {
+    "defaults": {
+      "memorySearch": {
+        "enabled": true,
+        "provider": "gemini",
+        "model": "text-embedding-004",
+        "remote": {
+          "apiKey": "GEMINI_API_KEY"
+        }
+      }
+    }
+  }
+}
+```
+Uses Gemini's native embedding API directly (free, 1500 RPM). The `GEMINI_API_KEY` env var is passed to the OpenClaw container in `docker-compose.yml`.
 
 ---
 
@@ -475,6 +505,22 @@ See `tools.md` for full tool reference. Key config keys:
 ## Invalid Top-Level Keys (cause crash loops)
 
 These keys are NOT valid in `openclaw.json` and will cause "unexpected property" errors:
-- `contextPruning`
+- `compaction` at top level (use `agents.defaults.compaction`)
+- `contextPruning` at top level (use `agents.defaults.contextPruning`)
+- `memorySearch` at top level (use `agents.defaults.memorySearch`)
 - `experimental`
 - `subagents` at top level (use `agents.defaults.subagents`)
+
+The config patcher (`patch-openclaw-config.js`) explicitly deletes these stray keys on every startup.
+
+**Invalid agent keys** (per-agent, cause crash loops):
+- `instructions` — NOT valid (prompts live in workspace files)
+- `identity.description` — only `name`, `emoji`, `theme`, `avatar` are valid identity keys
+- `supportsDeveloperRole` — not a valid provider key
+- `supportsReasoningEffort` — not a valid provider key
+
+**Invalid tool keys** (cause crash loops):
+- `tools.approval` — not a valid key
+- `tools.filesystem` — not a valid key
+- `tools.subagents.maxDepth` / `.maxConcurrent` / `.maxChildrenPerAgent` / `.runTimeoutSeconds` — not valid under `tools.subagents`
+- `tools.agentToAgent.maxPingPongTurns` — not valid (use `session.agentToAgent.maxPingPongTurns` instead)

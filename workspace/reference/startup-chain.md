@@ -35,7 +35,7 @@ deploy.sh
 - Auth: password mode, device auth disabled, insecure auth allowed
 - Provider: "litellm" at http://litellm:4000/v1 (only provider, prevents anthropic fallback)
 - Tools: profile "full" (v2026.3.2 default is "messaging" — would remove exec/read/write/edit)
-- Cron: enabled, maxConcurrentRuns=1
+- Cron: enabled, maxConcurrentRuns=3
 - Compaction: softThresholdTokens=50000 (prevents aggressive compaction loop)
 - Agent tool restrictions: per-agent deny lists (lead/ops-lead: no browser, scout: no exec, scribe/chronicler: no exec+browser)
 - Invalid key scrubbing: removes keys that cause crash loops (identity.description, supportsDeveloperRole, etc.)

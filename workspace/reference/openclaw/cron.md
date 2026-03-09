@@ -13,7 +13,7 @@ OpenClaw supports server-side scheduled jobs that run 24/7, independent of brows
 {
   "cron": {
     "enabled": true,
-    "maxConcurrentRuns": 1,
+    "maxConcurrentRuns": 3,
     "store": "~/.openclaw/cron/jobs.json",
     "sessionRetention": "24h",
     "runLog": { "maxBytes": 2000000, "keepLines": 2000 },
