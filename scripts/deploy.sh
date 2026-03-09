@@ -168,6 +168,13 @@ else
     log_warn "Reference doc generation failed (non-fatal)"
 fi
 
+log_info "Generating OpenClaw reference library..."
+if bash scripts/generate-openclaw-reference.sh --check-updates; then
+    log_ok "OpenClaw reference library updated"
+else
+    log_warn "OpenClaw reference generation skipped or failed (non-fatal)"
+fi
+
 ###############################################################################
 # 4b. Oracle ARM bridge — SSH key + auto-derive IP from OLLAMA_BASE_URL
 ###############################################################################

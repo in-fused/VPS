@@ -269,15 +269,56 @@ Not recommended until we have a collector running.
 
 ---
 
+## Phase 0: OpenClaw Reference Library (COMPLETED)
+**Priority:** #0 — Foundation for all other phases (agents need accurate reference data)
+**Risk:** None (additive, read-only files)
+**Files:** `workspace/reference/openclaw/*.md`, `scripts/generate-openclaw-reference.sh`, `scripts/deploy.sh`
+
+### What
+Comprehensive reference library compiled from docs.openclaw.ai covering all OpenClaw configuration, RPC methods, tool profiles, workspace files, cron jobs, hooks, and agent schema. Agents read these on-demand for accurate implementation context.
+
+### Files Created
+| File | Content | Size |
+|------|---------|------|
+| `config.md` | All openclaw.json keys, defaults, validation rules | ~5KB |
+| `tools.md` | Tool profiles, groups, per-agent allow/deny syntax | ~4KB |
+| `rpc.md` | WebSocket protocol, all RPC methods, handshake flow | ~6KB |
+| `workspace.md` | All workspace files, loading order, size limits | ~4KB |
+| `cron.md` | Schedule types, payload kinds, session targets | ~4KB |
+| `hooks.md` | Event hooks, built-in webhooks, our custom handler | ~4KB |
+| `agents.md` | Multi-agent schema, delegation, routing, our setup | ~4KB |
+| `glossary.md` | Terms, abbreviations, model aliases, session keys | ~4KB |
+| `index.md` | Quick reference index with file sizes | ~1KB |
+
+### Auto-Update
+`scripts/generate-openclaw-reference.sh` runs during deploy:
+- Checks docs.openclaw.ai sitemap (`/llms.txt`) for changes via checksum
+- Regenerates files only when changes detected (or on first run)
+- Syncs to Oracle ARM (`/opt/reference/openclaw/`) if SSH key available
+- Integrated into `scripts/deploy.sh` step 4
+
+### Agent Access
+```
+read(path: "/workspace/reference/openclaw/config.md")
+read(path: "/workspace/reference/openclaw/tools.md")
+```
+
+### Verification
+- Deploy → check files: `ls -la workspace/reference/openclaw/`
+- Agent test: ask an agent to read `/workspace/reference/openclaw/index.md`
+
+---
+
 ## Deployment Order
 
 Phases are ordered by impact/risk ratio. Each phase is a separate commit:
 
 ```
-Phase 1 → Phase 3 → Phase 4 → Phase 2 → Phase 5 → Phase 6 → Phase 7a → Phase 7b
+Phase 0 (done) → Phase 1 → Phase 3 → Phase 4 → Phase 2 → Phase 5 → Phase 6 → Phase 7a → Phase 7b
 ```
 
 **Why this order:**
+0. Phase 0 (reference library) — foundation for all phases, deployed first
 1. Phase 1 (tool restrictions) — highest governance impact, deploy first
 2. Phase 3 (reserveTokensFloor) — one-line config, easy win
 3. Phase 4 (Sentinel upgrade) — model swap, immediate quality improvement
