@@ -172,13 +172,15 @@ config.session.maintenance.pruneAfter = '14d';
 config.session.maintenance.maxEntries = 200;
 config.session.maintenance.maxDiskBytes = '200mb';
 
-// Memory search embeddings: route through LiteLLM to use free Gemini embeddings
-config.agents.defaults.memorySearch = config.agents.defaults.memorySearch || {};
-config.agents.defaults.memorySearch.provider = 'openai';
-config.agents.defaults.memorySearch.model = 'gemini-embedding';
-config.agents.defaults.memorySearch.remote = {
-  baseUrl: 'http://litellm:4000/v1/',
-  apiKey: process.env.OPENAI_API_KEY || '',
+// Memory search embeddings: use Gemini text-embedding-004 directly (free, 1500 RPM).
+// Native gemini provider avoids LiteLLM proxy hop for every embedding call.
+config.agents.defaults.memorySearch = {
+  enabled: true,
+  provider: 'gemini',
+  model: 'text-embedding-004',
+  remote: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
 };
 
 // Auto-updater: stable channel
