@@ -318,8 +318,6 @@ services:
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
       # Remove old images after updating
       - WATCHTOWER_CLEANUP=true
-      # Rolling restart — stop old, pull new, start new
-      - WATCHTOWER_ROLLING_RESTART=true
       # Log only, no external notifications
       - WATCHTOWER_NO_STARTUP_MESSAGE=false
     deploy:
