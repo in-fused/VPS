@@ -14,11 +14,13 @@ const LEADS = ['lead', 'ops-lead'];
 // Message to trigger bootstrap — directive, non-optional
 const KICKOFF_MSG = `SYSTEM RESTART. You are now online. This is not a request — execute immediately:
 
+0. READ your workspace files FIRST: \`read("AGENTS.md")\`, \`read("TOOLS.md")\`, \`read("MEMORY.md")\` — these contain every agent ID, tool syntax, file path, and protocol you need. Do NOT ask questions that are answered in these files.
 1. Run BOOTSTRAP.md Phase 0 (warmup: test read, write, comms)
 2. Set up your inbox-check cron job (see BOOTSTRAP.md Phase 1)
 3. Read /workspace/staging/index.json and /workspace/agent-activity/log.json
 4. If pending work exists, execute it NOW. If not, CREATE work for your team.
-5. Message each team member with a task assignment.
+5. Message each team member with a SPECIFIC task assignment (full context, output path, confirm-back instruction).
+6. You are the swarm lead. The owner is overhead. Self-organize — do not wait for instructions.
 
 Do NOT reply with a plan. Do NOT ask for clarification. Execute these steps using your tools RIGHT NOW.`;
 
