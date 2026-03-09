@@ -5,13 +5,11 @@
 // files via the agents.files.set RPC method. Files set through the API are
 // treated as operator-managed — OpenClaw won't overwrite them with defaults.
 //
-// This replaces the filesystem-based second seed. The first seed (filesystem)
-// still runs before OpenClaw starts as a safety net.
+// Uses Node.js v22+ native WebSocket (no external dependencies).
 //
 // Usage: node /opt/scripts/seed-via-rpc.js
 // ============================================================================
 
-const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
@@ -88,7 +86,6 @@ function seedViaRpc() {
     const ws = new WebSocket(OC_URL);
     let reqId = 0;
     const pending = new Map();
-    let authenticated = false;
     let totalSet = 0;
     let totalErrors = 0;
 
@@ -101,26 +98,32 @@ function seedViaRpc() {
       }
     }
 
+    if (queue.length === 0) {
+      console.warn('[rpc-seed] No files to push — all caches empty');
+      resolve(0);
+      return;
+    }
+
     const timeout = setTimeout(() => {
       console.log(`[rpc-seed] Timeout after 60s. Set ${totalSet}/${queue.length}, ${totalErrors} errors`);
       ws.close();
       resolve(totalSet);
     }, 60000);
 
-    ws.on('error', (err) => {
-      console.warn('[rpc-seed] WS error:', err.message);
+    ws.addEventListener('error', (event) => {
+      console.warn('[rpc-seed] WS error:', event.message || 'connection failed');
       clearTimeout(timeout);
-      reject(err);
+      reject(new Error('WebSocket error'));
     });
 
-    ws.on('close', () => {
+    ws.addEventListener('close', () => {
       clearTimeout(timeout);
       resolve(totalSet);
     });
 
-    ws.on('message', (raw) => {
+    ws.addEventListener('message', (event) => {
       let msg;
-      try { msg = JSON.parse(raw); } catch { return; }
+      try { msg = JSON.parse(event.data); } catch { return; }
 
       // Handle hello/challenge → send connect handshake
       if (msg.type === 'hello' || msg.type === 'challenge') {
@@ -154,7 +157,6 @@ function seedViaRpc() {
             ws.close();
             return;
           }
-          authenticated = true;
           console.log(`[rpc-seed] Authenticated. Pushing ${queue.length} files for ${agents.length} agents...`);
           sendBatch();
           return;
@@ -176,9 +178,8 @@ function seedViaRpc() {
       }
     });
 
-    // Send all file-set requests in parallel (OpenClaw handles concurrency)
+    // Send file-set requests in batches of 8 (one agent's worth)
     function sendBatch() {
-      // Send in batches of 8 (one agent's worth) to avoid overwhelming
       let idx = 0;
       function sendNext() {
         const batchSize = 8;
@@ -199,7 +200,6 @@ function seedViaRpc() {
           }));
         }
         idx = end;
-        // Send next batch after a short delay
         if (idx < queue.length) {
           setTimeout(sendNext, 200);
         }
