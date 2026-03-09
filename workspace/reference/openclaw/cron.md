@@ -113,8 +113,10 @@ Runs an isolated agent turn (doesn't pollute main conversation):
 
 | Target | Description |
 |--------|-------------|
-| `"main"` | Runs in the agent's main session (visible in chat history) |
-| `"isolated"` | Runs in a disposable session (no history pollution) |
+| `"main"` | Runs in the agent's main session (visible in chat history) — **DO NOT USE for cron** |
+| `"isolated"` | Runs in a disposable session (no history pollution) — **ALWAYS use this for cron** |
+
+**Rule:** All cron jobs MUST target `"isolated"`. Using `"main"` causes heartbeat/cron responses to appear in the owner's chat UI, mixing system noise with real conversations.
 
 ---
 
@@ -127,7 +129,7 @@ Agents create cron jobs via the `cron` tool:
 cron({
   action: "add",
   schedule: { cron: "*/5 * * * *" },
-  payload: { kind: "systemEvent", data: { type: "inbox_check" } }
+  payload: { kind: "agentTurn", message: "INBOX CHECK", session: "isolated" }
 })
 ```
 
@@ -169,8 +171,9 @@ Every agent creates this on bootstrap:
 {
   "schedule": { "cron": "*/5 * * * *" },
   "payload": {
-    "kind": "systemEvent",
-    "data": { "type": "inbox_check" }
+    "kind": "agentTurn",
+    "message": "INBOX CHECK: Read session history for delegated tasks. Execute immediately.",
+    "session": "isolated"
   }
 }
 ```

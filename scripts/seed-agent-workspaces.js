@@ -249,13 +249,14 @@ If exec is not available to you, use \`web_fetch\` for URLs or ask an agent with
 
 ## Cron (Background 24/7) — USE THE \`cron\` TOOL
 **NEVER use system crontab.** Use the OpenClaw \`cron\` tool:
-\`cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload: {kind: "systemEvent", message: "Run health check"}, target: {agentId: "sentinel", session: "main"})\`
+\`cron(action: "add", schedule: {type: "cron", expression: "0 */6 * * *"}, payload: {kind: "agentTurn", message: "Run health check", session: "isolated"}, target: {agentId: "sentinel"})\`
 Types: at (one-shot), every (ms interval), cron (5-field). Max 3 concurrent. List: \`cron(action: "list")\`
 
 ### Inbox-Check Cron — MANDATORY FOR ALL AGENTS
 Every agent MUST have a cron job that fires every 5 minutes to check for incoming messages:
-\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "systemEvent", message: "INBOX CHECK: Read your session history for new messages. Execute any delegated tasks immediately. If no tasks, check /workspace/staging/index.json for items to improve. If nothing to do, create a deliverable in your specialty and stage it. Do NOT reply with just a status — DO work."}, target: {agentId: "<your-id>", session: "main"})\`
+\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "agentTurn", message: "INBOX CHECK: Read your session history for new messages. Execute any delegated tasks immediately. If no tasks, check /workspace/staging/index.json for items to improve. If nothing to do, create a deliverable in your specialty and stage it. Do NOT reply with just a status — DO work.", session: "isolated"}, target: {agentId: "<your-id>"})\`
 This is how delegation works. When Lead sends you a task via sessions_send, you process it on your next inbox check (within 5 minutes). Without this cron, you are deaf to delegation.
+**IMPORTANT:** Cron jobs MUST use \`session: "isolated"\` — NEVER \`"main"\`. Using "main" pollutes the owner's chat with system noise.
 
 ## Workflow Builder
 \`exec node /workspace/js/workflow-builder.js '<json>'\`
@@ -855,10 +856,11 @@ Do NOT just say "I'm online." Give each team member a SPECIFIC deliverable:
   \`sessions_send(sessionKey: "agent:chronicler:main", message: "System restart. WRITE a deploy runbook at /workspace/staging/deploy-runbook.html. Cover: full deploy, single service update, rollback, logs. SSM-safe commands. Stage it, log it, confirm back.")\`
 
 ### Step 4: Set up your inbox-check cron
-\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "systemEvent", message: "INBOX CHECK: Read your session history. Execute any delegated tasks. Check staging for items to improve. If no tasks exist, assign work to your team. Verify previous delegations were completed (read staging/index.json). Log all actions."}, target: {agentId: "<your-id>", session: "main"})\`
+\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "agentTurn", message: "INBOX CHECK: Read your session history. Execute any delegated tasks. Check staging for items to improve. If no tasks exist, assign work to your team. Verify previous delegations were completed (read staging/index.json). Log all actions.", session: "isolated"}, target: {agentId: "<your-id>"})\`
+**CRITICAL:** Always use \`session: "isolated"\` — NEVER \`"main"\`. Using "main" pollutes the owner's chat with system noise.
 
 ### Step 5: Set up team heartbeat cron (leads only)
-\`cron(action: "add", schedule: {type: "cron", expression: "0 */2 * * *"}, payload: {kind: "systemEvent", message: "HEARTBEAT: Execute HEARTBEAT.md checklist now."}, target: {agentId: "<your-id>", session: "main"})\`
+\`cron(action: "add", schedule: {type: "cron", expression: "0 */2 * * *"}, payload: {kind: "agentTurn", message: "HEARTBEAT: Execute HEARTBEAT.md checklist now.", session: "isolated"}, target: {agentId: "<your-id>"})\`
 
 ### Step 6: Confirm to owner (brief)
 Reply: "Online. Tools verified. [N] tasks assigned to team. Inbox cron active. Producing output."
@@ -889,7 +891,8 @@ Parse the activity log (or initialize if empty), add your startup event, write b
 Event: {"time":<NOW_MS>,"level":"info","type":"system","message":"<YOUR_NAME> online — system restart","agent":"<your-id>"}
 
 ### Step 3: Set up your inbox-check cron
-\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "systemEvent", message: "INBOX CHECK: Check your session history for delegated tasks. If tasks exist, execute them NOW — build the deliverable, stage it, log it, confirm to your lead. If no tasks, create a deliverable in your specialty and stage it. Do NOT reply with just a status."}, target: {agentId: "<your-id>", session: "main"})\`
+\`cron(action: "add", schedule: {type: "cron", expression: "*/5 * * * *"}, payload: {kind: "agentTurn", message: "INBOX CHECK: Check your session history for delegated tasks. If tasks exist, execute them NOW — build the deliverable, stage it, log it, confirm to your lead. If no tasks, create a deliverable in your specialty and stage it. Do NOT reply with just a status.", session: "isolated"}, target: {agentId: "<your-id>"})\`
+**CRITICAL:** Always use \`session: "isolated"\` — NEVER \`"main"\`. Using "main" pollutes the owner's chat.
 
 ### Step 4: Report to your lead
 - Core Team: \`sessions_send(sessionKey: "agent:lead:main", message: "Online. Tools verified. Inbox cron active. Ready — or send me a task now.")\`
