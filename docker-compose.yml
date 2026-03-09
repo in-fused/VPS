@@ -158,6 +158,8 @@ services:
     image: ghcr.io/openclaw/openclaw:main
     container_name: openclaw
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
@@ -296,6 +298,34 @@ services:
         chown -R 1000:1000 /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts /workspace/webhook-triggers &&
         echo 'Workspace synced + bridge dirs ready (owned by node:1000)'"
     restart: "no"
+
+  # ===========================================================================
+  # Watchtower — Auto-Update OpenClaw Container
+  # ===========================================================================
+  # Monitors the OpenClaw container image and auto-pulls new versions.
+  # Checks daily at 4 AM UTC. Only watches openclaw (label filter).
+  # After pulling a new image, restarts the container automatically.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Only update containers with the enable label (openclaw)
+      - WATCHTOWER_LABEL_ENABLE=true
+      # Check daily at 4:00 AM UTC
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      # Remove old images after updating
+      - WATCHTOWER_CLEANUP=true
+      # Don't send notifications (no SMTP configured)
+      - WATCHTOWER_NOTIFICATIONS=
+      # Rolling restart — stop old, pull new, start new
+      - WATCHTOWER_ROLLING_RESTART=true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
   # ===========================================================================
   # Ollama — Local LLM Server (OPTIONAL — for same-box deployment)
