@@ -4,7 +4,7 @@
 
 ---
 
-## Phase 1: Per-Agent Tool Restrictions
+## Phase 1: Per-Agent Tool Restrictions (COMPLETED)
 **Priority:** #1 — Biggest governance & security win
 **Risk:** Medium (bad config = crash loop)
 **Files:** `scripts/patch-openclaw-config.js`
@@ -76,7 +76,7 @@ Monitor [GitHub Issue #7926](https://github.com/openclaw/openclaw/issues/7926) �
 
 ---
 
-## Phase 3: Add `reserveTokensFloor: 40000` to Compaction Config
+## Phase 3: Add `reserveTokensFloor: 40000` to Compaction Config (COMPLETED)
 **Priority:** #3 — Prevents context balloon on long sessions
 **Risk:** Low (additive config)
 **Files:** `scripts/patch-openclaw-config.js`
@@ -100,7 +100,7 @@ Remove the single line. Restart.
 
 ---
 
-## Phase 4: Upgrade Sentinel Model
+## Phase 4: Upgrade Sentinel Model (COMPLETED)
 **Priority:** #4 — Stronger reasoning for security analysis
 **Risk:** Low (model swap only)
 **Files:** `scripts/patch-openclaw-config.js`
@@ -314,7 +314,7 @@ read(path: "/workspace/reference/openclaw/tools.md")
 Phases are ordered by impact/risk ratio. Each phase is a separate commit:
 
 ```
-Phase 0 (done) → Phase 1 → Phase 3 → Phase 4 → Phase 2 → Phase 5 → Phase 6 → Phase 7a → Phase 7b
+Phase 0 (done) → Phase 1 (done) → Phase 3 (done) → Phase 4 (done) → Phase 2 → Phase 5 → Phase 6 → Phase 7a → Phase 7b
 ```
 
 **Why this order:**

@@ -72,7 +72,7 @@ const SHARED_AGENTS = `# Team Structure — in-fused.org
 |-------|----|------|-------------------|
 | Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
 | Builder | builder | Infrastructure — Docker, scripts, CI/CD | gemini-flash (Gemini, free 250 RPD) |
-| Sentinel | sentinel | Security & monitoring — audits, health checks | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
+| Sentinel | sentinel | Security & monitoring — audits, health checks | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
 | Chronicler | chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)

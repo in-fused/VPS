@@ -147,6 +147,7 @@ config.agents.defaults.compaction.mode = 'safeguard';
 config.agents.defaults.compaction.memoryFlush = config.agents.defaults.compaction.memoryFlush || {};
 config.agents.defaults.compaction.memoryFlush.enabled = true;
 config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
+config.agents.defaults.compaction.reserveTokensFloor = 40000;
 config.agents.defaults.compaction.identifierPolicy = 'strict';
 
 // Memory search embeddings: route through LiteLLM to use free Gemini embeddings
@@ -261,6 +262,18 @@ if (config.tools && config.tools.agentToAgent) {
   delete config.tools.agentToAgent.maxPingPongTurns;
 }
 
+// Per-agent tool restrictions (Phase 1 optimization)
+var TOOL_RESTRICTIONS = {
+  'lead':       { deny: ['browser'] },           // Orchestrator, doesn't need browser
+  'codecraft':  {},                               // Full access — developer
+  'scout':      { deny: ['exec'] },               // Research only
+  'scribe':     { deny: ['exec', 'browser'] },    // Documentation writer
+  'ops-lead':   { deny: ['browser'] },            // Platform orchestrator
+  'builder':    {},                               // Full access — infra developer
+  'sentinel':   {},                               // Full access — security auditing
+  'chronicler': { deny: ['exec', 'browser'] },    // Documentation writer
+};
+
 // Clean unrecognized agent keys + force model assignments
 var MODEL_MAP = {
   'lead': 'litellm/cerebras-llama-3.3-70b',
@@ -269,7 +282,7 @@ var MODEL_MAP = {
   'scribe': 'litellm/gemini-flash-lite',
   'ops-lead': 'litellm/cerebras-llama-3.3-70b',
   'builder': 'litellm/gemini-flash',
-  'sentinel': 'litellm/cerebras-llama-4-scout',
+  'sentinel': 'litellm/cerebras-llama-3.3-70b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
 var SUBAGENT_MODEL = 'litellm/cerebras-llama-4-scout';
@@ -286,6 +299,11 @@ if (Array.isArray(config.agents && config.agents.list)) {
     }
     if (agent.subagents && agent.subagents.model) {
       agent.subagents.model.primary = SUBAGENT_MODEL;
+    }
+    // Apply per-agent tool restrictions
+    if (TOOL_RESTRICTIONS[agent.id] && TOOL_RESTRICTIONS[agent.id].deny && TOOL_RESTRICTIONS[agent.id].deny.length > 0) {
+      agent.tools = agent.tools || {};
+      agent.tools.deny = TOOL_RESTRICTIONS[agent.id].deny;
     }
   });
 }

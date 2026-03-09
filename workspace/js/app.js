@@ -424,7 +424,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
