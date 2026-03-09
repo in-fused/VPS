@@ -103,7 +103,10 @@ Or on error:
 `webchat`, `cli`, `ui`, `backend`, `node`, `probe`, `test`
 
 ### Roles
-`operator`, `user`, `agent`
+`operator` (scopes: `read`, `write`, `admin`, `approvals`, `pairing`), `node` (declares capabilities)
+
+### Server hello-ok Response
+Contains: `presence`, `health`, `stateVersion`, `uptimeMs`, limits/policy
 
 ---
 
@@ -159,6 +162,21 @@ Or on error:
 | `sessions.patch` | `key`, `...patch` | Update session metadata |
 | `sessions.reset` | `key`, `reason?` | Reset session (fresh conversation) |
 | `sessions.delete` | `key` | Delete session |
+
+#### Session Tool Schemas (Agent-Side)
+
+**sessions_list** params: `kinds?` (main|group|cron|hook|node|other), `limit?`, `activeMinutes?`, `messageLimit?`
+Returns: `key`, `kind`, `channel`, `displayName`, `updatedAt`, `sessionId`, `model`, `contextTokens`, `totalTokens`, `thinkingLevel`, `messages?`
+
+**sessions_history** params: `sessionKey` (required), `limit?`, `includeTools?` (default false)
+Returns: messages array
+
+**sessions_send** params: `sessionKey` (required), `message` (required), `timeoutSeconds?` (0=fire-and-forget)
+Returns: `{runId, status: "accepted"|"ok"|"timeout"|"error", reply?, error?}`
+Max 5 ping-pong turns by default. Reply `REPLY_SKIP` to stop.
+
+**sessions_spawn** params: `task` (required), `label?`, `agentId?`, `model?`, `thinking?`, `runTimeoutSeconds?`, `thread?`, `mode?` (run|session), `cleanup?` (delete|keep), `sandbox?` (inherit|require)
+Returns: `{status:"accepted", runId, childSessionKey}`
 | `sessions.compact` | `key` | Force session compaction |
 
 #### Session Key Format
@@ -183,7 +201,7 @@ Sessions auto-create on first `chat.send`.
 |--------|--------|-------------|
 | `config.get` | — | Get current configuration |
 | `config.set` | `...config` | Set full configuration |
-| `config.apply` | `...partial` | Apply partial config update |
+| `config.apply` | `...partial` | Apply partial config update (rate limit: 3/60s) |
 | `config.patch` | `path`, `value` | Patch specific config path |
 | `config.schema` | — | Get config JSON schema |
 
@@ -216,7 +234,8 @@ Sessions auto-create on first `chat.send`.
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `agent` | — | Run agent turn |
+| `agent` | — | Run agent turn (default timeout 600s) |
+| `agent.wait` | — | Run agent turn and wait (default 30s) |
 | `send` | — | Send message |
 | `wake` | `agentId` | Wake an agent |
 | `channels.status` | — | Channel connection status |
@@ -250,3 +269,72 @@ Sessions auto-create on first `chat.send`.
 | `DEVICE_AUTH_SIGNATURE_EXPIRED` | Signature expired |
 | `DEVICE_AUTH_DEVICE_ID_MISMATCH` | Device ID mismatch |
 | `DEVICE_AUTH_PUBLIC_KEY_INVALID` | Invalid public key |
+
+### Other Error Signatures
+
+| Error | Cause |
+|-------|-------|
+| `device identity required` | Missing device auth |
+| `unauthorized` | Token/password mismatch |
+| `gateway connect failed` | Invalid host/port |
+| `EADDRINUSE` | Port conflict |
+| `refusing to bind gateway without auth` | Non-loopback needs auth |
+| `SYSTEM_RUN_DENIED: approval required` | Exec approval pending |
+
+---
+
+## Event Types (Server → Client)
+
+| Event | Description |
+|-------|-------------|
+| `connect.challenge` | Auth challenge with nonce |
+| `agent` | Agent state change |
+| `chat` | Chat message (delta/final/error/aborted) |
+| `presence` | User/agent presence update |
+| `tick` | Periodic tick |
+| `health` | Health status update |
+| `heartbeat` | Heartbeat event |
+| `shutdown` | Server shutting down |
+| `exec.approval.requested` | Exec tool needs approval |
+
+---
+
+## Session Key Patterns
+
+| Pattern | Example | Description |
+|---------|---------|-------------|
+| DM main | `agent:<id>:main` | Primary webchat session |
+| DM per-peer | `agent:<id>:dm:<peerId>` | Per-peer DM |
+| Group | `agent:<id>:<channel>:group:<id>` | Group chat |
+| Cron | `cron:<jobId>` | Cron job session |
+| Webhook | `hook:<uuid>` | Webhook session |
+| Node | `node-<nodeId>` | Node session |
+| Sub-agent | `agent:<id>:subagent:<uuid>` | Sub-agent session |
+
+---
+
+## Queue & Concurrency
+
+Lane-based FIFO queue. Session lanes serialize per-session. Global lanes cap parallelism.
+
+| Lane | Default Concurrency |
+|------|-------------------|
+| `main` | 4 |
+| `subagent` | 8 |
+| others | 1 |
+
+**Queue modes:** `collect` (coalesce, default), `steer` (inject into current run), `followup` (next turn), `steer-backlog` (steer + preserve), `interrupt` (abort + process newest)
+
+**Defaults:** `debounceMs: 1000`, `cap: 20`, `drop: "summarize"`
+
+---
+
+## OpenAI-Compatible HTTP API
+
+Disabled by default. Enable via `gateway.http.endpoints.chatCompletions.enabled = true`.
+
+**Endpoint:** `POST /v1/chat/completions`
+**Auth:** Bearer token matching gateway password
+**Model field:** `openclaw:<agentId>` or `agent:<agentId>`
+**Headers:** `x-openclaw-agent-id`, `x-openclaw-session-key`
+**Streaming:** `stream: true` → SSE with `data: [DONE]` termination

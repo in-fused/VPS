@@ -32,15 +32,17 @@ OpenClaw reads workspace files on every agent turn and includes their content in
 - **Total across all files:** `agents.defaults.bootstrapTotalMaxChars` (default: 150,000 characters)
 - Files exceeding limits are truncated with a warning
 
-### Loading Order
-1. `SOUL.md` — core identity (loaded first, highest priority)
-2. `USER.md` — user context
-3. `AGENTS.md` — team awareness
-4. `IDENTITY.md` — self-description
-5. `TOOLS.md` — tool instructions
+### Loading Order (System Prompt Assembly)
+1. `AGENTS.md` — operating instructions, memory guidance
+2. `SOUL.md` — persona, boundaries, tone
+3. `TOOLS.md` — tool guidance, conventions
+4. `IDENTITY.md` — agent name, vibe, emoji
+5. `USER.md` — user identity, preferences
 6. `HEARTBEAT.md` — periodic behavior
-7. `MEMORY.md` — project context
-8. `BOOTSTRAP.md` / `BOOT.md` — startup sequence (loaded on bootstrap only)
+7. `BOOTSTRAP.md` — one-time initialization (first run only)
+8. `MEMORY.md` — curated long-term memory (main sessions only)
+
+**Sub-agents receive only:** `AGENTS.md` + `TOOLS.md`
 
 ---
 

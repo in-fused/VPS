@@ -84,10 +84,10 @@
 | `identifierPolicy` | string | `"strict"` | `"strict"`, `"off"`, `"custom"` |
 | `identifierInstructions` | string | — | Custom identifier instructions |
 | `reserveTokens` | number | `16384` | Tokens reserved for compaction output |
-| `reserveTokensFloor` | number | `20000` | Minimum tokens to reserve after compaction |
+| `reserveTokensFloor` | number | `24000` | Minimum tokens to reserve after compaction (safety min: 20000) |
 | `keepRecentTokens` | number | `20000` | Recent tokens to keep uncompacted |
 | `memoryFlush.enabled` | boolean | `true` | Enable memory flush on compaction |
-| `memoryFlush.softThresholdTokens` | number | `4000` | Token threshold before compaction triggers |
+| `memoryFlush.softThresholdTokens` | number | `6000` | Token threshold before memory flush triggers (we set 50000) |
 | `memoryFlush.systemPrompt` | string | — | Custom system prompt for flush |
 | `memoryFlush.prompt` | string | — | Custom prompt for flush |
 
