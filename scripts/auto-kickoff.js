@@ -1,11 +1,11 @@
 // ============================================================================
 // Auto-Kickoff — Sends startup message to both leads after OpenClaw boots
 // ============================================================================
-// Runs from the entrypoint after 30s delay. Connects to OpenClaw WS, sends
-// a "wake up" message that triggers BOOTSTRAP.md execution, then exits.
+// Runs from the entrypoint after RPC seed completes. Connects to OpenClaw WS,
+// sends a "wake up" message that triggers BOOTSTRAP.md execution, then exits.
+//
+// Uses Node.js v22+ native WebSocket (no external dependencies).
 // ============================================================================
-
-const WebSocket = require('ws');
 
 const OC_URL = 'ws://localhost:18789/';
 const PASSWORD = process.env.OPENCLAW_PASSWORD || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
@@ -31,7 +31,6 @@ function kickoff() {
     const ws = new WebSocket(OC_URL);
     let reqId = 0;
     const pending = new Map();
-    let authenticated = false;
     let sent = 0;
 
     const timeout = setTimeout(() => {
@@ -40,20 +39,20 @@ function kickoff() {
       resolve(sent);
     }, 30000);
 
-    ws.on('error', (err) => {
-      console.warn('[kickoff] WS error:', err.message);
+    ws.addEventListener('error', (event) => {
+      console.warn('[kickoff] WS error:', event.message || 'connection failed');
       clearTimeout(timeout);
-      reject(err);
+      reject(new Error('WebSocket error'));
     });
 
-    ws.on('close', () => {
+    ws.addEventListener('close', () => {
       clearTimeout(timeout);
       resolve(sent);
     });
 
-    ws.on('message', (raw) => {
+    ws.addEventListener('message', (event) => {
       let msg;
-      try { msg = JSON.parse(raw); } catch { return; }
+      try { msg = JSON.parse(event.data); } catch { return; }
 
       // Handle hello/challenge → send connect handshake
       if (msg.type === 'hello' || msg.type === 'challenge') {
@@ -86,7 +85,6 @@ function kickoff() {
             ws.close();
             return;
           }
-          authenticated = true;
           console.log('[kickoff] Authenticated. Sending kickoff to leads...');
           sendToLeads();
           return;

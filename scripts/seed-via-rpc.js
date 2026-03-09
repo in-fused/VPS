@@ -210,7 +210,7 @@ function seedViaRpc() {
 }
 
 // Wait for OpenClaw to be healthy before connecting
-function waitForHealth(maxRetries = 15, intervalMs = 2000) {
+function waitForHealth(maxRetries = 30, intervalMs = 2000) {
   const http = require('http');
   return new Promise((resolve, reject) => {
     let attempts = 0;
