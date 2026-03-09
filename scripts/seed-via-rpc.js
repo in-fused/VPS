@@ -82,27 +82,28 @@ function getAgentFiles(agent) {
 }
 
 function seedViaRpc() {
+  // Build the file queue BEFORE opening the WebSocket — readFileSync blocks
+  // the event loop and prevents the WS message handler from processing
+  // OpenClaw's hello frame, causing handshake timeout.
+  const queue = [];
+  for (const agent of agents) {
+    const files = getAgentFiles(agent);
+    for (const [filename, content] of Object.entries(files)) {
+      queue.push({ agentId: agent.id, path: filename, content });
+    }
+  }
+
+  if (queue.length === 0) {
+    console.warn('[rpc-seed] No files to push — all caches empty');
+    return Promise.resolve(0);
+  }
+
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(OC_URL);
     let reqId = 0;
     const pending = new Map();
     let totalSet = 0;
     let totalErrors = 0;
-
-    // Build the queue of all file-set operations
-    const queue = [];
-    for (const agent of agents) {
-      const files = getAgentFiles(agent);
-      for (const [filename, content] of Object.entries(files)) {
-        queue.push({ agentId: agent.id, path: filename, content });
-      }
-    }
-
-    if (queue.length === 0) {
-      console.warn('[rpc-seed] No files to push — all caches empty');
-      resolve(0);
-      return;
-    }
 
     const timeout = setTimeout(() => {
       console.log(`[rpc-seed] Timeout after 60s. Set ${totalSet}/${queue.length}, ${totalErrors} errors`);
