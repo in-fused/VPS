@@ -136,10 +136,21 @@ const SHARED_MEMORY = `# Project Memory
 - /workspace/agent-activity/ — YOUR event log (log.json) — owner sees this in Activity tab
 - /workspace/agent-workflows/ — YOUR workflows + index.json (Mission Control polls every 15s)
 - /workspace/agent-workflows/results/ — background execution results
-- /workspace/prompts/ — prompt archive (archive.json)
+- /workspace/prompts/ — prompt archive (archive.json) + evolution state (evolution-state.json)
 - /workspace/mc-state/ — governance data
 
 These paths are YOUR workspace. You have FULL read/write access. No approval needed.
+
+## Prompt Evolution System
+The owner runs a prompt optimizer that identifies underperforming prompts and generates improved versions.
+- **State file:** /workspace/prompts/evolution-state.json
+- **Archive file:** /workspace/prompts/archive.json (DO NOT modify directly — owner manages this)
+- When the optimizer runs, it sends you a PROMPT EVOLUTION directive. Execute it like any other task.
+- Your job: read the archive, analyze performance, generate improved prompt variants, write results to evolution-state.json
+- The owner reviews and promotes winners from the Prompt Library UI
+- Format for evolution-state.json:
+  {"experiments":[{"promptId":"<id>","original":"<text>","evolved":"<text>","changes":["what changed"],"validationResults":[{"rule":"name","passed":true}],"status":"pending-review","target":"<agent-id>","createdAt":<unix_ms>}],"stats":{"generations":0,"tested":0,"promoted":0,"rejected":0},"lastRun":<unix_ms>,"log":[{"time":<unix_ms>,"type":"mutate","message":"..."}]}
+- Validation rules to check: non-empty (>20 chars), has staging output path, has activity logging, no curl (wget only), under 4000 chars (mobile-safe), has RULES section, no forbidden phrases ("I cannot"/"I'm unable"), lead prompts must have delegation keywords
 
 ## Deep Reference Docs (on-demand — read only when you need deep context)
 - /workspace/reference/index.md — Index of all reference docs
@@ -294,6 +305,32 @@ You are part of a team. You do NOT work in isolation. When a task would benefit 
 - **The initiator stages the final deliverable.** Don't both try to write to staging/index.json for the same item.
 - **Cross-team is ENCOURAGED.** CodeCraft + Sentinel building a security dashboard together is exactly how this should work.
 - **Both contributors get governance credit.** The initiator gets task-complete credit; the collaborator gets peer-collaboration credit. Co-authoring is scored positively.
+
+## Prompt Evolution Protocol (ALL Agents)
+The owner has an autonomous prompt optimizer in the Prompt Library UI. It identifies underperforming prompts and generates evolution directives.
+
+### If you receive a PROMPT EVOLUTION directive:
+1. **READ** /workspace/prompts/archive.json — find the prompt(s) by id
+2. **ANALYZE** why it underperforms — check governance metrics at /workspace/mc-state/governance.json, staging approval history at /workspace/staging/index.json, and activity logs at /workspace/agent-activity/log.json
+3. **GENERATE** an improved version that preserves the core intent but:
+   - Makes delegation structure clearer (for lead prompts)
+   - Ensures staging output paths are explicit
+   - Adds activity logging rules if missing
+   - Removes ambiguity that causes agents to ask questions
+   - Stays under 4000 chars (owner pastes from iPhone)
+4. **VALIDATE** the new version against these rules:
+   - Must reference /workspace/staging/ for outputs
+   - Must mention activity logging
+   - Must NOT contain "curl" (use wget)
+   - Must NOT contain "I cannot", "I'm unable", "I don't have access", "not possible"
+   - Lead/Ops Lead prompts must include delegation keywords (CODECRAFT, SCOUT, etc.)
+5. **WRITE** results to /workspace/prompts/evolution-state.json (see MEMORY.md for exact format)
+6. **LOG** each evolution to /workspace/agent-activity/log.json
+
+**DO NOT** modify archive.json directly. The owner promotes winners from the UI.
+
+### If you want to propose a prompt improvement proactively:
+Write to evolution-state.json with status "pending-review". The owner will see it in the Evolution tab.
 
 ## Free APIs & Resources (no keys required)
 | Category | URL |
@@ -793,6 +830,10 @@ Reply: "Online. Tools verified. [N] tasks assigned to team. Inbox cron active. P
 
 ## Phase 1: Initial Output Sprint
 After bootstrap, your FIRST priority is to produce at least 1 staged deliverable yourself (don't just delegate — build something too). Read /workspace/prompts/phase1-<team>.md if it exists for specific instructions. If it doesn't exist, build a team status dashboard showing all agents and their current state.
+
+### Check Prompt Evolution State
+\`read(path: "/workspace/prompts/evolution-state.json")\`
+If it exists and has experiments with status "pending-review", execute them — analyze, generate improved variants, write results back. If the file doesn't exist, skip this step.
 
 ## JSON Formats (for write tool content param)
 Activity: {"events":[{"time":1709726400000,"level":"info","type":"system","message":"...","agent":"lead"}]}
