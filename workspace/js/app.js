@@ -1671,14 +1671,20 @@ document.addEventListener('alpine:init', () => {
               streamMsg.content = '';
             }
 
-            // Try extracting final content from ALL possible payload fields
+            // Try extracting final content from ALL possible payload fields.
+            // ONLY use it if streaming produced no content — the final event
+            // contains the COMPLETE response, and appending it when deltas
+            // already delivered the text causes duplication (the old endsWith
+            // check was too fragile — any formatting difference caused the
+            // entire response to be appended again).
             const finalContent = extractMessageText(payload.message)
               || extractMessageText(payload.content)
               || extractMessageText(payload.result)
               || extractMessageText(payload.text)
               || '';
-            if (finalContent && !streamMsg.content.endsWith(finalContent)) {
-              streamMsg.content += finalContent;
+            if (finalContent && !streamMsg.content.trim()) {
+              // Streaming produced nothing — use final as the complete response
+              streamMsg.content = finalContent;
             }
 
             // If streaming produced no visible text, do a full history sync from the server.
