@@ -39,7 +39,10 @@ node /opt/scripts/seed-agent-workspaces.js
 # OpenClaw won't overwrite them with its defaults. This replaces the old
 # filesystem-based delayed second seed (which had a race condition).
 # After RPC seed, auto-kickoff sends startup messages to both leads.
-(node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
+# Sleep 45s first — OpenClaw takes ~50s to start (Doctor changes + config
+# overwrite + gateway bind). Without this delay, the health check retries
+# burn out before the gateway is even listening.
+(sleep 45 && node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
 
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.
