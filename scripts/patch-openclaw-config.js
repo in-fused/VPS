@@ -247,7 +247,7 @@ if (config.agents.list.length === 0) {
     },
     {
       id: 'sentinel', workspace: 'Sentinel',
-      model: { primary: 'litellm/cerebras-llama-4-scout' },
+      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
       identity: { name: 'Sentinel', emoji: '\u{1F6E1}\uFE0F' },
       subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },

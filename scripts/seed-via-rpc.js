@@ -46,19 +46,39 @@ if (agents.length === 0) {
 // the workspace directory with its defaults — so we read from /tmp cache.
 const CACHE_DIR = '/tmp/workspace-seed-cache';
 
+// Markers that MUST appear in our custom files (not OpenClaw defaults)
+const CONTENT_MARKERS = {
+  'SOUL.md': 'PRIME DIRECTIVE',
+  'BOOTSTRAP.md': 'DO NOT delete, rename, or modify this file',
+  'TOOLS.md': 'RULE #1: ACT',
+  'USER.md': 'Owner Profile',
+  'AGENTS.md': 'Team Structure',
+  'MEMORY.md': 'Project Memory',
+  'HEARTBEAT.md': 'Heartbeat',
+};
+
 function getAgentFiles(agent) {
   const cacheAgentDir = path.join(CACHE_DIR, agent.id);
   const files = {};
   for (const filename of WORKSPACE_FILES) {
     const filepath = path.join(cacheAgentDir, filename);
     try {
-      files[filename] = fs.readFileSync(filepath, 'utf8');
+      const content = fs.readFileSync(filepath, 'utf8');
+      // Validate this is our content, not OpenClaw defaults
+      const marker = CONTENT_MARKERS[filename];
+      if (marker && !content.includes(marker)) {
+        console.error(`[rpc-seed] CORRUPT: ${agent.id}/${filename} missing marker "${marker}" — skipping (would push OpenClaw defaults)`);
+        continue;
+      }
+      files[filename] = content;
     } catch {
       // Not in cache — skip
     }
   }
   if (Object.keys(files).length === 0) {
     console.warn(`[rpc-seed] No cached files for ${agent.id} — cache may be missing`);
+  } else {
+    console.log(`[rpc-seed] ${agent.id}: ${Object.keys(files).length}/7 files validated from cache`);
   }
   return files;
 }
