@@ -948,6 +948,10 @@ const FORCE_OVERWRITE = new Set([
   'USER.md', 'AGENTS.md', 'MEMORY.md', 'HEARTBEAT.md',
 ]);
 
+// Cache directory — survives OpenClaw's default-file overwrites so the RPC
+// seeder (seed-via-rpc.js) can read our content after OpenClaw starts.
+const CACHE_DIR = '/tmp/workspace-seed-cache';
+
 let seeded = 0;
 let skipped = 0;
 let overwritten = 0;
@@ -955,8 +959,10 @@ let overwritten = 0;
 for (const agent of agents) {
   const wsName = agent.workspace || agent.id;
   const wsDir = path.join(OPENCLAW_DIR, `workspace-${wsName}`);
+  const cacheAgentDir = path.join(CACHE_DIR, agent.id);
 
   fs.mkdirSync(wsDir, { recursive: true });
+  fs.mkdirSync(cacheAgentDir, { recursive: true });
 
   const isLead = ['lead', 'ops-lead'].includes(agent.id);
 
@@ -981,6 +987,8 @@ for (const agent of agents) {
     } else {
       skipped++;
     }
+    // Always cache a copy for the RPC seeder to read later
+    fs.writeFileSync(path.join(cacheAgentDir, filename), content, 'utf8');
   }
 
   // Create memory/ subdirectory for daily memory logs

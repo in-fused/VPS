@@ -41,18 +41,24 @@ if (agents.length === 0) {
   process.exit(0);
 }
 
-// Build file map: read from filesystem (written by first seed)
+// Cache directory written by the first seed (seed-agent-workspaces.js) BEFORE
+// OpenClaw starts. By the time this RPC seeder runs, OpenClaw has overwritten
+// the workspace directory with its defaults — so we read from /tmp cache.
+const CACHE_DIR = '/tmp/workspace-seed-cache';
+
 function getAgentFiles(agent) {
-  const wsName = agent.workspace || agent.id;
-  const wsDir = path.join(OPENCLAW_DIR, `workspace-${wsName}`);
+  const cacheAgentDir = path.join(CACHE_DIR, agent.id);
   const files = {};
   for (const filename of WORKSPACE_FILES) {
-    const filepath = path.join(wsDir, filename);
+    const filepath = path.join(cacheAgentDir, filename);
     try {
       files[filename] = fs.readFileSync(filepath, 'utf8');
     } catch {
-      // File doesn't exist from first seed — skip
+      // Not in cache — skip
     }
+  }
+  if (Object.keys(files).length === 0) {
+    console.warn(`[rpc-seed] No cached files for ${agent.id} — cache may be missing`);
   }
   return files;
 }
