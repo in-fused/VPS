@@ -218,7 +218,11 @@ function registerCustomNodes() {
       this.properties.trigger = v;
       this._updateScheduleWidgets();
     }, { values: ['Manual', 'Scheduled', 'Webhook', 'On Event'] });
-    this.properties = { prompt: '', trigger: 'Manual', cronExpression: '0 */6 * * *', cronJobId: null };
+    this.properties = {
+      prompt: '', trigger: 'Manual',
+      cronExpression: '0 */6 * * *', cronJobId: null,
+      webhookUrl: null, webhookToken: null,
+    };
     this.size = [280, 120];
     this.color = '#064e3b';
     this.bgcolor = '#022c22';
@@ -252,6 +256,32 @@ function registerCustomNodes() {
         this._scheduleWidgets.push(statusWidget);
       }
       this.size[1] = this.properties.cronJobId ? 200 : 170;
+    } else if (this.properties.trigger === 'Webhook') {
+      if (this.properties.webhookUrl) {
+        // Show registered webhook URL (read-only)
+        const urlWidget = this.addWidget('text', 'URL', this.properties.webhookUrl, null);
+        urlWidget.disabled = true;
+        this._scheduleWidgets.push(urlWidget);
+
+        const copyBtn = this.addWidget('button', 'Copy URL', '', () => {
+          navigator.clipboard?.writeText(this.properties.webhookUrl)
+            .then(() => Alpine?.store('monitor')?.addLog('info', 'Webhook URL copied to clipboard'))
+            .catch(() => Alpine?.store('monitor')?.addLog('warn', 'Failed to copy — use browser copy'));
+        });
+        this._scheduleWidgets.push(copyBtn);
+
+        const revokeBtn = this.addWidget('button', 'Revoke Webhook', '', () => {
+          this._revokeWebhook();
+        });
+        this._scheduleWidgets.push(revokeBtn);
+        this.size[1] = 210;
+      } else {
+        const registerBtn = this.addWidget('button', 'Generate Webhook URL', '', () => {
+          this._registerWebhook();
+        });
+        this._scheduleWidgets.push(registerBtn);
+        this.size[1] = 150;
+      }
     } else {
       this.size[1] = 120;
     }
@@ -308,6 +338,49 @@ function registerCustomNodes() {
       } catch (err) {
         Alpine?.store('monitor')?.addLog('error', `Failed to save schedule: ${err.message}`);
       }
+    }
+    this._updateScheduleWidgets();
+  };
+
+  TriggerNode.prototype._registerWebhook = async function () {
+    const wfStore = Alpine?.store('workflows');
+    const wfId = wfStore?.active?.id;
+    const wfName = wfStore?.active?.name || 'Workflow';
+    if (!wfId) {
+      Alpine?.store('monitor')?.addLog('warn', 'Save workflow before registering webhook');
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/webhook/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflowId: wfId, workflowName: wfName }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      this.properties.webhookUrl = data.url;
+      this.properties.webhookToken = data.token;
+      Alpine?.store('monitor')?.addLog('info', `Webhook registered: ${data.url}`);
+    } catch (err) {
+      Alpine?.store('monitor')?.addLog('error', `Webhook registration failed: ${err.message}`);
+    }
+    this._updateScheduleWidgets();
+  };
+
+  TriggerNode.prototype._revokeWebhook = async function () {
+    const wfStore = Alpine?.store('workflows');
+    const wfId = wfStore?.active?.id;
+    if (!wfId) return;
+
+    try {
+      const resp = await fetch(`/api/webhook/revoke/${wfId}`, { method: 'DELETE' });
+      if (!resp.ok && resp.status !== 404) throw new Error(`HTTP ${resp.status}`);
+      this.properties.webhookUrl = null;
+      this.properties.webhookToken = null;
+      Alpine?.store('monitor')?.addLog('info', 'Webhook revoked');
+    } catch (err) {
+      Alpine?.store('monitor')?.addLog('error', `Webhook revoke failed: ${err.message}`);
     }
     this._updateScheduleWidgets();
   };
@@ -718,18 +791,40 @@ function registerCustomNodes() {
     this.addInput('done', LiteGraph.ACTION);
     this.addWidget('combo', 'Destination', 'Log', (v) => {
       this.properties.destination = v;
+      this._updateDestWidgets();
     }, { values: ['Log', 'Chat Response', 'File', 'Webhook'] });
     this.addWidget('text', 'Label', 'Output', (v) => {
       this.properties.label = v;
     });
 
-    this.properties = { destination: 'Log', label: 'Output' };
+    this.properties = { destination: 'Log', label: 'Output', webhookUrl: '' };
     this.size = [240, 100];
     this.color = '#1a4d3a';
     this.bgcolor = '#0a2e1f';
+    this._destWidgets = [];
   }
   OutputNode.title = 'Output';
   OutputNode.desc = 'Delivers results (log, chat, file, webhook)';
+
+  OutputNode.prototype._updateDestWidgets = function () {
+    for (const w of this._destWidgets) {
+      const idx = this.widgets.indexOf(w);
+      if (idx !== -1) this.widgets.splice(idx, 1);
+    }
+    this._destWidgets = [];
+
+    if (this.properties.destination === 'Webhook') {
+      const urlWidget = this.addWidget('text', 'URL', this.properties.webhookUrl || '', (v) => {
+        this.properties.webhookUrl = v;
+      });
+      this._destWidgets.push(urlWidget);
+      this.size[1] = 130;
+    } else {
+      this.size[1] = 100;
+    }
+    this.setDirtyCanvas(true);
+  };
+
   OutputNode.prototype.onExecute = function () {};
   OutputNode.prototype.runAsync = async function (inputs) {
     const result = inputs.result || '';
@@ -770,6 +865,21 @@ function registerCustomNodes() {
             { sessionKey: 'agent:lead:main' }
           );
         } catch {}
+      }
+    } else if (dest === 'Webhook') {
+      // POST result to configured webhook URL
+      const url = this.properties.webhookUrl;
+      if (url) {
+        try {
+          await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label, result, timestamp: new Date().toISOString() }),
+          });
+          monitor?.addLog('info', `[Workflow] Webhook sent to ${url}`);
+        } catch (err) {
+          monitor?.addLog('error', `[Workflow] Webhook POST failed: ${err.message}`);
+        }
       }
     }
 

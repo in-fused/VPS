@@ -136,6 +136,42 @@
 	}
 
 	# =========================================================================
+	# Webhook API — /api/webhook/* (workflow triggers from external services)
+	# =========================================================================
+	# handle_path strips /api/webhook, so handler sees /trigger/{id},
+	# /register, /list, /revoke/{id}, /health.
+	#
+	# /trigger/* is public — external services POST here with a per-webhook
+	# token. All other paths require the site auth cookie.
+	handle_path /api/webhook/* {
+		# Trigger endpoint — public, token-validated by webhook handler
+		@wh_trigger path /trigger/*
+		handle @wh_trigger {
+			reverse_proxy webhook:9090 {
+				flush_interval -1
+			}
+		}
+
+		# Management endpoints — cookie-gated
+		@wh_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @wh_noauth {
+			reverse_proxy webhook:9090 {
+				flush_interval -1
+			}
+		}
+
+		@wh_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @wh_authed {
+			reverse_proxy webhook:9090 {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond "Unauthorized" 401
+		}
+	}
+
+	# =========================================================================
 	# OpenClaw Web UI + WebSocket Gateway — /openclaw/*
 	# =========================================================================
 	# Cookie-based auth gate: caddy-entrypoint.sh exports WORKSPACE_PASS_SHA256,

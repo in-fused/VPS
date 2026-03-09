@@ -59,6 +59,9 @@ class WorkflowBridge {
 
       // 4. Check for activity logs
       await this._checkActivityLog();
+
+      // 5. Check for webhook trigger files
+      await this._checkWebhookTriggers();
     } catch {
       // Silently fail — services may not be up yet
     }
@@ -375,6 +378,44 @@ class WorkflowBridge {
       }
     } catch {
       // Results directory may not exist yet
+    }
+  }
+
+  // =========================================================================
+  // WEBHOOK TRIGGERS: Poll /workspace/webhook-triggers/ for pending triggers
+  // =========================================================================
+  // External services POST to /api/webhook/trigger/{id} → handler writes a
+  // JSON file here → MC picks it up and executes the workflow.
+  // Processed triggers are marked 'processed' so they're only run once.
+
+  async _checkWebhookTriggers() {
+    try {
+      // Poll the trigger index maintained by the webhook handler.
+      // The handler writes to /workspace/webhook-triggers/index.json
+      // on every trigger (same pattern as agent-workflows/index.json).
+      const resp = await fetch('/workspace/webhook-triggers/index.json', {
+        signal: AbortSignal.timeout(5000),
+        cache: 'no-store',
+      });
+      if (!resp.ok) return;
+
+      const index = await resp.json();
+
+      for (const trigger of (index.triggers || [])) {
+        if (trigger.status !== 'pending') continue;
+        const key = 'webhook:' + trigger.triggerId;
+        if (this._knownFiles.has(key)) continue;
+        this._knownFiles.add(key);
+
+        Alpine.store('monitor')?.addLog('info',
+          `Webhook triggered workflow "${trigger.workflowId}"`
+        );
+
+        // Execute the workflow (routes to OpenClaw server-side or runs locally)
+        this._executeAgentWorkflow(trigger.workflowId);
+      }
+    } catch {
+      // webhook-triggers/index.json may not exist yet — normal
     }
   }
 

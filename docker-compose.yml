@@ -236,6 +236,40 @@ services:
       start_period: 15s
 
   # ===========================================================================
+  # Webhook Handler — Lightweight endpoint for external workflow triggers
+  # ===========================================================================
+  # Receives POST requests from external services (GitHub, Stripe, etc.),
+  # validates per-webhook tokens, and triggers workflow execution via OpenClaw.
+  # Internal only — proxied through Caddy at /api/webhook/*.
+  webhook:
+    build:
+      context: ./webhook
+      dockerfile: Dockerfile
+    image: in-fused/webhook:latest
+    container_name: webhook
+    restart: unless-stopped
+    volumes:
+      - agent-workspace:/workspace
+    environment:
+      - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
+      - DOMAIN=${DOMAIN:-in-fused.org}
+    networks:
+      - ai-net
+    depends_on:
+      workspace-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content
   # ===========================================================================
   # Runs once on deploy to sync workspace/ seed files into the shared volume.
@@ -249,13 +283,14 @@ services:
       - agent-workspace:/workspace
     command: >
       sh -c "cp -r /seed/. /workspace/ &&
-        mkdir -p /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts &&
+        mkdir -p /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts /workspace/webhook-triggers &&
         [ -f /workspace/agent-workflows/index.json ] || echo '{\"workflows\":[]}' > /workspace/agent-workflows/index.json &&
         [ -f /workspace/agent-workflows/results/index.json ] || echo '{\"results\":[]}' > /workspace/agent-workflows/results/index.json &&
         [ -f /workspace/staging/index.json ] || echo '{\"items\":[]}' > /workspace/staging/index.json &&
+        [ -f /workspace/webhook-triggers/index.json ] || echo '{\"triggers\":[]}' > /workspace/webhook-triggers/index.json &&
         [ -f /workspace/agent-activity/log.json ] || echo '{\"events\":[]}' > /workspace/agent-activity/log.json &&
         [ -f /workspace/mc-state/governance.json ] || echo '{\"agents\":{},\"teams\":[],\"updatedAt\":0}' > /workspace/mc-state/governance.json &&
-        chown -R 1000:1000 /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts &&
+        chown -R 1000:1000 /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts /workspace/webhook-triggers &&
         echo 'Workspace synced + bridge dirs ready (owned by node:1000)'"
     restart: "no"
 

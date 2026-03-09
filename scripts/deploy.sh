@@ -241,6 +241,14 @@ else
     exit 1
 fi
 
+log_info "Building webhook handler..."
+if docker compose build webhook; then
+    log_ok "Webhook handler image built"
+else
+    log_error "Webhook build failed — check webhook/Dockerfile"
+    exit 1
+fi
+
 ###############################################################################
 # 6. Start the stack
 ###############################################################################
