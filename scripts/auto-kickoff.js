@@ -50,27 +50,58 @@ function kickoff() {
       resolve(sent);
     });
 
+    let handshakeSent = false;
+
+    function sendConnect() {
+      if (handshakeSent) return;
+      handshakeSent = true;
+      const id = String(++reqId);
+      console.log('[kickoff] Sending connect handshake...');
+      ws.send(JSON.stringify({
+        type: 'req',
+        id,
+        method: 'connect',
+        params: {
+          minProtocol: 3,
+          maxProtocol: 3,
+          auth: { token: PASSWORD, password: PASSWORD },
+          role: 'operator',
+          scopes: ['operator.read', 'operator.write', 'operator.admin'],
+          client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'backend' },
+        },
+      }));
+      pending.set(id, 'connect');
+    }
+
     ws.addEventListener('message', (event) => {
+      const raw = typeof event.data === 'string' ? event.data : String(event.data);
       let msg;
-      try { msg = JSON.parse(event.data); } catch { return; }
+      try { msg = JSON.parse(raw); } catch (e) {
+        console.warn('[kickoff] Non-JSON message:', raw.slice(0, 120));
+        return;
+      }
+
+      // Debug: log message types during handshake
+      if (!handshakeSent) {
+        console.log(`[kickoff] recv type=${msg.type} event=${msg.event || 'n/a'}`);
+      }
 
       // Handle hello/challenge → send connect handshake
       if (msg.type === 'hello' || msg.type === 'challenge') {
-        const id = String(++reqId);
-        ws.send(JSON.stringify({
-          type: 'req',
-          id,
-          method: 'connect',
-          params: {
-            minProtocol: 3,
-            maxProtocol: 3,
-            auth: { token: PASSWORD, password: PASSWORD },
-            role: 'operator',
-            scopes: ['operator.read', 'operator.write', 'operator.admin'],
-            client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'backend' },
-          },
-        }));
-        pending.set(id, 'connect');
+        sendConnect();
+        return;
+      }
+
+      // Handle event-type hello (newer OpenClaw versions)
+      if (msg.type === 'event' && !handshakeSent) {
+        sendConnect();
+        return;
+      }
+
+      // Catch-all: any unrecognized first message triggers handshake
+      if (!handshakeSent) {
+        console.log(`[kickoff] Unrecognized first msg type=${msg.type}, sending connect anyway`);
+        sendConnect();
         return;
       }
 
