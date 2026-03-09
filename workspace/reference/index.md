@@ -9,6 +9,7 @@ On-demand deep context for agents. Each file covers a specific domain.
 | [agents.md](agents.md) | Entrypoint, config patcher, workspace seeder, kickoff | Agent config, startup sequence |
 | [frontend.md](frontend.md) | Mission Control architecture summary | Understanding the UI, stores, views |
 | [scraping.md](scraping.md) | Scrapling API source (api.py) | Web scraping capabilities |
+| [startup-chain.md](startup-chain.md) | Full deploy→boot→seed→kickoff→cron chain | Debugging agent bootstrap, understanding autonomy loop |
 | [project-overview.md](project-overview.md) | Full CLAUDE.md | High-level architecture, resolved issues |
 
 ## OpenClaw Reference Library

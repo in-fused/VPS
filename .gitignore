@@ -45,6 +45,7 @@ node_modules/
 # Ignore auto-generated files but keep hand-crafted ones
 workspace/reference/*.md
 !workspace/reference/index.md
+!workspace/reference/startup-chain.md
 workspace/reference/infrastructure.md
 workspace/reference/models.md
 workspace/reference/agents.md

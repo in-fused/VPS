@@ -194,7 +194,21 @@ cat scrapling/api.py >> "$OUT_DIR/scraping.md"
 echo '```' >> "$OUT_DIR/scraping.md"
 
 ###############################################################################
-# 6. project-overview.md — High-level project context (condensed CLAUDE.md)
+# 6. startup-chain.md — Startup and autonomy chain (hand-maintained)
+###############################################################################
+# This file is hand-maintained (not auto-generated from source).
+# Only regenerate if the file is missing.
+if [ ! -f "$OUT_DIR/startup-chain.md" ]; then
+    echo "[reference] startup-chain.md missing — creating placeholder"
+    cat > "$OUT_DIR/startup-chain.md" << 'STARTUP_EOF'
+# Startup Chain Reference
+> See CLAUDE.md "Startup Chain" section for the full 6-layer chain documentation.
+> This file should be manually maintained. Run deploy to regenerate other reference docs.
+STARTUP_EOF
+fi
+
+###############################################################################
+# 7. project-overview.md — High-level project context (condensed CLAUDE.md)
 ###############################################################################
 cat > "$OUT_DIR/project-overview.md" << 'HEADER'
 # Project Overview
@@ -223,6 +237,7 @@ On-demand deep context for agents. Each file covers a specific domain.
 | [agents.md](agents.md) | Entrypoint, config patcher, workspace seeder, kickoff | Agent config, startup sequence |
 | [frontend.md](frontend.md) | Mission Control architecture summary | Understanding the UI, stores, views |
 | [scraping.md](scraping.md) | Scrapling API source (api.py) | Web scraping capabilities |
+| [startup-chain.md](startup-chain.md) | Full deploy→boot→seed→kickoff→cron chain | Debugging agent bootstrap, understanding autonomy loop |
 | [project-overview.md](project-overview.md) | Full CLAUDE.md | High-level architecture, resolved issues |
 
 ## How to Access

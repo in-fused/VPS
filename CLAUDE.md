@@ -664,6 +664,60 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 
 ---
 
+## Startup Chain — Deploy to Autonomous Operation
+
+Understanding the full chain from `deploy.sh` to agents producing output autonomously. This is the single most important sequence in the system.
+
+### The 6-Layer Chain
+
+```
+deploy.sh → docker compose up -d
+  └─→ OpenClaw container starts → openclaw-entrypoint.sh
+        ├─ [L1] patch-openclaw-config.js  (patches openclaw.json: gateway, auth, tools, cron, providers)
+        ├─ [L2] seed-agent-workspaces.js  (filesystem: 7 files × 8 agents, force-overwrite)
+        ├─ [L3] exec openclaw.mjs gateway (OpenClaw starts, ~50s to healthy)
+        └─ [L4] background (45s delay):
+              seed-via-rpc.js  → pushes files via agents.files.set (operator-managed, won't be overwritten)
+              auto-kickoff.js  → sends KICKOFF_MSG to lead + ops-lead via chat.send
+                └─ [L5] Leads execute BOOTSTRAP.md:
+                      Phase -1: Load context (AGENTS.md, TOOLS.md, MEMORY.md)
+                      Phase 0:  Verify tools, log online, set up cron, message team with tasks
+                      Phase 1:  Produce initial deliverable
+                        └─ [L6] Autonomy loop (24/7, self-sustaining):
+                              */5 * * * * inbox-check cron → pick up tasks → execute → stage → confirm
+                              0 */2 * * * heartbeat cron (leads) → check staging, poke silent agents
+```
+
+### Timing
+
+| Event | Approx. Time |
+|-------|-------------|
+| Config patched + files seeded | +5s |
+| OpenClaw healthy | +50-60s |
+| RPC seed + kickoff sent | +60-70s |
+| Leads bootstrapping | +65-75s |
+| Team gets first tasks | +70-80s |
+| First inbox-check fires | +5min |
+| First deliverables staged | +10-15min |
+
+### Failure Modes
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Agents never wake | Kickoff failed | Check logs for `[kickoff]`. Manual: message lead in MC chat. |
+| Agents can't use tools | `tools.profile` not "full" | Check `[config-patch]` in logs |
+| Stale workspace files | RPC seed failed | Check `[rpc-seed]` in logs. Restart OpenClaw. |
+| Delegation dead | Inbox-check cron missing | Tell agent to run BOOTSTRAP.md |
+| Compaction loop | threshold not set | Verify entrypoint sets softThresholdTokens=50000 |
+
+### Why "Just Redeploy" Works
+
+The entire chain is **idempotent**: config patching overwrites (not appends), workspace files force-overwrite, RPC seed marks files as operator-managed, kickoff runs fresh (no lock file), cron jobs persist across restarts. A redeploy = full re-initialization of the swarm.
+
+**Full reference:** `/workspace/reference/startup-chain.md` (agents read this for deep context)
+
+---
+
 ## File Structure
 
 ```

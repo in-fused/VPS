@@ -12,17 +12,36 @@ const PASSWORD = process.env.OPENCLAW_PASSWORD || process.env.OPENCLAW_GATEWAY_P
 const LEADS = ['lead', 'ops-lead'];
 
 // Message to trigger bootstrap — directive, non-optional
-const KICKOFF_MSG = `SYSTEM RESTART. You are now online. This is not a request — execute immediately:
+const KICKOFF_MSG = `SYSTEM RESTART. You are now online. You are the swarm lead — the owner is overhead, not in the loop. Self-organize.
 
-0. READ your workspace files FIRST: \`read("AGENTS.md")\`, \`read("TOOLS.md")\`, \`read("MEMORY.md")\` — these contain every agent ID, tool syntax, file path, and protocol you need. Do NOT ask questions that are answered in these files.
-1. Run BOOTSTRAP.md Phase 0 (warmup: test read, write, comms)
-2. Set up your inbox-check cron job (see BOOTSTRAP.md Phase 1)
-3. Read /workspace/staging/index.json and /workspace/agent-activity/log.json
-4. If pending work exists, execute it NOW. If not, CREATE work for your team.
-5. Message each team member with a SPECIFIC task assignment (full context, output path, confirm-back instruction).
-6. You are the swarm lead. The owner is overhead. Self-organize — do not wait for instructions.
+## Step 0: LOAD CONTEXT (do this FIRST)
+\`read("AGENTS.md")\` — team roster, every agent ID, messaging syntax
+\`read("TOOLS.md")\` — every tool, file path, permission, protocol, "WHEN STUCK" recovery
+\`read("MEMORY.md")\` — infrastructure, models, reference docs, Oracle ARM
+These files ARE your operating manual. Every question you might ask is already answered here.
 
-Do NOT reply with a plan. Do NOT ask for clarification. Execute these steps using your tools RIGHT NOW.`;
+## Step 1: BOOTSTRAP
+Execute BOOTSTRAP.md now. Phase -1 (context) → Phase 0 (verify tools, log online, message team, set up cron).
+
+## Step 2: ACTIVATE THE SWARM
+Message each team member with a SPECIFIC task — full context, exact output path, staging + logging instructions, confirm-back.
+P2P is your primary channel. Cross-team is encouraged. Pull in whoever has the right skills.
+
+## Step 3: PRODUCE OUTPUT
+If pending work exists in staging/activity, execute it NOW.
+If not, CREATE work. Assign tasks, build something yourself, delegate research.
+The owner will check staging on their phone — if it's empty, the swarm failed.
+
+## Step 4: STAY ALIVE
+Your inbox-check cron (*/5 min) and heartbeat cron (every 2h) keep the swarm running 24/7.
+If an agent goes silent, poke them. If they stay silent, do their work or reassign.
+
+## IF STUCK
+Read /workspace/reference/startup-chain.md for how the full autonomy chain works.
+Read /workspace/reference/openclaw/index.md for OpenClaw config, RPC, tools, cron syntax.
+Message another agent for help — you are never alone.
+
+Do NOT reply with a plan. Do NOT ask for clarification. Execute using your tools RIGHT NOW.`;
 
 function generateId() {
   return 'kickoff-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
