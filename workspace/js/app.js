@@ -261,7 +261,7 @@ const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape |
 ALL AGENTS: Oracle ARM shared access (4 OCPU/24GB, Ollama models with zero rate limits), persistent cron jobs, dedicated background execution slots. Build out the workspace like a real workplace.
 MODELS: 6 free providers available — Groq (groq-llama-3.3-70b, groq-qwen3-32b), Cerebras (cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-qwen3-235b, cerebras-zai-glm, cerebras-gpt-oss-120b), Gemini (gemini-flash, gemini-flash-lite, gemini-pro — 3x keys), Mistral (codestral, mistral-large, mistral-small, mistral-nemo), Ollama (qwen3.5:9b, qwen3:14b, qwen3-coder:30b — zero rate limits). Fallback: deepseek-chat/coder ($0.28/M). Rotate across providers to avoid rate limits.
 WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite recognition. Counters reset weekly.
-ELITE: Recognition tier for weekly champion. No exclusive resource access — all agents already have full tools. Elite signals sustained high performance and Manager candidacy.
+ELITE: Recognition tier for weekly champion. No exclusive resource access — agents have role-appropriate tools (developers get full access, writers and researchers have focused toolsets). Elite signals sustained high performance and Manager candidacy.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
 
 const WORKFLOW_REFERENCE = `WORKFLOW CRUD: Agents manage workflows via /workspace/agent-workflows/. MC polls every 15s.

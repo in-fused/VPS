@@ -152,4 +152,9 @@ Auto-detected from available API keys. In our setup, OpenAI-compatible embedding
 ### Memory Persistence
 - Workspace files (SOUL, USER, etc.) → force-overwritten on restart
 - `memory/*.md` → persistent, never touched by seeder
+
+### Additional Workspace Directories (not seeded)
+- `skills/` — workspace-specific skill overrides
+- `canvas/` — UI canvas files for node visualization
+- `hooks/` — workspace-level hook scripts (highest precedence)
 - `IDENTITY.md` → agent-writable, but seeder does overwrite if it exists in the seed set

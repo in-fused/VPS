@@ -66,6 +66,25 @@ Hooks are event-driven scripts/commands that execute in response to OpenClaw lif
 
 Hooks can also be distributed as npm packages (hook packs).
 
+### Webhook Ingress Config (`hooks` root key in openclaw.json)
+Separate from event hooks — this configures the built-in webhook endpoint:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `hooks.enabled` | boolean | `false` | Enable webhook ingress |
+| `hooks.token` | string | required | Bearer token for auth |
+| `hooks.path` | string | `"/hooks"` | Endpoint path |
+| `hooks.maxBodyBytes` | number | `262144` | Max request body |
+| `hooks.defaultSessionKey` | string | `"hook:ingress"` | Default session for hooks |
+| `hooks.allowRequestSessionKey` | boolean | `false` | Allow per-request session |
+| `hooks.allowedSessionKeyPrefixes` | array | `["hook:"]` | Allowed session key prefixes |
+| `hooks.allowedAgentIds` | array | `["hooks", "main"]` | Allowed target agents |
+| `hooks.mappings[].match.path` | string | required | URL path pattern |
+| `hooks.mappings[].action` | string | — | `"agent"` or `"direct"` |
+| `hooks.mappings[].agentId` | string | `"main"` | Target agent |
+| `hooks.mappings[].messageTemplate` | string | — | Template for message |
+| `hooks.mappings[].deliver` | boolean | `false` | Deliver to channel |
+
 ---
 
 ## Webhooks (HTTP Endpoints)

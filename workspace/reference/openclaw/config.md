@@ -31,6 +31,9 @@
 | `logging` | object | Log configuration |
 | `update` | object | Auto-update configuration |
 | `telemetry` | object | OTEL tracing configuration |
+| `broadcast` | object | Client broadcast configuration |
+| `bindings` | array | Multi-agent routing rules (deterministic precedence) |
+| `commands` | object | Chat command parsing |
 
 ---
 
@@ -96,9 +99,15 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `contextPruning.mode` | string | `"off"` | `"off"`, `"cache-ttl"` |
-| `contextPruning.ttl` | string | `"1h"` | Cache TTL duration |
-| `contextPruning.keepLastAssistants` | number | `3` | Min messages to keep |
+| `mode` | string | `"off"` | `"off"`, `"cache-ttl"` |
+| `ttl` | string | `"1h"` | Cache TTL duration |
+| `keepLastAssistants` | number | `3` | Min assistant messages to keep |
+| `softTrimRatio` | number | `0.3` | Soft trim ratio |
+| `hardClearRatio` | number | `0.5` | Hard clear ratio |
+| `minPrunableToolChars` | number | `50000` | Min tool result chars before pruning |
+| `softTrim.maxChars` | number | `4000` | Max chars after soft trim |
+| `hardClear.enabled` | boolean | `true` | Enable hard clear |
+| `hardClear.placeholder` | string | `"[Old tool result content cleared]"` | Replacement text |
 
 ### agents.defaults.subagents
 
@@ -106,9 +115,10 @@
 |-----|------|---------|-------------|
 | `model` | string | inherits caller | Sub-agent model |
 | `thinking` | string | inherits caller | Thinking mode |
-| `runTimeoutSeconds` | number | `0` (no timeout) | Execution timeout |
+| `maxConcurrent` | number | `1` | Max concurrent sub-agents per agent |
+| `runTimeoutSeconds` | number | `900` | Execution timeout (seconds) |
 | `archiveAfterMinutes` | number | `60` | Archive sub-agent session after |
-| `maxSpawnDepth` | number | `1` (range 1-5) | Max nesting depth |
+| `allowAgents` | array | `[self]` | Which agents can be spawned as sub-agents |
 | `maxChildrenPerAgent` | number | `5` (range 1-20) | Max children per parent |
 | `maxConcurrent` | number | `8` | Max concurrent sub-agents |
 
@@ -361,6 +371,11 @@ See `tools.md` for full tool reference. Key config keys:
 | `session.maintenance.pruneAfter` | string | `"30d"` | Prune sessions after |
 | `session.maintenance.maxEntries` | number | `500` | Max session entries |
 | `session.maintenance.rotateBytes` | string | `"10mb"` | Log rotation size |
+| `session.maintenance.resetArchiveRetention` | string | `"30d"` | Reset archive retention |
+| `session.maintenance.maxDiskBytes` | string | `"500mb"` | Max disk usage |
+| `session.maintenance.highWaterBytes` | string | `"400mb"` | High water mark for cleanup |
+| `session.identityLinks` | object | — | Cross-channel identity linking |
+| `session.store` | string | `~/.openclaw/agents/{agentId}/sessions/sessions.json` | Session store path |
 | `session.threadBindings.enabled` | boolean | `true` | Enable thread bindings |
 | `session.threadBindings.idleHours` | number | `24` | Idle expiry |
 | `session.agentToAgent.maxPingPongTurns` | number | `5` | Max A2A ping-pong |

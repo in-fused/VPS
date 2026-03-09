@@ -197,11 +197,19 @@ This would save ~80% tokens on routine inbox checks.
 
 ## Delivery Modes
 
-| Mode | Description |
-|------|-------------|
-| Direct injection | `systemEvent` injects directly into session |
-| Agent turn | `agentTurn` triggers a full agent processing cycle |
-| Isolated | `session: "isolated"` prevents main session pollution |
+| Mode | Fields | Behavior |
+|------|--------|----------|
+| `announce` | `delivery.channel`, `delivery.to`, `delivery.bestEffort` | Channel delivery + brief main session summary |
+| `webhook` | `delivery.to` (HTTPS URL) | POST payload to URL, uses `Authorization: Bearer <token>` if `cron.webhookToken` set |
+| `none` | — | Internal only, no external delivery |
+
+### Retry Behavior
+
+| Error Type | Retries | Backoff |
+|------------|---------|---------|
+| Transient (429, overload, timeout, server error) | Up to 3 | 30s → 1m → 5m |
+| Permanent (auth, config, validation errors) | 0 (disabled immediately) | — |
+| Recurring jobs | Exponential | 30s → 1m → 5m → 15m → 60m |
 
 ---
 

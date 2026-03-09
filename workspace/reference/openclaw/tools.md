@@ -44,9 +44,9 @@ Profiles define the default set of tools available to agents:
 | `write` | Write file contents | Agent workspace only |
 | `edit` | Edit file (search/replace) | Agent workspace only |
 | `apply_patch` | Apply unified diff patch | Requires `tools.exec.applyPatch.enabled` |
-| `exec` | Execute shell command | Runs on OpenClaw container |
+| `exec` | Execute shell command | Params: `command`, `yieldMs`, `background`, `timeout`, `host` (`sandbox\|gateway\|node`) |
 | `bash` | Interactive bash session | Alternative to exec |
-| `process` | Manage background processes | Start/stop/list |
+| `process` | Manage background processes | Actions: `list`, `poll`, `log`, `write`, `kill`, `clear`, `remove` |
 | `sessions_list` | List sessions | Can filter by agent |
 | `sessions_history` | Get session message history | By session key |
 | `sessions_send` | Send message to agent session | Agent-to-agent messaging |
@@ -58,12 +58,12 @@ Profiles define the default set of tools available to agents:
 | `web_fetch` | Fetch URL content | HTTP GET with parsing |
 | `cron` | Manage cron jobs | Create/update/remove schedules |
 | `gateway` | Gateway configuration | Runtime config changes |
-| `browser` | Browser automation | Puppeteer/CDP |
-| `canvas` | Canvas operations | Canvas hosting |
-| `nodes` | Node management | |
+| `browser` | Browser automation | Actions: `status`, `start`, `stop`, `tabs`, `open`, `focus`, `close`, `snapshot`, `screenshot`, `act`, `navigate`, `console`, `pdf` |
+| `canvas` | Canvas operations | Actions: `present`, `hide`, `navigate`, `eval`, `snapshot`, `a2ui_push`, `a2ui_reset` |
+| `nodes` | Node management | Actions: `status`, `describe`, `pending`, `approve`, `reject`, `notify`, `run`, `camera_snap`, `device_status` |
 | `image` | Image processing | Vision input |
 | `pdf` | PDF processing | |
-| `message` | Send channel message | Telegram/Discord/etc. |
+| `message` | Cross-platform messaging | Actions: `send`, `poll`, `react`, `read`, `edit`, `delete`, `pin`, `search`, `thread-create`, `thread-reply`, `member-info`, `channel-list` |
 | `agents_list` | List configured agents | Discover other agents |
 
 ---

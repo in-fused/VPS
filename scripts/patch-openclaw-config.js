@@ -150,6 +150,28 @@ config.agents.defaults.compaction.memoryFlush.softThresholdTokens = 50000;
 config.agents.defaults.compaction.reserveTokensFloor = 40000;
 config.agents.defaults.compaction.identifierPolicy = 'strict';
 
+// Context pruning: cache-ttl mode trims stale tool results from long sessions
+config.agents.defaults.contextPruning = config.agents.defaults.contextPruning || {};
+config.agents.defaults.contextPruning.mode = 'cache-ttl';
+config.agents.defaults.contextPruning.ttl = '2h';
+config.agents.defaults.contextPruning.keepLastAssistants = 3;
+
+// =========================================================================
+// Session configuration
+// =========================================================================
+config.session = config.session || {};
+
+// Agent-to-agent ping-pong limit (at session level, NOT tools level)
+config.session.agentToAgent = config.session.agentToAgent || {};
+config.session.agentToAgent.maxPingPongTurns = 5;
+
+// Session store maintenance: auto-prune stale sessions
+config.session.maintenance = config.session.maintenance || {};
+config.session.maintenance.mode = 'enforce';
+config.session.maintenance.pruneAfter = '14d';
+config.session.maintenance.maxEntries = 200;
+config.session.maintenance.maxDiskBytes = '200mb';
+
 // Memory search embeddings: route through LiteLLM to use free Gemini embeddings
 config.agents.defaults.memorySearch = config.agents.defaults.memorySearch || {};
 config.agents.defaults.memorySearch.provider = 'openai';

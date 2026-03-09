@@ -303,14 +303,14 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 |-------|-------|------|--------------|
 | Ops Lead | cerebras-llama-3.3-70b (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
 | Builder | gemini-flash (free) | Infrastructure developer | Sentinel, Chronicler |
-| Sentinel | cerebras-llama-4-scout (free) | Security & monitoring | Chronicler |
+| Sentinel | cerebras-llama-3.3-70b (free) | Security & monitoring | Chronicler |
 | Chronicler | gemini-flash-lite (free) | Platform documentation | (none) |
 
 **Model budget strategy:**
 - **All primary models are FREE** — no per-token costs for normal operation
 - **Models spread across 3 free providers** to avoid single-provider rate limit exhaustion
-- Cerebras Llama 3.3 70B (free, 1M TPD, fastest inference): Lead, CodeCraft, Ops Lead — orchestration + coding
-- Cerebras Llama 4 Scout (free, 1M TPD): Sentinel, all subagents — lightweight tasks
+- Cerebras Llama 3.3 70B (free, 1M TPD, fastest inference): Lead, CodeCraft, Ops Lead, Sentinel — orchestration + coding + security
+- Cerebras Llama 4 Scout (free, 1M TPD): all subagents — lightweight tasks
 - Gemini Pro (free, 100 RPD × 3 keys = 300 RPD, 1M context): Scout — research, large context ideal
 - Gemini Flash (free, 250 RPD × 3 keys = 750 RPD, 1M context): Builder — infra tasks
 - Gemini Flash-Lite (free, 1000 RPD × 3 keys = 3000 RPD): Scribe, Chronicler — high-volume documentation
@@ -324,6 +324,19 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - ACTIVE (1): 200 MB — default starting tier, standard tools, cron jobs, background execution
 - PROVEN (2): 500 MB — semi-autonomous, score≥70+15tasks+3streak
 - ELITE (3): Full autonomy, weekly champion recognition, Manager candidacy
+
+**Per-agent tool restrictions (enforced via `patch-openclaw-config.js` TOOL_RESTRICTIONS):**
+
+| Agent | Denied Tools | Rationale |
+|-------|-------------|-----------|
+| Lead | `browser` | Orchestrator — delegates browser tasks to CodeCraft |
+| CodeCraft | (none) | Full access — developer |
+| Scout | `exec` | Research only — uses web_fetch, delegates shell tasks |
+| Scribe | `exec`, `browser` | Documentation writer — uses read/write/edit only |
+| Ops Lead | `browser` | Platform orchestrator — delegates browser tasks to Builder |
+| Builder | (none) | Full access — infra developer |
+| Sentinel | (none) | Full access — security auditing requires exec |
+| Chronicler | `exec`, `browser` | Documentation writer — uses read/write/edit only |
 
 **All agents have access to:** Oracle Cloud ARM (shared, 4 OCPU / 24GB), Ollama models (zero rate limits), persistent cron jobs, dedicated background execution slots. No resources are Elite-gated — every agent can build out the workspace like a real workplace.
 

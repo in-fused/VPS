@@ -191,12 +191,12 @@ Messages from external channels (Telegram, Discord, etc.) can be routed to speci
 | Ops Lead | cerebras-llama-3.3-70b | Cerebras | Free |
 | Scout | gemini-pro | Google Gemini | Free |
 | Builder | gemini-flash | Google Gemini | Free |
-| Sentinel | cerebras-llama-4-scout | Cerebras | Free |
+| Sentinel | cerebras-llama-3.3-70b | Cerebras | Free |
 | Scribe | gemini-flash-lite | Google Gemini | Free |
 | Chronicler | gemini-flash-lite | Google Gemini | Free |
 | Subagents | cerebras-llama-4-scout | Cerebras | Free |
 
-### Tool Restrictions (Planned — Phase 1)
+### Tool Restrictions (Active)
 
 | Agent | Deny | Rationale |
 |-------|------|-----------|
