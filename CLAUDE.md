@@ -1,6 +1,6 @@
 # CLAUDE.md — in-fused.org Project Memory
 
-> **Updated:** Mar 8, 2026 | **Commits:** 100+ | **Status:** Full autonomous operation — auto-kickoff, inbox cron, collaboration protocol, split reference docs, dashboard overhaul
+> **Updated:** Mar 9, 2026 | **Commits:** 100+ | **Milestone commit:** `98dee2d` | **Status:** Full autonomous operation — all systems verified working, production-ready
 
 ## Project Overview
 
@@ -24,6 +24,86 @@
 **Scope discipline:** If a function works, don't touch it while working on something else. If you need to change a working function, that's a separate commit with a separate justification — not a drive-by edit bundled into an unrelated fix.
 
 **Root-cause first, no debugging noise.** When fixing a bug, identify and resolve the root cause before producing output. Do not layer workarounds, redundant null-checks, or defensive patches on top of each other — find the one thing that's actually wrong and fix that. If a first attempt doesn't work, remove it before trying the next approach. The final commit should contain only the real fix, not a stack of abandoned debugging attempts. Every line in the diff should be justified by the root cause, not by "just in case."
+
+---
+
+## Protected Fixes — DO NOT REMOVE OR MODIFY
+
+> **These fixes were verified working in production on Mar 9, 2026 (commit `98dee2d`). Each one resolves a bug that was painful to diagnose. Future sessions MUST NOT remove, refactor, or "clean up" any of these without explicit owner approval. If you think one is unnecessary, you're wrong — it was added because the system broke without it.**
+
+### 1. OpenClaw Auth Handshake (`openclaw-client.js` → `_sendHandshake()`)
+- **Broken 3 times** by "cleanup" attempts. Every field is load-bearing.
+- `auth: { token: pw, password: pw }` — both fields required, NO `mode` field
+- `client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'webchat' }` — exact values
+- NO `device` block — causes "device identity mismatch" (1008)
+- Entrypoint sets BOTH `dangerouslyDisableDeviceAuth=true` AND `allowInsecureAuth=true`
+
+### 2. Caddy Streaming (`Caddyfile`)
+- `flush_interval -1` on every proxy handler — disables response buffering
+- Without it: SSE streaming hangs, WebSocket upgrades fail, chat is dead
+- TWO separate WebSocket matchers required: `/ws/openclaw` + `/` root (legacy)
+
+### 3. OpenClaw Entrypoint Config Guards (`scripts/openclaw-entrypoint.sh` + `patch-openclaw-config.js`)
+- `tools.profile = 'full'` — v2026.3.2 changed default to "messaging" (removes exec/read/write/edit)
+- `agents.defaults.models = { litellm: {} }` — provider allowlist prevents anthropic fallback
+- `compaction.memoryFlush.softThresholdTokens = 50000` — prevents aggressive compaction loop
+- `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` — allows plaintext WS on Docker bridge
+- Invalid key scrubbing — `identity.description`, `agent.instructions`, `supportsDeveloperRole`, etc. cause crash loops
+- `cron.enabled = true` — agents need server-side cron for inbox-check and background autonomy
+
+### 4. Agent Delegation Chain (`scripts/seed-agent-workspaces.js` + BOOTSTRAP.md)
+- Every agent creates `*/5 * * * *` inbox-check cron on bootstrap
+- Without this: `sessions_send` messages sit unread forever, delegation is dead
+- Auto-kickoff (`scripts/auto-kickoff.js`) runs on every restart, NO lock file
+- `OPENCLAW_AUTO_KICKOFF=1` is default (opt-out, not opt-in)
+
+### 5. Heartbeat/System Message Filtering (`openclaw-client.js` + `app.js`)
+- 11 regex patterns + label filter in both `_parseHistoryMessages` and `on('chat')`
+- Heartbeat/cron sessions filtered from `_syncSessionsFromOpenClaw()`
+- Without this: chat UI floods with system noise, unusable
+
+### 6. LiteLLM Rate Limit Fallbacks (`litellm_config.yaml`)
+- Multi-provider chains: Groq → Cerebras → DeepSeek, Cerebras → Groq → DeepSeek
+- 6 free providers exhausted before any paid API is hit
+- `routing_strategy: latency-based-routing` — fastest available deployment
+- `allowed_fails: 2` + `cooldown_time: 60` — exhausted providers temporarily removed
+- `drop_params: true` — silently drops unsupported params for cross-provider compat
+
+### 7. Docker Service Dependencies (`docker-compose.yml`)
+- OpenClaw `depends_on` LiteLLM with `condition: service_healthy`
+- `workspace-init` copies repo files into volume on every deploy (overwrites manual edits)
+- `openclaw-init` + `openclaw` both reference `openclaw-data` volume — must remove both to reset
+- OpenClaw container has NO `curl` — agents must use `wget` or `node -e "fetch(...)"`
+
+### 8. Workspace File Seeding (`scripts/seed-agent-workspaces.js`)
+- ALL 7 files force-overwritten on every restart (SOUL, USER, AGENTS, MEMORY, TOOLS, HEARTBEAT, BOOTSTRAP)
+- Runs TWICE: once before OpenClaw starts, once 30s after (overwrites OpenClaw's defaults)
+- `instructions` agent config key is scrubbed — prompts live in workspace files only
+- Agent `memory/*.md` files are NEVER touched (persistent daily logs)
+
+### 9. Oracle Cloud ARM / Ollama (`litellm_config.yaml`)
+- Single instance: 4 OCPU / 24 GB at `150.136.153.194:11434`
+- Creating a second instance triggers networking restrictions on BOTH — do not create another
+- All 3 models need full 24 GB RAM — do not partition
+- LiteLLM routes via `OLLAMA_BASE_URL` — agents don't call Ollama directly
+
+### Rollback Deployment — Known-Good State
+
+If anything breaks, roll back to this verified commit:
+
+📱 iOS/SSM:
+```
+cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git fetch origin claude/post-deployment-multi-agent-A8VKl && sudo git reset --hard 98dee2d && sudo bash scripts/deploy.sh
+```
+
+🖥️ Desktop/SSH:
+```bash
+cd /home/VPS
+sudo git config --global --add safe.directory /home/VPS
+sudo git fetch origin claude/post-deployment-multi-agent-A8VKl
+sudo git reset --hard 98dee2d
+sudo bash scripts/deploy.sh
+```
 
 ---
 
@@ -765,7 +845,7 @@ exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
 
 ## Resolved Issues (Brief Reference)
 
-These are solved — do not re-investigate or re-fix:
+These are solved — do not re-investigate or re-fix. Critical fixes are also listed in **"Protected Fixes"** (above) with explicit DO NOT REMOVE warnings:
 
 - **OpenClaw OOM crashes**: Fixed via `--max-old-space-size=1024` + `OPENCLAW_NODE_OPTIONS_READY=1` + 1536M container limit + t3.small upgrade
 - **OpenClaw networking**: Bind "lan" not "localhost", basePath `/openclaw/`, trustedProxies for Docker subnets, device auth disabled, separate WS matchers in Caddy
