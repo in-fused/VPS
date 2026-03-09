@@ -98,7 +98,17 @@ Override tool access per-agent using `agents.list[].tools`:
 }
 ```
 
-**Precedence:** `allow` takes priority over `deny`. The `profile` sets the base, then `allow`/`deny` modify it.
+### Tool Filtering Hierarchy (each level can only further restrict)
+1. Tool profiles (global base)
+2. Provider-specific profiles
+3. Global tool policy (allow/deny)
+4. Provider tool policy
+5. Agent-specific policy
+6. Agent-provider policy
+7. Sandbox tool policy
+8. Subagent tool policy
+
+**Within a level:** `deny` wins over `allow`. The `profile` sets the base, then `allow`/`deny` modify it.
 
 ---
 

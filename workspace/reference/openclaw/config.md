@@ -90,6 +90,15 @@
 | `memoryFlush.softThresholdTokens` | number | `6000` | Token threshold before memory flush triggers (we set 50000) |
 | `memoryFlush.systemPrompt` | string | — | Custom system prompt for flush |
 | `memoryFlush.prompt` | string | — | Custom prompt for flush |
+| `postCompactionSections` | array | `["Session Startup", "Red Lines"]` | Sections to re-inject after compaction |
+
+### agents.defaults.contextPruning (separate from compaction)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `contextPruning.mode` | string | `"off"` | `"off"`, `"cache-ttl"` |
+| `contextPruning.ttl` | string | `"1h"` | Cache TTL duration |
+| `contextPruning.keepLastAssistants` | number | `3` | Min messages to keep |
 
 ### agents.defaults.subagents
 
@@ -145,7 +154,7 @@ Each agent in the `agents.list` array supports:
 | `workspace` | string | Agent-specific workspace directory |
 | `agentDir` | string | Agent state directory |
 | `model` | string/object | `{ primary: 'model-id' }` — per-agent model override |
-| `params` | object | Per-agent LLM parameters |
+| `params` | object | Per-agent LLM params: `{ cacheRetention, temperature, maxTokens }` |
 | `identity.name` | string | Agent name |
 | `identity.theme` | string | Theme/personality |
 | `identity.emoji` | string | Emoji identifier |
@@ -285,8 +294,9 @@ See `tools.md` for full tool reference. Key config keys:
 | `tools.byProvider.<model>.allow` | array | — | Per-model allow |
 | `tools.byProvider.<model>.deny` | array | — | Per-model deny |
 | `tools.elevated.enabled` | boolean | `true` | Enable elevated tools |
-| `tools.sessions.visibility` | string | `"tree"` | Session visibility |
-| `tools.agentToAgent.enabled` | boolean | `false` | Enable A2A tool |
+| `tools.sessions.visibility` | string | `"tree"` | `"self"`, `"tree"`, `"agent"`, `"all"` |
+| `tools.agentToAgent.enabled` | boolean | `false` | Enable A2A messaging (must be true for sessions_send) |
+| `tools.agentToAgent.allow` | array | — | Agent ID allowlist for A2A |
 | `tools.loopDetection.enabled` | boolean | `false` | Enable loop detection |
 
 ### tools.exec

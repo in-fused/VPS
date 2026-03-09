@@ -135,9 +135,20 @@ sessions_spawn({
 | Compact | `sessions.compact` (RPC) | Force memory compaction |
 
 ### Session Visibility
-- Default: `"own"` — agents see only their own sessions
-- Our config: `"all"` — agents can see all sessions for team coordination
-- Set via: `tools.sessions.visibility = 'all'`
+| Value | Description |
+|-------|-------------|
+| `"self"` | Current session only |
+| `"tree"` | Current + spawned descendants (default) |
+| `"agent"` | Any session under current agent |
+| `"all"` | Cross-agent access (our config) |
+
+Set via: `tools.sessions.visibility = 'all'`
+
+### Agent-to-Agent Messaging
+Requires `tools.agentToAgent.enabled = true` (defaults to `false`).
+Optional allowlist: `tools.agentToAgent.allow = ["lead", "codecraft"]`
+Max ping-pong turns: `session.agentToAgent.maxPingPongTurns = 5`
+Reply `REPLY_SKIP` to stop ping-pong chain.
 
 ---
 

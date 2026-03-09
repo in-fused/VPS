@@ -13,12 +13,21 @@ Hooks are event-driven scripts/commands that execute in response to OpenClaw lif
 | Event | Trigger | Description |
 |-------|---------|-------------|
 | `command:new` | New command received | Fires when a new chat command is received |
+| `command:reset` | Session reset | Fires on session reset |
+| `command:stop` | Stop command | Fires when agent is stopped |
 | `session:compact:before` | Before compaction | Fires before session memory is compacted |
 | `session:compact:after` | After compaction | Fires after session memory is compacted |
 | `agent:bootstrap` | Agent bootstrap | Fires when an agent completes its bootstrap sequence |
 | `gateway:startup` | Gateway starts | Fires when the gateway HTTP/WS server starts |
 | `message:received` | Message received | Fires when a message is received from any channel |
+| `message:transcribed` | Audio transcribed | Fires after audio message transcription |
+| `message:preprocessed` | Message preprocessed | Fires after message preprocessing |
 | `message:sent` | Message sent | Fires when a message is sent to any channel |
+
+### Hook Discovery Locations (precedence)
+1. Workspace `hooks/` directory
+2. Managed `~/.openclaw/hooks/`
+3. Bundled hooks
 
 ### Hook Configuration
 
@@ -47,18 +56,15 @@ Hooks are event-driven scripts/commands that execute in response to OpenClaw lif
 | `timeout` | number | Max execution time (ms) |
 | `enabled` | boolean | Enable/disable the hook |
 
-### Bundled Hooks
-OpenClaw includes built-in hooks that can be enabled/disabled:
-```json
-{
-  "hooks": {
-    "bundled": {
-      "auto-compact": true,
-      "memory-flush": true
-    }
-  }
-}
-```
+### Bundled Hooks (4 built-in)
+| Hook | Description |
+|------|-------------|
+| `session-memory` | Auto memory management |
+| `bootstrap-extra-files` | Extra bootstrap file loading |
+| `command-logger` | Command logging |
+| `boot-md` | BOOT.md processing on restart |
+
+Hooks can also be distributed as npm packages (hook packs).
 
 ---
 

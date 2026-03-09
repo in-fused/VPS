@@ -22,10 +22,10 @@ OpenClaw reads workspace files on every agent turn and includes their content in
 | `IDENTITY.md` | Agent self-description (agent-writable) | Always | 20,000 chars |
 | `TOOLS.md` | Available tools, usage instructions | Always | 20,000 chars |
 | `HEARTBEAT.md` | Periodic check-in behavior | Always | 20,000 chars |
-| `BOOTSTRAP.md` | Startup sequence, initialization tasks | On first turn / bootstrap | 20,000 chars |
-| `BOOT.md` | Additional boot instructions | On bootstrap | 20,000 chars |
-| `MEMORY.md` | Project context, reference pointers | Always | 20,000 chars |
-| `memory/*.md` | Persistent daily logs (agent-writable) | On memory search | No limit |
+| `BOOTSTRAP.md` | One-time first-run ritual; intended to be deleted after | First run only | 20,000 chars |
+| `BOOT.md` | Gateway restart checklist (runs every restart) | On gateway restart | 20,000 chars |
+| `MEMORY.md` | Curated long-term memory | Main sessions only (never groups) | 20,000 chars |
+| `memory/*.md` | Daily logs (today + yesterday loaded by default) | On memory search | No limit |
 
 ### Size Limits
 - **Per file:** `agents.defaults.bootstrapMaxChars` (default: 20,000 characters)
