@@ -13,7 +13,15 @@ OpenClaw supports server-side scheduled jobs that run 24/7, independent of brows
 {
   "cron": {
     "enabled": true,
-    "maxConcurrentRuns": 1
+    "maxConcurrentRuns": 1,
+    "store": "~/.openclaw/cron/jobs.json",
+    "sessionRetention": "24h",
+    "runLog": { "maxBytes": 2000000, "keepLines": 2000 },
+    "retry": {
+      "maxAttempts": 3,
+      "backoffMs": [30000, 60000, 300000, 900000, 3600000],
+      "retryOn": ["rate_limit", "overloaded", "network", "server_error"]
+    }
   }
 }
 ```
@@ -89,8 +97,15 @@ Runs an isolated agent turn (doesn't pollute main conversation):
 | `kind` | string | `"systemEvent"` or `"agentTurn"` |
 | `session` | string | `"main"` or `"isolated"` |
 | `data` | object | Event data (for systemEvent) |
+| `text` | string | Text content (for systemEvent) |
+| `message` | string | Message content (for agentTurn) |
 | `model` | string | Model override for this job (agentTurn only) |
 | `thinking` | string | Thinking mode override (agentTurn only) |
+| `timeoutSeconds` | number | Timeout override (agentTurn only) |
+| `lightContext` | boolean | Reduce context (agentTurn only) |
+
+### Thinking Values
+`"off"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`
 
 ---
 

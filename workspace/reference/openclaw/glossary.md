@@ -42,6 +42,15 @@
 | **Wake** | Activating an idle agent via the `/hooks/wake` endpoint or `wake` RPC |
 | **Wire Format** | The API protocol format (`openai`, `anthropic`, `google`) |
 | **Workspace** | The directory containing an agent's configuration and memory files |
+| **Canvas** | Interactive visual workspace for agent output |
+| **Elevated Tool** | A tool requiring explicit user approval before execution |
+| **Firecrawl** | Web scraping service integration for web_fetch |
+| **Light Context** | Reduced context mode for cron/heartbeat (fewer tokens) |
+| **mDNS** | Multicast DNS service discovery (Bonjour) |
+| **Readability** | HTML simplification to extract main content |
+| **Safe Bins** | Allowlisted binaries for exec tool security |
+| **Skill** | A pre-built capability package for agents |
+| **Thread Binding** | Mapping a messaging thread to a specific session |
 
 ---
 

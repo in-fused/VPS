@@ -222,6 +222,11 @@ Sessions auto-create on first `chat.send`.
 | `channels.status` | — | Channel connection status |
 | `push.test` | — | Test push notifications |
 | `browser.request` | — | Browser automation request |
+| `device.token.rotate` | — | Rotate device token |
+| `device.token.revoke` | — | Revoke device token |
+| `system-presence` | — | System presence |
+| `exec.approval.resolve` | — | Resolve exec approval |
+| `skills.bins` | — | List skill binaries |
 
 ---
 
@@ -234,3 +239,14 @@ Sessions auto-create on first `chat.send`.
 | 4002 | Agent not found |
 | 4003 | Rate limited |
 | 4004 | Timeout |
+
+### Device Auth Error Codes
+
+| Code | Description |
+|------|-------------|
+| `DEVICE_AUTH_NONCE_REQUIRED` | Nonce required for device auth |
+| `DEVICE_AUTH_NONCE_MISMATCH` | Nonce doesn't match |
+| `DEVICE_AUTH_SIGNATURE_INVALID` | Invalid signature |
+| `DEVICE_AUTH_SIGNATURE_EXPIRED` | Signature expired |
+| `DEVICE_AUTH_DEVICE_ID_MISMATCH` | Device ID mismatch |
+| `DEVICE_AUTH_PUBLIC_KEY_INVALID` | Invalid public key |
