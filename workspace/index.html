@@ -2308,6 +2308,7 @@
              VIEW: CRON JOBS
              ========================================== -->
         <div x-show="$store.app.view === 'cron'"
+             x-effect="if ($store.app.view === 'cron') $store.cron.fetch()"
              x-transition:enter="animate-fade-up"
              class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
 
@@ -2373,7 +2374,7 @@
                     <div class="flex items-center gap-2">
                       <span class="text-sm font-medium text-mc-text capitalize" x-text="job.agentId || 'unknown'"></span>
                       <span class="text-[10px] font-mono bg-mc-elevated px-2 py-0.5 rounded text-mc-text-sec"
-                            x-text="job.schedule?.expression || job.schedule?.type || '—'"></span>
+                            x-text="$store.cron.formatSchedule(job)"></span>
                     </div>
                     <div class="text-xs text-mc-text-muted mt-0.5 truncate"
                          x-text="(job.payload?.message || job.payload?.kind || '—').substring(0, 80) + ((job.payload?.message || '').length > 80 ? '...' : '')"></div>
