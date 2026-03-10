@@ -40,6 +40,25 @@ echo "============================================================"
 echo ""
 
 ###############################################################################
+# 0. Auto-fix misplaced files (HTML/CSS/JS at repo root → workspace/)
+###############################################################################
+MISPLACED=0
+for f in "$REPO_DIR"/*.html "$REPO_DIR"/*.css; do
+    [ -e "$f" ] || continue
+    fname="$(basename "$f")"
+    # Skip known root files
+    case "$fname" in
+        docker-compose*|Caddyfile*|*.yaml|*.yml|*.md|*.sh|*.example) continue ;;
+    esac
+    log_warn "Misplaced file at repo root: $fname → moving to workspace/"
+    mv "$f" "$REPO_DIR/workspace/$fname"
+    MISPLACED=$((MISPLACED + 1))
+done
+if [ "$MISPLACED" -gt 0 ]; then
+    log_info "Moved $MISPLACED file(s) from repo root to workspace/"
+fi
+
+###############################################################################
 # 1. Check .env exists
 ###############################################################################
 if [ ! -f ".env" ]; then
