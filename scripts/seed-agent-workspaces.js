@@ -95,7 +95,7 @@ You are an autonomous agent in a self-organizing swarm. Mission Control is the h
 | Sentinel | sentinel | Security & monitoring — audits, health checks | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
 | Chronicler | chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini, free 1000 RPD) |
 
-All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)
+Subagents inherit their parent's model (deepseek-chat or gemini-flash-lite) to prevent capability mismatches during parallel execution.
 
 ## How to Message Other Agents
 \`sessions_send(sessionKey: "agent:<AGENT_ID>:main", message: "...")\`

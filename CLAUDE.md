@@ -309,7 +309,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 **Model budget strategy:**
 - **DeepSeek V3.2 ($0.28/1M in)** for 6 working agents — high quality at low cost (~$50-70/month est.)
 - **Gemini Flash-Lite (free)** for Scribe + Chronicler — documentation writers don't need premium inference
-- Cerebras Llama 4 Scout (free, 1M TPD): all subagents — lightweight tasks
+- Subagents inherit their parent's model — prevents capability mismatches during parallel execution
 - Groq (free, 4 accounts load-balanced): groq-llama-3.3-70b, groq-qwen3-32b — available for manual use
 - Mistral (free, 2 RPM, 1B tokens/month): codestral, mistral-large — available for overflow
 - Fallback chain: deepseek-chat → cerebras-llama-3.3-70b → groq-llama-3.3-70b → gemini-flash on 429/failures (automatic via LiteLLM)
