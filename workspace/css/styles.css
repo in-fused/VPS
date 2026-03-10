@@ -711,6 +711,64 @@ input[type="range"].accent-amber-500::-moz-range-thumb {
   }
 }
 
+/* ---- Sidebar Section Headers ---- */
+.mc-nav-section-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mc-text-muted);
+  padding: 12px 12px 4px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Grouped nav: tighter spacing */
+.mc-nav-grouped > button {
+  margin-bottom: 1px;
+}
+
+/* ---- Mobile Bottom Nav Bar ---- */
+.mc-mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mc-mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: var(--mc-surface);
+    border-top: 1px solid var(--mc-border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .mc-bottom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    min-height: 52px;
+    min-width: 60px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  /* Prevent main content from being hidden behind bottom nav */
+  main {
+    padding-bottom: 56px !important;
+  }
+}
+
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -4251,6 +4251,7 @@ document.addEventListener('alpine:init', () => {
       monitor: true,
       staging: true,
       activity: true,
+      cron: true,
     },
     // Audio notification preferences
     audio: {
