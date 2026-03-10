@@ -134,16 +134,6 @@ config.tools.sessions.visibility = 'all';
 config.tools.loopDetection = config.tools.loopDetection || {};
 config.tools.loopDetection.enabled = true;
 
-// Web search: Brave Search API (free tier: 2000 queries/month)
-if (process.env.BRAVE_SEARCH_API_KEY) {
-  config.tools.web = config.tools.web || {};
-  config.tools.web.search = config.tools.web.search || {};
-  config.tools.web.search.apiKey = process.env.BRAVE_SEARCH_API_KEY;
-  console.log('[config-patch] Brave Search API key configured for web_search tool');
-} else {
-  console.log('[config-patch] WARNING: No BRAVE_SEARCH_API_KEY — web_search tool will fail');
-}
-
 // =========================================================================
 // Cron, compaction, memory, auto-update
 // =========================================================================

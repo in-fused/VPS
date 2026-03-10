@@ -191,8 +191,6 @@ services:
       # Oracle Cloud ARM — agents SSH here for builds, deploys, background compute
       - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
       - ORACLE_ARM_IP_2=${ORACLE_ARM_IP_2:-}
-      # Brave Search API key — used by web_search tool (free: 2000 queries/month)
-      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
       # Gemini API key — used directly by OpenClaw for memory_search embeddings
       # (free, 1500 RPM, avoids LiteLLM proxy hop for embedding calls)
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
@@ -241,6 +239,30 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # ===========================================================================
+  # SearXNG — Self-hosted meta search engine (free, unlimited, no API key)
+  # ===========================================================================
+  # Aggregates Google, Bing, DuckDuckGo, Wikipedia. JSON API for agents.
+  # Agents call: exec wget -qO- 'http://searxng:8080/search?q=...&format=json'
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # ===========================================================================
   # Webhook Handler — Lightweight endpoint for external workflow triggers

@@ -214,7 +214,7 @@ log_ok "Cleanup complete"
 log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
 # Explicitly list services that use pre-built images (not caddy/scrapling which have build:)
-PULL_SERVICES="litellm litellm-db openclaw watchtower"
+PULL_SERVICES="litellm litellm-db openclaw watchtower searxng"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
         break

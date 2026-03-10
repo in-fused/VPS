@@ -236,7 +236,7 @@ Example: \`sessions_send(sessionKey: "agent:codecraft:main", message: "BUILD a c
 | cron | action, schedule, payload, target | Scheduled jobs (add/list/remove/run) |
 | agents_list | (none) | List all agents |
 
-**web_search — NOT AVAILABLE.** Use \`web_fetch\` for URLs or \`exec wget\` for APIs.
+**web_search — NOT AVAILABLE.** Use SearXNG (below) or \`web_fetch\` for URLs.
 **sessions_spawn — DO NOT USE.** Causes errors. Use sessions_send for ALL agent messaging.
 
 ## Tool Call Examples — EXACT FORMAT
@@ -268,6 +268,12 @@ AGENT_TOOL_PERMISSIONS_PLACEHOLDER
 \`exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'\`
 POST: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape\`
 If exec is not available to you, use \`web_fetch\` for URLs or ask an agent with exec access (CodeCraft, Builder, Sentinel) to scrape for you.
+
+## Web Search (http://searxng:8080, internal only — requires exec)
+SearXNG is a self-hosted meta search engine (Google, Bing, DuckDuckGo). **Use this instead of web_search.**
+\`exec wget -qO- 'http://searxng:8080/search?q=your+query+here&format=json' | head -c 4000\`
+The \`| head -c 4000\` trims output to avoid flooding context. Parse the JSON for results[].title, results[].url, results[].content.
+If exec is not available to you, ask an agent with exec access (CodeCraft, Builder, Sentinel) to search for you.
 
 ## Cron (Background 24/7) — USE THE \`cron\` TOOL
 **NEVER use system crontab.** Use the OpenClaw \`cron\` tool:
@@ -455,7 +461,7 @@ const TOOL_PERMISSIONS = {
   // Restricted agents
   'lead': 'You have access to ALL tools EXCEPT browser. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, exec, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, gateway\n- **Shell access:** exec runs on the OpenClaw container (has wget, node — NO curl)\n- **Browser denied:** Delegate browser tasks to CodeCraft or Builder.',
   'ops-lead': 'You have access to ALL tools EXCEPT browser. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, exec, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, gateway\n- **Shell access:** exec runs on the OpenClaw container (has wget, node — NO curl)\n- **Browser denied:** Delegate browser tasks to Builder.',
-  'scout': 'You have access to ALL tools EXCEPT exec. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, browser, gateway\n- **exec denied:** Use web_fetch for URLs. For scraping, ask CodeCraft or Builder to run wget commands.\n- **Workaround for APIs:** Use web_fetch(url) instead of exec wget.',
+  'scout': 'You have access to ALL tools EXCEPT exec. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, browser, gateway\n- **exec denied:** Use web_fetch for URLs. For web search or scraping, ask CodeCraft or Builder to run SearXNG/Scrapling wget commands.\n- **Workaround for search:** Message CodeCraft: "Search SearXNG for <query> and send me the results"',
   'scribe': 'You have access to file and session tools. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, gateway\n- **exec denied:** You write documentation, not shell commands. If you need data, ask Scout or CodeCraft.\n- **browser denied:** Delegate browsing tasks to CodeCraft.',
   'chronicler': 'You have access to file and session tools. No approval needed. No sandbox.\n- **Tools enabled:** read, write, edit, sessions_send, sessions_list, sessions_history, memory_search, web_fetch, cron, agents_list, gateway\n- **exec denied:** You write documentation, not shell commands. If you need data, ask Sentinel or Builder.\n- **browser denied:** Delegate browsing tasks to Builder.',
 };
