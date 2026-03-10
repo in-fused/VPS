@@ -98,7 +98,13 @@ You are an autonomous agent in a self-organizing swarm. Mission Control is the h
 All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)
 
 ## How to Message Other Agents
-\`sessions_send(sessionKey: "agent:<id>:main", message: "...")\`
+\`sessions_send(sessionKey: "agent:<AGENT_ID>:main", message: "...")\`
+
+Examples:
+- Message CodeCraft: \`sessions_send(sessionKey: "agent:codecraft:main", message: "BUILD a dashboard at /workspace/staging/dashboard.html")\`
+- Message Scout: \`sessions_send(sessionKey: "agent:scout:main", message: "RESEARCH current market data and stage report")\`
+- Message Builder: \`sessions_send(sessionKey: "agent:builder:main", message: "BUILD a Docker health checker")\`
+- Message your lead: \`sessions_send(sessionKey: "agent:lead:main", message: "DONE: deliverable at /workspace/staging/file.html")\`
 
 | ID | Agent | Team | Use For |
 |----|-------|------|---------|
@@ -869,9 +875,11 @@ This fires on your heartbeat/cron activation. Execute ALL steps — do not just 
 ## MANDATORY ACTIONS (do these IN ORDER, using tools)
 1. \`read(path: "/workspace/staging/index.json")\` — count pending items. If < 3 pending items, you need to assign more work.
 2. \`read(path: "/workspace/agent-activity/log.json")\` — check events since your last heartbeat. Note which agents are active and which are silent.
-3. **Silent agents = failing agents.** If a team member has zero events in the last 2 hours, message them directly with a specific task:
-   \`sessions_send(sessionKey: "agent:<id>:main", message: "You have been silent for 2+ hours. Build [specific deliverable] at /workspace/staging/[filename] NOW.")\`
-4. **Assign new work** to any team member who has completed their last task. Core Lead: codecraft, scout, scribe. Ops Lead: builder, sentinel, chronicler.
+3. **Silent agents = failing agents.** If a team member has zero events in the last 2 hours, message them directly with a specific task. Examples:
+   \`sessions_send(sessionKey: "agent:codecraft:main", message: "You have been silent for 2+ hours. Build [specific deliverable] at /workspace/staging/[filename] NOW.")\`
+   \`sessions_send(sessionKey: "agent:builder:main", message: "You have been silent for 2+ hours. Build [specific deliverable] at /workspace/staging/[filename] NOW.")\`
+   Use the actual agent ID from your team: codecraft, scout, scribe (Core) or builder, sentinel, chronicler (Platform).
+4. **Assign new work** to any team member who has completed their last task. Your team members: codecraft, scout, scribe (Core Lead) or builder, sentinel, chronicler (Ops Lead).
 5. **Check cross-team.** If the other team is outproducing yours, assign MORE work.
 6. Log heartbeat: push {type:"system",message:"Heartbeat: [N] pending staging, [N] active agents, assigned [N] tasks"} to activity log.
 7. Keep it brief — heartbeat runs consume tokens. Spend tokens on tool calls, not prose.
@@ -1039,6 +1047,39 @@ const FORCE_OVERWRITE = new Set([
 // seeder (seed-via-rpc.js) can read our content after OpenClaw starts.
 const CACHE_DIR = '/tmp/workspace-seed-cache';
 
+// ============================================================================
+// Personalization — replace generic placeholders with actual agent identities
+// ============================================================================
+
+const CORE_TEAM_IDS = ['lead', 'codecraft', 'scout', 'scribe'];
+const PLATFORM_TEAM_IDS = ['ops-lead', 'builder', 'sentinel', 'chronicler'];
+
+const AGENT_NAMES = {
+  'lead': 'Lead', 'codecraft': 'CodeCraft', 'scout': 'Scout', 'scribe': 'Scribe',
+  'ops-lead': 'Ops Lead', 'builder': 'Builder', 'sentinel': 'Sentinel', 'chronicler': 'Chronicler',
+};
+
+function getLeadId(agentId) {
+  return PLATFORM_TEAM_IDS.includes(agentId) ? 'ops-lead' : 'lead';
+}
+
+function getTeamMemberIds(agentId) {
+  if (agentId === 'lead') return ['codecraft', 'scout', 'scribe'];
+  if (agentId === 'ops-lead') return ['builder', 'sentinel', 'chronicler'];
+  if (CORE_TEAM_IDS.includes(agentId)) return CORE_TEAM_IDS.filter(id => id !== agentId);
+  return PLATFORM_TEAM_IDS.filter(id => id !== agentId);
+}
+
+function personalizeContent(content, agentId) {
+  const agentName = AGENT_NAMES[agentId] || agentId;
+  const leadId = getLeadId(agentId);
+  return content
+    .replace(/<your-id>/g, agentId)
+    .replace(/<YOUR_NAME>/g, agentName)
+    .replace(/<lead-id>/g, leadId)
+    .replace(/<AGENT_ID>/g, agentId);
+}
+
 let seeded = 0;
 let skipped = 0;
 let overwritten = 0;
@@ -1063,7 +1104,8 @@ for (const agent of agents) {
     'BOOTSTRAP.md': isLead ? BOOTSTRAP_LEAD : BOOTSTRAP_SPECIALIST,
   };
 
-  for (const [filename, content] of Object.entries(files)) {
+  for (const [filename, rawContent] of Object.entries(files)) {
+    const content = personalizeContent(rawContent, agent.id);
     const filepath = path.join(wsDir, filename);
     if (FORCE_OVERWRITE.has(filename)) {
       fs.writeFileSync(filepath, content, 'utf8');
