@@ -599,10 +599,13 @@ function registerCustomNodes() {
   const TOOL_DEFS = {
     'Web Search': {
       timeout: 30000,
-      prompt: (input, config) =>
-        `Use the web_search tool with query: ${input}\n` +
-        (config.maxResults ? `Return up to ${config.maxResults} results.\n` : '') +
-        `Return a concise summary of the most relevant findings with source URLs.`,
+      prompt: (input, config) => {
+        const query = encodeURIComponent(input);
+        const maxResults = config.maxResults || 5;
+        return `Use the exec tool to run this command:\nwget -qO- 'http://searxng:8080/search?q=${query}&format=json' | head -c 4000\n\n` +
+          `Parse the JSON response. Extract the top ${maxResults} results from results[].title, results[].url, results[].content.\n` +
+          `Return a concise summary of the most relevant findings with source URLs.`;
+      },
     },
     'Web Scrape': {
       timeout: 30000,
