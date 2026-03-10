@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>in-fused.org — Project Overview</title>
+<style>
+  @media print {
+    body { font-size: 11pt; background: #fff; color: #111; }
+    .no-print { display: none !important; }
+    .page-break { page-break-before: always; }
+    pre { white-space: pre-wrap; word-wrap: break-word; font-size: 9pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 15pt; page-break-after: avoid; }
+    a { color: #000; text-decoration: underline; }
+    .card { border: 1px solid #ccc; box-shadow: none; }
+    .badge { border: 1px solid #666; }
+  }
+
+  :root {
+    --bg: #06060e;
+    --surface: #0e0d1a;
+    --card: #111320;
+    --border: rgba(212,175,55,0.15);
+    --border-bright: rgba(212,175,55,0.35);
+    --gold: #d4af37;
+    --gold-light: #f0d060;
+    --gold-dim: rgba(212,175,55,0.10);
+    --cyan: #06b6d4;
+    --cyan-dim: rgba(6,182,212,0.12);
+    --green: #10b981;
+    --green-dim: rgba(16,185,129,0.12);
+    --purple: #8b5cf6;
+    --purple-dim: rgba(139,92,246,0.12);
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --text: #eeedf5;
+    --text-sec: #b0adc0;
+    --text-muted: #5a5670;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  /* Header */
+  .hero {
+    text-align: center;
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .hero-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 16px;
+    filter: drop-shadow(0 0 20px rgba(212,175,55,0.3));
+  }
+  .hero h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .hero .tagline {
+    font-size: 15px;
+    color: var(--text-sec);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .hero .version {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--gold);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Section */
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 36px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.04em;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 20px 0 10px;
+  }
+  p { margin-bottom: 12px; color: var(--text-sec); font-size: 14px; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-sec);
+    line-height: 1.5;
+  }
+
+  /* Grid */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .badge-gold { background: var(--gold-dim); color: var(--gold); }
+  .badge-cyan { background: var(--cyan-dim); color: var(--cyan); }
+  .badge-green { background: var(--green-dim); color: var(--green); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-free { background: rgba(16,185,129,0.12); color: #10b981; }
+  .badge-paid { background: rgba(245,158,11,0.12); color: #f59e0b; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-bright);
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-sec);
+  }
+  tr:hover td { background: rgba(212,175,55,0.03); }
+
+  /* Architecture diagram */
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-sec);
+  }
+  .arch-box strong { color: var(--gold); display: block; margin-bottom: 4px; font-size: 13px; }
+  .arch-box .port { color: var(--cyan); font-size: 11px; }
+  .arch-arrow {
+    text-align: center;
+    color: var(--gold);
+    font-size: 18px;
+    padding: 6px 0;
+  }
+
+  /* Stats row */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+  @media (max-width: 500px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Links section */
+  .link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+  .link-row:hover { border-color: var(--gold); }
+  .link-row .link-icon { font-size: 20px; flex-shrink: 0; }
+  .link-row .link-text { font-size: 13px; font-weight: 500; }
+  .link-row .link-path { font-size: 11px; color: var(--cyan); margin-left: auto; }
+
+  /* Print button */
+  .print-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #0a0a14;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(212,175,55,0.3);
+    z-index: 100;
+  }
+  .print-btn:hover { box-shadow: 0 6px 24px rgba(212,175,55,0.4); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 0 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; color: var(--text-sec); font-size: 13px; }
+  code {
+    background: rgba(6,182,212,0.1);
+    color: var(--cyan);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <svg class="hero-icon" viewBox="0 0 64 64" fill="none">
+      <defs><linearGradient id="hg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#f0d060"/><stop offset="50%" stop-color="#d4af37"/><stop offset="100%" stop-color="#c49b2a"/>
+      </linearGradient></defs>
+      <polygon points="32,2 58,17 58,47 32,62 6,47 6,17" stroke="url(#hg)" stroke-width="2.5" fill="none"/>
+      <circle cx="32" cy="30" r="5.5" fill="#d4af37"/>
+      <circle cx="18" cy="20" r="3" fill="#d4af37" opacity="0.85"/>
+      <circle cx="46" cy="20" r="3" fill="#d4af37" opacity="0.85"/>
+      <circle cx="18" cy="42" r="3" fill="#d4af37" opacity="0.85"/>
+      <circle cx="46" cy="42" r="3" fill="#d4af37" opacity="0.85"/>
+      <line x1="32" y1="30" x2="18" y2="20" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+      <line x1="32" y1="30" x2="46" y2="20" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+      <line x1="32" y1="30" x2="18" y2="42" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+      <line x1="32" y1="30" x2="46" y2="42" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+    </svg>
+    <h1>IN-FUSED.ORG</h1>
+    <div class="tagline">Self-hosted multi-agent AI hub — 8 autonomous agents, 25+ models, 6 providers, running 24/7 on a single EC2 instance.</div>
+    <span class="version">March 2026 &middot; DeepSeek V3.2 Primary</span>
+  </div>
+
+  <!-- Key Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">8</div>
+      <div class="stat-label">Agents</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">25+</div>
+      <div class="stat-label">Models</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">6</div>
+      <div class="stat-label">Providers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">$25</div>
+      <div class="stat-label">/Month Infra</div>
+    </div>
+  </div>
+
+  <!-- What It Is -->
+  <h2>What Is In-Fused?</h2>
+  <p>In-fused.org is a self-hosted autonomous AI agent system running on AWS EC2. It unifies multiple LLM providers (Anthropic, OpenAI, DeepSeek, Google, Groq, Cerebras, Mistral, and a private Ollama instance on Oracle Cloud) behind a single interface with 8 autonomous agents organized into 2 competing teams.</p>
+  <p>The system operates 24/7 without human intervention. Agents delegate tasks to each other, produce deliverables, run scheduled background jobs, and organize their own work. The owner manages everything from an iPhone.</p>
+
+  <!-- Architecture -->
+  <h2>Architecture</h2>
+  <div class="grid-2">
+    <div class="arch-box">
+      <strong>Caddy</strong>
+      Reverse proxy, auto-HTTPS, cookie auth
+      <div class="port">:443 &rarr; in-fused.org</div>
+    </div>
+    <div class="arch-box">
+      <strong>Mission Control</strong>
+      SPA dashboard (Alpine.js + Tailwind)
+      <div class="port">/workspace/</div>
+    </div>
+    <div class="arch-box">
+      <strong>OpenClaw</strong>
+      Agent runtime &mdash; 8 agents, 24/7
+      <div class="port">:18789 &rarr; /openclaw/</div>
+    </div>
+    <div class="arch-box">
+      <strong>LiteLLM</strong>
+      Model gateway &mdash; 25+ models, 6 providers
+      <div class="port">:4000 &rarr; /api/litellm/</div>
+    </div>
+    <div class="arch-box">
+      <strong>Scrapling</strong>
+      Web scraping API (internal only)
+      <div class="port">:8000 (Docker bridge)</div>
+    </div>
+    <div class="arch-box">
+      <strong>Oracle ARM</strong>
+      Ollama &mdash; 3 models, 24GB RAM, free
+      <div class="port">150.136.x.x:11434</div>
+    </div>
+  </div>
+
+  <h3>Request Flow</h3>
+  <p>Internet &rarr; Caddy (auto-HTTPS + cookie auth) &rarr; routes to Mission Control, OpenClaw, or LiteLLM. Agents communicate via OpenClaw WebSocket RPC. LiteLLM routes to the cheapest available model with automatic fallback on rate limits.</p>
+
+  <!-- Agent Teams -->
+  <h2>Agent Teams</h2>
+  <p>8 agents in 2 competing teams. Each agent runs autonomously with its own model, tools, cron jobs, and workspace files. Teams compete on governance scores &mdash; the weekly champion earns Elite recognition.</p>
+
+  <h3>Core Team</h3>
+  <table>
+    <tr><th>Agent</th><th>Role</th><th>Model</th><th>Tools</th></tr>
+    <tr>
+      <td><strong>Lead</strong></td>
+      <td>Orchestrator &mdash; delegates, reviews, manages</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All except browser</td>
+    </tr>
+    <tr>
+      <td><strong>CodeCraft</strong></td>
+      <td>Full-stack developer</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All (unrestricted)</td>
+    </tr>
+    <tr>
+      <td><strong>Scout</strong></td>
+      <td>Research &amp; analysis</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All except exec</td>
+    </tr>
+    <tr>
+      <td><strong>Scribe</strong></td>
+      <td>Documentation writer</td>
+      <td><span class="badge badge-free">gemini-flash-lite</span></td>
+      <td>Files + sessions only</td>
+    </tr>
+  </table>
+
+  <h3>Platform Team</h3>
+  <table>
+    <tr><th>Agent</th><th>Role</th><th>Model</th><th>Tools</th></tr>
+    <tr>
+      <td><strong>Ops Lead</strong></td>
+      <td>Infra orchestrator</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All except browser</td>
+    </tr>
+    <tr>
+      <td><strong>Builder</strong></td>
+      <td>Infrastructure developer</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All (unrestricted)</td>
+    </tr>
+    <tr>
+      <td><strong>Sentinel</strong></td>
+      <td>Security &amp; monitoring</td>
+      <td><span class="badge badge-paid">deepseek-chat</span></td>
+      <td>All (unrestricted)</td>
+    </tr>
+    <tr>
+      <td><strong>Chronicler</strong></td>
+      <td>Platform documentation</td>
+      <td><span class="badge badge-free">gemini-flash-lite</span></td>
+      <td>Files + sessions only</td>
+    </tr>
+  </table>
+
+  <!-- Model Strategy -->
+  <h2>Model Strategy</h2>
+  <p>Hybrid model approach: paid primary models for working agents, free models for documentation writers, with automatic multi-provider fallback chains.</p>
+
+  <div class="card">
+    <div class="card-title"><span class="badge badge-paid">Primary</span> DeepSeek V3.2</div>
+    <div class="card-desc">$0.28/1M input tokens, $1.10/1M output. Assigned to 6 working agents (Lead, CodeCraft, Scout, Ops Lead, Builder, Sentinel). Subagents inherit their parent's model.</div>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="badge badge-free">Free</span> Gemini Flash-Lite</div>
+    <div class="card-desc">Google Gemini free tier (1000 RPD). Assigned to Scribe and Chronicler (documentation writers).</div>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="badge badge-cyan">Fallback Chain</span></div>
+    <div class="card-desc">deepseek-chat &rarr; cerebras-llama-3.3-70b &rarr; groq-llama-3.3-70b &rarr; gemini-flash &rarr; qwen3:14b (Ollama). Automatic on 429/failure. 6 free providers exhausted before any paid API is hit.</div>
+  </div>
+
+  <h3>All Available Models (25+)</h3>
+  <table>
+    <tr><th>Tier</th><th>Models</th><th>Cost</th></tr>
+    <tr>
+      <td><span class="badge badge-free">Free</span></td>
+      <td>Groq: llama-3.3-70b, qwen3-32b<br>Cerebras: llama-3.3-70b, llama-4-scout, gpt-oss-120b, zai-glm<br>Gemini: flash, flash-lite, pro<br>Mistral: large, codestral, small, nemo<br>Ollama: qwen3.5:9b, qwen3:14b, qwen3-coder:30b</td>
+      <td>$0</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-paid">Cheap</span></td>
+      <td>deepseek-chat, deepseek-coder, gpt-4o-mini</td>
+      <td>$0.15&ndash;0.28/1M</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-purple">Mid</span></td>
+      <td>claude-haiku, minimax-m2.5</td>
+      <td>$0.30&ndash;1.00/1M</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-gold">Premium</span></td>
+      <td>claude-sonnet, claude-opus, gpt-4o, o1</td>
+      <td>$2.50&ndash;15/1M</td>
+    </tr>
+  </table>
+
+  <!-- Capabilities -->
+  <h2>Capabilities</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Autonomous 24/7 Operation</div>
+      <div class="card-desc">Agents run continuously on EC2. Auto-kickoff on restart sends bootstrap directives to both team leads. Inbox-check cron fires every 5 minutes. No human required.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Agent-to-Agent Delegation</div>
+      <div class="card-desc">Full P2P mesh. Any agent can message any other agent, cross-team or same-team. Leads orchestrate, specialists execute. Tasks flow through the swarm automatically.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Visual Workflow Builder</div>
+      <div class="card-desc">LiteGraph-powered drag-and-drop workflow editor. 8 node types: Trigger, Agent, Task, Tool, Condition, Output, Loop, Merge. Auto-save, background execution, agent sync.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Staging &amp; Review</div>
+      <div class="card-desc">Agents stage deliverables as HTML pages. Owner reviews from phone &mdash; approve, reject (with feedback for auto-revision), or ignore. All output is mobile-optimized.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Governance &amp; Competition</div>
+      <div class="card-desc">Per-agent scoring: tasks 25%, approvals 30%, streaks 15%, efficiency 15%, collaboration 15%. Weekly champion earns Elite tier. Automatic lead replacement at 15+ point gap.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Multi-Provider Fallback</div>
+      <div class="card-desc">LiteLLM routes across 6 free providers before hitting paid APIs. Latency-based routing picks the fastest. Rate-limited providers are auto-cooled for 60s.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Web Scraping</div>
+      <div class="card-desc">Scrapling sidecar provides TLS-fingerprint-spoofed HTTP fetching. GET endpoint for quick scrape, POST for advanced selectors. Internal Docker network only.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Oracle Cloud ARM</div>
+      <div class="card-desc">Free 4 OCPU / 24GB RAM server running Ollama with 3 local models. Zero rate limits. Available to all agents for heavy compute, builds, and long-running tasks.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Background Cron Jobs</div>
+      <div class="card-desc">Agents create server-side cron jobs that persist across restarts. Inbox check (*/5 * * * *), heartbeat (0 */2 * * *), custom scans, and automated workflows.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Prompt Evolution</div>
+      <div class="card-desc">Prompt Library with starter prompts, archived effective prompts, star ratings, and an evolution system for autonomous prompt refinement based on agent performance.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">8 Real Tools</div>
+      <div class="card-desc">Web Search (SearXNG), Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser automation. All wired to OpenClaw's tool system.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Mobile-First PWA</div>
+      <div class="card-desc">Mission Control works as an iPhone PWA. Touch-to-mouse bridge for workflow canvas. iOS safe areas. 44px touch targets. Owner manages entire system from phone via AWS SSM.</div>
+    </div>
+  </div>
+
+  <!-- Infrastructure -->
+  <h2>Infrastructure</h2>
+
+  <table>
+    <tr><th>Service</th><th>Image</th><th>Memory</th><th>Port</th></tr>
+    <tr><td>Caddy</td><td>in-fused/caddy:latest (custom)</td><td>64M</td><td>80, 443</td></tr>
+    <tr><td>LiteLLM</td><td>ghcr.io/berriai/litellm:main-stable</td><td>512M</td><td>4000</td></tr>
+    <tr><td>LiteLLM DB</td><td>postgres:16-alpine</td><td>128M</td><td>5432</td></tr>
+    <tr><td>OpenClaw</td><td>ghcr.io/openclaw/openclaw:main</td><td>1536M</td><td>18789</td></tr>
+    <tr><td>Scrapling</td><td>in-fused/scrapling:latest (custom)</td><td>512M</td><td>8000</td></tr>
+    <tr><td>Oracle ARM</td><td>Ollama (external, free)</td><td>24GB</td><td>11434</td></tr>
+  </table>
+  <p>Total: ~2.8GB on EC2 t3.small (2GB RAM + 4GB swap). Custom images for Caddy and Scrapling are built locally by <code>deploy.sh</code>.</p>
+
+  <!-- Auth -->
+  <h2>Authentication</h2>
+  <p>Single password protects the entire site via Caddy cookie auth:</p>
+  <ul>
+    <li><code>caddy-entrypoint.sh</code> computes base64 token + SHA-256 hash from <code>OPENCLAW_PASSWORD</code></li>
+    <li>Login page calls <code>GET /auth/verify</code> with <code>Authorization: Basic &lt;token&gt;</code></li>
+    <li>On success, sets cookie <code>mc_oc=&lt;sha256hash&gt;</code> (24h, SameSite=Lax)</li>
+    <li>All Caddy routes check for the cookie &mdash; unauthenticated requests get the login page</li>
+  </ul>
+
+  <!-- Startup Chain -->
+  <h2>Startup Chain</h2>
+  <p>From <code>deploy.sh</code> to autonomous agent operation:</p>
+  <div class="card">
+    <div class="card-desc" style="font-family: monospace; font-size: 12px; white-space: pre-wrap; line-height: 1.8;">deploy.sh &rarr; docker compose up -d
+  &rarr; OpenClaw starts &rarr; openclaw-entrypoint.sh
+    L1: patch-openclaw-config.js (gateway, auth, tools, models)
+    L2: seed-agent-workspaces.js (7 files &times; 8 agents)
+    L3: OpenClaw gateway starts (~50s to healthy)
+    L4: Background (45s delay):
+        seed-via-rpc.js &rarr; pushes files via RPC
+        auto-kickoff.js &rarr; sends directive to both leads
+    L5: Leads execute BOOTSTRAP.md (verify tools, assign work)
+    L6: Autonomy loop (24/7, self-sustaining):
+        */5 inbox-check &rarr; pick up tasks &rarr; execute &rarr; stage</div>
+  </div>
+  <p><strong>Timing:</strong> Config patched at +5s, OpenClaw healthy at +60s, first tasks assigned at +75s, first deliverables staged at ~+15min. The entire chain is idempotent &mdash; redeploy = full re-initialization.</p>
+
+  <!-- Mission Control -->
+  <h2>Mission Control</h2>
+  <p>Custom SPA served as static files from Caddy. Alpine.js 3 for reactive stores, Tailwind CSS for styling, LiteGraph.js for visual workflows.</p>
+
+  <h3>Views</h3>
+  <ul>
+    <li><strong>Dashboard:</strong> Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators</li>
+    <li><strong>Chat:</strong> 3-tier fallback (OpenClaw WS &rarr; LiteLLM SSE &rarr; demo). Real agent execution with tools and memory.</li>
+    <li><strong>Workflows:</strong> Visual drag-and-drop editor with 8 node types. Auto-save, background execution, agent sync via file bridge.</li>
+    <li><strong>Teams:</strong> Governance scores, leaderboard, team performance comparison, weekly champion tracking</li>
+    <li><strong>Staging:</strong> Preview and approve/reject agent deliverables. Batch approve available.</li>
+    <li><strong>Agents:</strong> Agent CRUD, model assignment, status monitoring, cron job management</li>
+    <li><strong>System:</strong> Service health, logs, model catalog, connection status</li>
+  </ul>
+
+  <!-- Hub Directory -->
+  <h2>Hub Pages</h2>
+  <a class="link-row" href="/workspace/">
+    <span class="link-icon">&#x1F3AE;</span>
+    <span class="link-text">Mission Control</span>
+    <span class="link-path">/workspace/</span>
+  </a>
+  <a class="link-row" href="/openclaw/">
+    <span class="link-icon">&#x1F916;</span>
+    <span class="link-text">OpenClaw</span>
+    <span class="link-path">/openclaw/</span>
+  </a>
+  <a class="link-row" href="/api/litellm/">
+    <span class="link-icon">&#x26A1;</span>
+    <span class="link-text">LiteLLM Gateway</span>
+    <span class="link-path">/api/litellm/</span>
+  </a>
+  <a class="link-row" href="/workspace/prompts.html">
+    <span class="link-icon">&#x1F4DD;</span>
+    <span class="link-text">Prompt Library</span>
+    <span class="link-path">/workspace/prompts.html</span>
+  </a>
+  <a class="link-row" href="/workspace/deployment-guide.html">
+    <span class="link-icon">&#x1F680;</span>
+    <span class="link-text">Deployment Guide</span>
+    <span class="link-path">/workspace/deployment-guide.html</span>
+  </a>
+  <a class="link-row" href="/workspace/project-overview.html">
+    <span class="link-icon">&#x1F4CB;</span>
+    <span class="link-text">This Page (Project Overview)</span>
+    <span class="link-path">/workspace/project-overview.html</span>
+  </a>
+
+  <!-- Cost -->
+  <h2>Monthly Cost Breakdown</h2>
+  <table>
+    <tr><th>Item</th><th>Cost</th><th>Notes</th></tr>
+    <tr><td>EC2 t3.small</td><td>~$25</td><td>2 vCPU, 2GB RAM, 50GB gp3</td></tr>
+    <tr><td>DeepSeek V3.2 API</td><td>~$50&ndash;70 est.</td><td>6 agents, $0.28/1M in, $1.10/1M out</td></tr>
+    <tr><td>Oracle Cloud ARM</td><td>$0</td><td>Always Free tier (4 OCPU, 24GB)</td></tr>
+    <tr><td>Groq / Cerebras / Gemini / Mistral</td><td>$0</td><td>Free tiers for fallback</td></tr>
+    <tr><td>Domain + DNS</td><td>~$1</td><td>Caddy handles auto-HTTPS (Let's Encrypt)</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>~$75&ndash;100</strong></td><td>8 agents running 24/7 across 25+ models</td></tr>
+  </table>
+
+  <!-- Footer -->
+  <div class="footer">
+    in-fused.org &middot; self-hosted &middot; autonomous &middot; March 2026
+  </div>
+
+</div>
+
+<button class="print-btn no-print" onclick="window.print()">Print / Save PDF</button>
+
+</body>
+</html>
