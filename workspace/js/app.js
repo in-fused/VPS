@@ -290,7 +290,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -312,7 +312,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -333,7 +333,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'litellm/gemini-pro', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -380,7 +380,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -403,7 +403,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'litellm/gemini-flash', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -424,7 +424,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'litellm/cerebras-llama-3.3-70b', status: 'idle',
+    model: 'litellm/deepseek-chat', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
@@ -1235,7 +1235,7 @@ document.addEventListener('alpine:init', () => {
             description: a.description || a.identity?.description || '',
             model: a.model?.primary || (typeof a.model === 'string' ? a.model : null)
               || (DEMO_AGENTS.find(d => d.id === (a.id || a.agentId))?.model)
-              || 'litellm/cerebras-llama-3.3-70b',
+              || 'litellm/deepseek-chat',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -2850,7 +2850,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/cerebras-llama-3.3-70b';
+        const rawModel = agent?.model || 'litellm/deepseek-chat';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');

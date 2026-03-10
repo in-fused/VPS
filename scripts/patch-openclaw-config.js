@@ -104,7 +104,7 @@ config.models.providers.litellm = {
 // =========================================================================
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
+config.agents.defaults.model = { primary: 'litellm/deepseek-chat' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -209,22 +209,22 @@ config.agents.list = config.agents.list || [];
 // Only seed agents if none exist yet (preserve user-created agents)
 if (config.agents.list.length === 0) {
   config.agents.list = [
-    // CORE TEAM
+    // CORE TEAM — DeepSeek V3.2 for working agents, free for doc writers
     {
       id: 'lead', workspace: 'Lead',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'Lead', emoji: '\u{1F9E0}' },
       subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'codecraft', workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'CodeCraft', emoji: '\u26A1' },
       subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'scout', workspace: 'Scout',
-      model: { primary: 'litellm/gemini-pro' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'Scout', emoji: '\u{1F50D}' },
       subagents: { allowAgents: ['lead', 'codecraft', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
@@ -237,19 +237,19 @@ if (config.agents.list.length === 0) {
     // PLATFORM TEAM
     {
       id: 'ops-lead', workspace: 'Ops Lead',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'Ops Lead', emoji: '\u{1F3AF}' },
       subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'builder', workspace: 'Builder',
-      model: { primary: 'litellm/gemini-flash' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'Builder', emoji: '\u{1F528}' },
       subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
     {
       id: 'sentinel', workspace: 'Sentinel',
-      model: { primary: 'litellm/cerebras-llama-3.3-70b' },
+      model: { primary: 'litellm/deepseek-chat' },
       identity: { name: 'Sentinel', emoji: '\u{1F6E1}\uFE0F' },
       subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/cerebras-llama-4-scout' } },
     },
@@ -299,14 +299,15 @@ var TOOL_RESTRICTIONS = {
 };
 
 // Clean unrecognized agent keys + force model assignments
+// DeepSeek V3.2 ($0.28/1M in) for 6 working agents; free models for doc writers
 var MODEL_MAP = {
-  'lead': 'litellm/cerebras-llama-3.3-70b',
-  'codecraft': 'litellm/cerebras-llama-3.3-70b',
-  'scout': 'litellm/gemini-pro',
+  'lead': 'litellm/deepseek-chat',
+  'codecraft': 'litellm/deepseek-chat',
+  'scout': 'litellm/deepseek-chat',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-llama-3.3-70b',
-  'builder': 'litellm/gemini-flash',
-  'sentinel': 'litellm/cerebras-llama-3.3-70b',
+  'ops-lead': 'litellm/deepseek-chat',
+  'builder': 'litellm/deepseek-chat',
+  'sentinel': 'litellm/deepseek-chat',
   'chronicler': 'litellm/gemini-flash-lite',
 };
 var SUBAGENT_MODEL = 'litellm/cerebras-llama-4-scout';

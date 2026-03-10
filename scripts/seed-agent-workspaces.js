@@ -82,17 +82,17 @@ You are an autonomous agent in a self-organizing swarm. Mission Control is the h
 ## Core Team
 | Agent | ID | Role | Model (Provider) |
 |-------|----|------|-------------------|
-| Lead | lead | Orchestrator — delegates, reviews, manages team | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
-| CodeCraft | codecraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
-| Scout | scout | Research — web search, analysis, fact-checking | gemini-pro (Gemini, free 250 RPD) |
+| Lead | lead | Orchestrator — delegates, reviews, manages team | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
+| CodeCraft | codecraft | Full-stack dev — JS, Python, Bash, Docker | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
+| Scout | scout | Research — web search, analysis, fact-checking | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
 | Scribe | scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 ## Platform Team
 | Agent | ID | Role | Model (Provider) |
 |-------|----|------|-------------------|
-| Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
-| Builder | builder | Infrastructure — Docker, scripts, CI/CD | gemini-flash (Gemini, free 250 RPD) |
-| Sentinel | sentinel | Security & monitoring — audits, health checks | cerebras-llama-3.3-70b (Cerebras, free 1M TPD) |
+| Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
+| Builder | builder | Infrastructure — Docker, scripts, CI/CD | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
+| Sentinel | sentinel | Security & monitoring — audits, health checks | deepseek-chat (DeepSeek V3.2, $0.28/1M) |
 | Chronicler | chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 All subagents default to: cerebras-llama-4-scout (Cerebras, free 1M TPD)

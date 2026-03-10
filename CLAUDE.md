@@ -292,31 +292,28 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | cerebras-llama-3.3-70b (free) | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | cerebras-llama-3.3-70b (free) | Full-stack developer | Scout, Scribe |
-| Scout | gemini-pro (free) | Research specialist | Scribe |
+| Lead | deepseek-chat ($0.28/1M) | Orchestrator | CodeCraft, Scout, Scribe |
+| CodeCraft | deepseek-chat ($0.28/1M) | Full-stack developer | Scout, Scribe |
+| Scout | deepseek-chat ($0.28/1M) | Research specialist | Scribe |
 | Scribe | gemini-flash-lite (free) | Documentation writer | (none) |
 
 **Platform Team** — Infrastructure, deployments, monitoring:
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Ops Lead | cerebras-llama-3.3-70b (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
-| Builder | gemini-flash (free) | Infrastructure developer | Sentinel, Chronicler |
-| Sentinel | cerebras-llama-3.3-70b (free) | Security & monitoring | Chronicler |
+| Ops Lead | deepseek-chat ($0.28/1M) | Platform orchestrator | Builder, Sentinel, Chronicler |
+| Builder | deepseek-chat ($0.28/1M) | Infrastructure developer | Sentinel, Chronicler |
+| Sentinel | deepseek-chat ($0.28/1M) | Security & monitoring | Chronicler |
 | Chronicler | gemini-flash-lite (free) | Platform documentation | (none) |
 
 **Model budget strategy:**
-- **All primary models are FREE** — no per-token costs for normal operation
-- **Models spread across 3 free providers** to avoid single-provider rate limit exhaustion
-- Cerebras Llama 3.3 70B (free, 1M TPD, fastest inference): Lead, CodeCraft, Ops Lead, Sentinel — orchestration + coding + security
+- **DeepSeek V3.2 ($0.28/1M in)** for 6 working agents — high quality at low cost (~$50-70/month est.)
+- **Gemini Flash-Lite (free)** for Scribe + Chronicler — documentation writers don't need premium inference
 - Cerebras Llama 4 Scout (free, 1M TPD): all subagents — lightweight tasks
-- Gemini Pro (free, 100 RPD × 3 keys = 300 RPD, 1M context): Scout — research, large context ideal
-- Gemini Flash (free, 250 RPD × 3 keys = 750 RPD, 1M context): Builder — infra tasks
-- Gemini Flash-Lite (free, 1000 RPD × 3 keys = 3000 RPD): Scribe, Chronicler — high-volume documentation
-- Groq (free, 4 accounts load-balanced): groq-llama-3.3-70b, groq-qwen3-32b — available for fallback + manual use
+- Groq (free, 4 accounts load-balanced): groq-llama-3.3-70b, groq-qwen3-32b — available for manual use
 - Mistral (free, 2 RPM, 1B tokens/month): codestral, mistral-large — available for overflow
-- Fallback chain: Cerebras → Gemini → Groq → DeepSeek ($0.28/1M, paid last resort) on 429 errors (automatic via LiteLLM)
+- Fallback chain: deepseek-chat → cerebras-llama-3.3-70b → groq-llama-3.3-70b → gemini-flash on 429/failures (automatic via LiteLLM)
+- Free providers (Cerebras, Gemini, Groq, Mistral, Ollama) still available for manual/fallback use
 - LiteLLM `allowed_fails: 2` + `cooldown_time: 60` — exhausted providers are temporarily removed from the pool
 
 **Tier storage (EC2 t3.small, 50GB gp3 volume):**
@@ -340,7 +337,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 **All agents have access to:** Oracle Cloud ARM (shared, 4 OCPU / 24GB), Ollama models (zero rate limits), persistent cron jobs, dedicated background execution slots. No resources are Elite-gated — every agent can build out the workspace like a real workplace.
 
-**No paid API:** Premium models (Claude, GPT-4o, etc.) are NOT available for agent use. Only free providers. If OAuth subscription billing (ChatGPT Plus, Claude Pro) is configured in the future, that would change.
+**Paid model:** DeepSeek V3.2 (`deepseek-chat`, $0.28/1M in, $1.10/1M out) is the primary model for 6 working agents. Premium models (Claude, GPT-4o, etc.) are NOT available for agent use. Free providers remain available for fallback, subagents, and doc writers.
 
 **Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite recognition. The owner can manually promote a sustained Elite performer to Manager (above both teams).
 

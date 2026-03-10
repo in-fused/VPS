@@ -447,6 +447,9 @@ router_settings:
     - mistral-small: ["mistral-large", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
     - mistral-nemo: ["mistral-small", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
     - codestral: ["mistral-small", "gemini-flash", "qwen3-coder:30b", "deepseek-coder"]
+    # DeepSeek V3.2 — primary model for 6 agents, fallback to free providers if down
+    - deepseek-chat: ["cerebras-llama-3.3-70b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b"]
+    - deepseek-coder: ["deepseek-chat", "codestral", "cerebras-llama-3.3-70b", "qwen3-coder:30b"]
     # Ollama models fall back to each other, then cloud free, then paid
     - "qwen3.5:9b": ["qwen3:14b", "gemini-flash-lite", "groq-llama-3.3-70b", "deepseek-chat"]
     - "qwen3:14b": ["qwen3.5:9b", "gemini-flash", "cerebras-llama-3.3-70b", "deepseek-chat"]
