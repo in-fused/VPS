@@ -131,7 +131,7 @@ Cross-team messaging is REQUIRED, not just allowed. Use the best agent for the j
 - **Oracle ARM** (4 OCPU / 24GB, shared): Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) via LiteLLM. Zero rate limits.
 - **Cron jobs**: Any agent can create persistent server-side cron jobs for background work.
 - **Background execution**: Build out the workspace — automate monitoring, reporting, maintenance.
-- **No paid API**: Only free providers. Use Cerebras, Gemini, Groq, Mistral, Ollama.
+- **Primary model**: DeepSeek V3.2 ($0.28/1M tokens) for working agents. Gemini Flash-Lite (free) for doc writers. Fallback chain: Cerebras → Groq → Gemini → Ollama.
 `;
 
 const SHARED_MEMORY = `# Project Memory
