@@ -937,10 +937,8 @@ async function savePoster() {
   overlay.classList.add('active');
   status.textContent = 'Rendering poster...';
 
-  // Small delay to let overlay paint
   await new Promise(r => setTimeout(r, 100));
 
-  // Check html2canvas loaded
   if (typeof html2canvas === 'undefined') {
     status.textContent = 'Library blocked — disable shields and retry';
     setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 3000);
@@ -955,30 +953,57 @@ async function savePoster() {
       scale: 2,
       useCORS: true,
       logging: false,
-      width: page.scrollWidth,
-      height: page.scrollHeight,
-      windowWidth: 1000,
+      windowWidth: 1060,
+      windowHeight: page.scrollHeight,
+      width: 1060,
       onclone: (doc) => {
+        // Hide UI chrome
         const clonedBtn = doc.querySelector('.print-btn');
         const clonedOverlay = doc.getElementById('exportOverlay');
         if (clonedBtn) clonedBtn.style.display = 'none';
         if (clonedOverlay) clonedOverlay.style.display = 'none';
-        const clonedPage = doc.querySelector('.page');
-        if (clonedPage) {
-          clonedPage.style.maxWidth = '1000px';
-          clonedPage.style.padding = '40px 20px';
-        }
+
+        // Inject desktop overrides that defeat all mobile @media queries
+        // This forces the cloned DOM to render at full desktop layout
+        const style = doc.createElement('style');
+        style.textContent = `
+          /* Force desktop layout for poster capture */
+          .page { max-width: 1000px !important; padding: 40px 20px !important; margin: 0 auto !important; }
+          .hero { padding: 48px 32px !important; border-radius: 20px !important; }
+          .hero-stats { gap: 32px !important; }
+          .compass { display: block !important; }
+          .section-header { padding: 16px 20px !important; flex-wrap: nowrap !important; }
+          .section-header h2 { font-size: 16px !important; }
+          .section-body { padding: 20px !important; }
+          .grid-2 { grid-template-columns: 1fr 1fr !important; }
+          .grid-3 { grid-template-columns: 1fr 1fr 1fr !important; }
+          .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr !important; }
+          .arch-flow { gap: 8px !important; }
+          .arch-node { min-width: 100px !important; padding: 12px 16px !important; }
+          .arch-node .name { font-size: 12px !important; }
+          .arch-arrow { font-size: 18px !important; padding: 0 6px !important; }
+          .tier-row { flex-wrap: nowrap !important; gap: 12px !important; padding: 12px 16px !important; }
+          .tier-cost { min-width: 80px !important; text-align: right !important; }
+          .agent-row { flex-wrap: nowrap !important; gap: 12px !important; }
+          .agent-model { font-size: 10px !important; }
+          .check-grid { grid-template-columns: 1fr 1fr !important; }
+          .commit-line { font-size: 12px !important; }
+          .deploy-block code { font-size: 12px !important; }
+          .feat-card { padding: 16px !important; }
+          .pipeline-node { min-width: 80px !important; padding: 12px 16px !important; }
+          .pipeline-node .p-name { font-size: 11px !important; }
+        `;
+        doc.head.appendChild(style);
       }
     });
 
     status.textContent = 'Preparing download...';
 
-    // On iOS: open image directly in same tab for easy long-press save
+    // On iOS: replace page with just the image for long-press save
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     if (isIOS) {
       status.textContent = 'Opening image — long-press to save...';
       const dataUrl = canvas.toDataURL('image/png');
-      // Replace current page with just the image — user can long-press to save, then navigate back
       document.open();
       document.write('<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>in-fused.org Poster</title><style>*{margin:0;padding:0}body{background:#000;min-height:100vh;display:flex;justify-content:center}img{width:100%;height:auto}</style></head><body><img src="' + dataUrl + '"></body></html>');
       document.close();
