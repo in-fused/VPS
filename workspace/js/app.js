@@ -3301,29 +3301,39 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    // Fetch spend data from LiteLLM /spend/logs endpoint
+    // Fetch spend data from LiteLLM — tries multiple endpoints with fallback
     async fetchSpend() {
       this.spendLoading = true;
       this.spendError = null;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const r = await fetch(`/api/mc/spend/logs?start_date=${today}&end_date=${today}`, {
-          credentials: 'same-origin',
-          signal: AbortSignal.timeout(10000),
-        });
-        if (!r.ok) {
-          // Try alternative endpoint if /spend/logs not available
-          const r2 = await fetch(`/api/mc/global/spend/logs?start_date=${today}&end_date=${today}`, {
-            credentials: 'same-origin',
-            signal: AbortSignal.timeout(10000),
-          });
-          if (!r2.ok) throw new Error(`LiteLLM spend API returned ${r.status}`);
-          const data2 = await r2.json();
-          this._parseSpendData(data2);
-          this.spendLastFetched = Date.now();
-          return;
+
+        // Endpoint priority: global/spend/report (grouped by model) → spend/logs (raw)
+        const endpoints = [
+          `/api/mc/global/spend/report?start_date=${today}&end_date=${today}&group_by=model`,
+          `/api/mc/spend/logs?start_date=${today}&end_date=${today}`,
+          `/api/mc/global/spend/logs?start_date=${today}&end_date=${today}`,
+        ];
+
+        let data = null;
+        let lastErr = null;
+        for (const url of endpoints) {
+          try {
+            const r = await fetch(url, {
+              credentials: 'same-origin',
+              signal: AbortSignal.timeout(8000),
+            });
+            if (!r.ok) { lastErr = `${r.status} from ${url.split('?')[0]}`; continue; }
+            const text = await r.text();
+            if (!text || text.trim().length === 0) { lastErr = `Empty response from ${url.split('?')[0]}`; continue; }
+            data = JSON.parse(text);
+            break;
+          } catch (e) {
+            lastErr = e.message;
+          }
         }
-        const data = await r.json();
+
+        if (!data) throw new Error(lastErr || 'All spend endpoints failed');
         this._parseSpendData(data);
         this.spendLastFetched = Date.now();
       } catch (e) {
@@ -3334,23 +3344,42 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    // Parse LiteLLM spend log rows into per-model tokenUsage
+    // Parse LiteLLM spend data into per-model tokenUsage
+    // Handles multiple response formats: spend/report (grouped), spend/logs (raw rows), arrays
     _parseSpendData(data) {
-      const rows = Array.isArray(data) ? data : (data?.data || data?.spend_logs || []);
-      if (!rows.length) return;
-
-      // Aggregate by model
       const byModel = {};
-      for (const row of rows) {
-        const model = row.model || row.model_id || 'unknown';
-        if (!byModel[model]) {
-          byModel[model] = { input: 0, output: 0, cost: 0, requests: 0 };
+
+      // Format 1: /global/spend/report → array of { model, total_spend, total_tokens, ... }
+      // or { grouped_by: "model", results: [...] }
+      const results = data?.results || data?.data || (Array.isArray(data) ? data : null);
+      if (results && Array.isArray(results)) {
+        for (const row of results) {
+          const model = row.model || row.model_id || row.model_name || 'unknown';
+          if (!byModel[model]) {
+            byModel[model] = { input: 0, output: 0, cost: 0, requests: 0 };
+          }
+          byModel[model].input += row.prompt_tokens || row.input_tokens || row.total_prompt_tokens || 0;
+          byModel[model].output += row.completion_tokens || row.output_tokens || row.total_completion_tokens || 0;
+          byModel[model].cost += row.spend || row.cost || row.total_spend || 0;
+          byModel[model].requests += row.num_requests || row.count || 1;
         }
-        byModel[model].input += row.prompt_tokens || row.input_tokens || 0;
-        byModel[model].output += row.completion_tokens || row.output_tokens || 0;
-        byModel[model].cost += row.spend || row.cost || 0;
-        byModel[model].requests++;
       }
+
+      // Format 2: raw spend_logs array
+      if (data?.spend_logs && Array.isArray(data.spend_logs)) {
+        for (const row of data.spend_logs) {
+          const model = row.model || 'unknown';
+          if (!byModel[model]) {
+            byModel[model] = { input: 0, output: 0, cost: 0, requests: 0 };
+          }
+          byModel[model].input += row.prompt_tokens || 0;
+          byModel[model].output += row.completion_tokens || 0;
+          byModel[model].cost += row.spend || 0;
+          byModel[model].requests++;
+        }
+      }
+
+      if (Object.keys(byModel).length === 0) return;
 
       // Merge with existing real-time tracking (keep whichever is higher)
       for (const [model, agg] of Object.entries(byModel)) {
