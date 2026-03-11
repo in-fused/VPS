@@ -46,6 +46,10 @@ config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
 // Remove any unknown keys that cause config validation errors
 delete config.gateway.trustProxy;
 delete config.gateway.host; // not a valid key — only 'bind' is recognized
+// rateLimit is not a valid gateway.auth key — causes crash loop
+if (config.gateway.auth) {
+  delete config.gateway.auth.rateLimit;
+}
 
 // Trust Caddy reverse proxy — Docker bridge subnets
 config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'];
