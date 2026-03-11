@@ -925,8 +925,8 @@
   <div class="export-status" id="exportStatus">Rendering poster...</div>
 </div>
 
-<!-- html2canvas — renders DOM to a single canvas -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- html2canvas — self-hosted to avoid ad-blocker/shield blocking -->
+<script src="/workspace/js/html2canvas.min.js"></script>
 <script>
 async function savePoster() {
   const btn = document.querySelector('.print-btn');
@@ -940,24 +940,29 @@ async function savePoster() {
   // Small delay to let overlay paint
   await new Promise(r => setTimeout(r, 100));
 
+  // Check html2canvas loaded
+  if (typeof html2canvas === 'undefined') {
+    status.textContent = 'Library blocked — disable shields and retry';
+    setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 3000);
+    return;
+  }
+
   try {
     const page = document.querySelector('.page');
 
     const canvas = await html2canvas(page, {
       backgroundColor: '#0a0e1a',
-      scale: 2,                    // 2x for crisp retina output
+      scale: 2,
       useCORS: true,
       logging: false,
       width: page.scrollWidth,
       height: page.scrollHeight,
-      windowWidth: 1000,           // Render at desktop width for best layout
+      windowWidth: 1000,
       onclone: (doc) => {
-        // Hide the save button and overlay in the cloned doc
         const clonedBtn = doc.querySelector('.print-btn');
         const clonedOverlay = doc.getElementById('exportOverlay');
         if (clonedBtn) clonedBtn.style.display = 'none';
         if (clonedOverlay) clonedOverlay.style.display = 'none';
-        // Force desktop layout in the clone
         const clonedPage = doc.querySelector('.page');
         if (clonedPage) {
           clonedPage.style.maxWidth = '1000px';
@@ -968,21 +973,25 @@ async function savePoster() {
 
     status.textContent = 'Preparing download...';
 
-    // Convert to blob for efficient download
+    // On iOS: open image directly in same tab for easy long-press save
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      status.textContent = 'Opening image — long-press to save...';
+      const dataUrl = canvas.toDataURL('image/png');
+      // Replace current page with just the image — user can long-press to save, then navigate back
+      document.open();
+      document.write('<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>in-fused.org Poster</title><style>*{margin:0;padding:0}body{background:#000;min-height:100vh;display:flex;justify-content:center}img{width:100%;height:auto}</style></head><body><img src="' + dataUrl + '"></body></html>');
+      document.close();
+      return;
+    }
+
+    // Desktop: trigger download
     canvas.toBlob((blob) => {
       if (!blob) {
-        // Fallback: open as data URL in new tab (iOS Safari sometimes blocks blob downloads)
-        const dataUrl = canvas.toDataURL('image/png');
-        const w = window.open('');
-        if (w) {
-          w.document.write('<html><head><title>in-fused.org — Project Overview</title></head><body style="margin:0;background:#000;display:flex;justify-content:center"><img src="' + dataUrl + '" style="max-width:100%;height:auto"></body></html>');
-          w.document.close();
-        }
-        overlay.classList.remove('active');
-        btn.disabled = false;
+        status.textContent = 'Blob creation failed';
+        setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 2000);
         return;
       }
-
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -990,37 +999,15 @@ async function savePoster() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-
-      // iOS Safari: also offer long-press save by opening image in new tab
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        status.textContent = 'Opening image — long-press to save...';
-        setTimeout(() => {
-          const w = window.open(url, '_blank');
-          if (!w) {
-            // Popup blocked — open inline
-            window.location.href = url;
-          }
-          setTimeout(() => {
-            overlay.classList.remove('active');
-            btn.disabled = false;
-            URL.revokeObjectURL(url);
-          }, 1000);
-        }, 300);
-      } else {
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        overlay.classList.remove('active');
-        btn.disabled = false;
-      }
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      overlay.classList.remove('active');
+      btn.disabled = false;
     }, 'image/png');
 
   } catch (err) {
     console.error('Poster export failed:', err);
-    status.textContent = 'Export failed — try again';
-    setTimeout(() => {
-      overlay.classList.remove('active');
-      btn.disabled = false;
-    }, 2000);
+    status.textContent = 'Export failed: ' + (err.message || err);
+    setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 3000);
   }
 }
 </script>
