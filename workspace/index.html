@@ -1613,22 +1613,51 @@
           <!-- Token Usage -->
           <div class="mb-6">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-semibold text-mc-text">Token Usage (Today)</h2>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-semibold text-mc-text">Token Usage (Today)</h2>
+                <button @click="$store.monitor.fetchSpend()"
+                        :disabled="$store.monitor.spendLoading"
+                        class="text-xs text-cyan-400 hover:text-cyan-300 disabled:text-mc-text-muted transition-colors"
+                        :title="$store.monitor.spendLastFetched ? 'Last updated: ' + new Date($store.monitor.spendLastFetched).toLocaleTimeString() : 'Click to refresh'">
+                  <span x-show="!$store.monitor.spendLoading">&#x21bb;</span>
+                  <span x-show="$store.monitor.spendLoading" class="animate-spin inline-block">&#x21bb;</span>
+                </button>
+                <span x-show="$store.monitor.spendLastFetched" class="text-[10px] text-mc-text-muted"
+                      x-text="'Updated ' + new Date($store.monitor.spendLastFetched).toLocaleTimeString()"></span>
+              </div>
               <span class="text-xs text-mc-text-muted font-mono">
                 Total: <span x-text="formatTokens($store.monitor.totalTokens)"></span>
                 · ~$<span x-text="$store.monitor.totalCost.toFixed(3)"></span>
               </span>
             </div>
+            <div x-show="$store.monitor.spendError" class="mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400">
+              Spend API: <span x-text="$store.monitor.spendError"></span>
+              <span class="text-mc-text-muted ml-1">(real-time tracking still active)</span>
+            </div>
             <div class="bg-mc-surface border border-mc-border rounded-xl p-5 space-y-4">
+              <template x-if="Object.keys($store.monitor.tokenUsage).length === 0">
+                <div class="text-center text-xs text-mc-text-muted py-4">
+                  <span x-show="$store.monitor.spendLoading">Loading spend data...</span>
+                  <span x-show="!$store.monitor.spendLoading">No token usage recorded yet today. Usage will appear here as agents run.</span>
+                </div>
+              </template>
               <template x-for="(usage, modelId) in $store.monitor.tokenUsage" :key="modelId">
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <span class="text-xs font-mono text-mc-text-sec" x-text="modelId"></span>
-                    <span class="text-xs text-mc-text-muted" x-text="formatTokens(usage.input + usage.output) + ' tokens'"></span>
+                    <span class="text-xs text-mc-text-muted">
+                      <span x-text="formatTokens(usage.input + usage.output) + ' tokens'"></span>
+                      <span x-show="usage.cost > 0" class="ml-1 text-amber-400" x-text="'$' + usage.cost.toFixed(4)"></span>
+                      <span x-show="usage.requests > 0" class="ml-1" x-text="'(' + usage.requests + ' req)'"></span>
+                    </span>
                   </div>
                   <div class="mc-usage-track">
                     <div class="mc-usage-fill bg-cyan-500"
                          :style="'width: ' + Math.round((usage.input + usage.output) / $store.monitor.maxUsage() * 100) + '%'"></div>
+                  </div>
+                  <div class="flex justify-between mt-0.5 text-[10px] text-mc-text-muted">
+                    <span x-text="'In: ' + formatTokens(usage.input)"></span>
+                    <span x-text="'Out: ' + formatTokens(usage.output)"></span>
                   </div>
                 </div>
               </template>

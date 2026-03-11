@@ -1097,6 +1097,11 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('staging').startPolling(15000);
       }
 
+      // Start token spend polling from LiteLLM (every 60s)
+      if (health.litellm) {
+        Alpine.store('monitor').startSpendPolling();
+      }
+
       // Generate "While You Were Away" report from activity log
       await this._generateAwayReport();
 
@@ -1763,13 +1768,19 @@ document.addEventListener('alpine:init', () => {
             agent.lastActive = 'Just now';
             Alpine.store('agents')._persist();
 
-            const tokens = payload.usage?.total_tokens
-              || (payload.usage ? (payload.usage.input_tokens || 0) + (payload.usage.output_tokens || 0) : 0)
+            const promptTok = payload.usage?.prompt_tokens || payload.usage?.input_tokens || 0;
+            const completionTok = payload.usage?.completion_tokens || payload.usage?.output_tokens || 0;
+            const tokens = payload.usage?.total_tokens || (promptTok + completionTok)
               || Math.round(((streamMsg?.content || '').length) / 4);
             const responseTimeMs = sessions._chatSendTime ? Date.now() - sessions._chatSendTime : 0;
             Alpine.store('governance').recordTask(agent.id, {
               success: true, tokens, responseTimeMs, taskType: 'chat-openclaw',
             });
+
+            // Track real-time token usage in monitor store
+            const agentModel = agent.model || 'unknown';
+            const spendCost = payload.usage?.cost || payload.usage?.spend || 0;
+            Alpine.store('monitor').trackUsage(agentModel, promptTok, completionTok, spendCost);
           }
 
           // Check for governance self-tuning proposals from agents
@@ -2906,6 +2917,11 @@ document.addEventListener('alpine:init', () => {
           }
           Alpine.store('agents')._persist();
 
+          // Track real-time token usage in monitor store (estimated from char count on SSE path)
+          const estInput = Math.round(text.length / 4);
+          const estOutput = Math.round(botMsg.content.length / 4);
+          Alpine.store('monitor').trackUsage(model, estInput, estOutput, 0);
+
           const responseTimeMs = this._chatSendTime ? Date.now() - this._chatSendTime : 0;
           Alpine.store('governance').recordTask(agent.id, {
             success: !isError, tokens, responseTimeMs, taskType: 'chat-litellm',
@@ -3236,6 +3252,10 @@ document.addEventListener('alpine:init', () => {
       modelsAvailable: 0,
       uptime: '--',
     },
+    spendLoading: false,
+    spendError: null,
+    spendLastFetched: null,
+    _spendPollId: null,
 
     get filteredLogs() {
       if (this.logFilter === 'all') return this.logs;
@@ -3260,6 +3280,99 @@ document.addEventListener('alpine:init', () => {
     maxUsage() {
       const vals = Object.values(this.tokenUsage).map(m => m.input + m.output);
       return Math.max(...vals, 1);
+    },
+
+    // Track tokens from a completed chat response (real-time, per-model)
+    trackUsage(modelId, promptTokens, completionTokens, cost) {
+      if (!modelId) return;
+      const existing = this.tokenUsage[modelId];
+      if (existing) {
+        existing.input += promptTokens || 0;
+        existing.output += completionTokens || 0;
+        existing.cost += cost || 0;
+        existing.requests++;
+      } else {
+        this.tokenUsage[modelId] = {
+          input: promptTokens || 0,
+          output: completionTokens || 0,
+          cost: cost || 0,
+          requests: 1,
+        };
+      }
+    },
+
+    // Fetch spend data from LiteLLM /spend/logs endpoint
+    async fetchSpend() {
+      this.spendLoading = true;
+      this.spendError = null;
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const r = await fetch(`/api/mc/spend/logs?start_date=${today}&end_date=${today}`, {
+          credentials: 'same-origin',
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!r.ok) {
+          // Try alternative endpoint if /spend/logs not available
+          const r2 = await fetch(`/api/mc/global/spend/logs?start_date=${today}&end_date=${today}`, {
+            credentials: 'same-origin',
+            signal: AbortSignal.timeout(10000),
+          });
+          if (!r2.ok) throw new Error(`LiteLLM spend API returned ${r.status}`);
+          const data2 = await r2.json();
+          this._parseSpendData(data2);
+          this.spendLastFetched = Date.now();
+          return;
+        }
+        const data = await r.json();
+        this._parseSpendData(data);
+        this.spendLastFetched = Date.now();
+      } catch (e) {
+        this.spendError = e.message;
+        console.warn('[Monitor] Spend fetch failed:', e.message);
+      } finally {
+        this.spendLoading = false;
+      }
+    },
+
+    // Parse LiteLLM spend log rows into per-model tokenUsage
+    _parseSpendData(data) {
+      const rows = Array.isArray(data) ? data : (data?.data || data?.spend_logs || []);
+      if (!rows.length) return;
+
+      // Aggregate by model
+      const byModel = {};
+      for (const row of rows) {
+        const model = row.model || row.model_id || 'unknown';
+        if (!byModel[model]) {
+          byModel[model] = { input: 0, output: 0, cost: 0, requests: 0 };
+        }
+        byModel[model].input += row.prompt_tokens || row.input_tokens || 0;
+        byModel[model].output += row.completion_tokens || row.output_tokens || 0;
+        byModel[model].cost += row.spend || row.cost || 0;
+        byModel[model].requests++;
+      }
+
+      // Merge with existing real-time tracking (keep whichever is higher)
+      for (const [model, agg] of Object.entries(byModel)) {
+        const existing = this.tokenUsage[model];
+        if (!existing || (agg.input + agg.output) > (existing.input + existing.output)) {
+          this.tokenUsage[model] = agg;
+        }
+      }
+    },
+
+    // Start periodic spend polling (every 60s)
+    startSpendPolling() {
+      if (this._spendPollId) return;
+      this.fetchSpend();
+      this._spendPollId = setInterval(() => this.fetchSpend(), 60000);
+    },
+
+    stopSpendPolling() {
+      if (this._spendPollId) {
+        clearInterval(this._spendPollId);
+        this._spendPollId = null;
+      }
     },
   });
 
