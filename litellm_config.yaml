@@ -423,6 +423,9 @@ litellm_settings:
   request_timeout: 120
   # Number of retries on failure
   num_retries: 2
+  # Log every request to PostgreSQL for spend tracking (Monitor view in Mission Control)
+  success_callback: ["db"]
+  failure_callback: ["db"]
 
 router_settings:
   # When a free-tier model hits rate limits (429), fall back through the chain.
