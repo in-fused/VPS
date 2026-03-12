@@ -3,7 +3,7 @@
     {
       "id": "status-dashboard-1",
       "name": "Service Status Dashboard",
-      "path": "staging/status-dashboard.html",
+      "path": "status-dashboard.html",
       "type": "html",
       "createdBy": "system",
       "createdAt": 1741305600000,

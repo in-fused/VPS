@@ -4148,7 +4148,7 @@ document.addEventListener('alpine:init', () => {
             createdAt: item.createdAt || Date.now(),
             description: item.description || '',
             status,
-            previewUrl: '/workspace/staging/' + item.path,
+            previewUrl: '/workspace/' + (item.path.startsWith('staging/') ? item.path : 'staging/' + item.path),
           };
         });
         // Notify if new pending items appeared

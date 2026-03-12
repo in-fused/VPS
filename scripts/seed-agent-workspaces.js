@@ -352,6 +352,7 @@ URL: https://in-fused.org/workspace/staging/{filename} — owner reviews on phon
 1. \`write\` file to /workspace/staging/{filename}
 2. \`read\` /workspace/staging/index.json, push item, \`write\` back
 3. Item format: {id, name, path, type, createdBy:"your-id", description, status:"pending"}
+   **path = filename only** (e.g. "my-dashboard.html", NOT "staging/my-dashboard.html")
 HTML template: dark theme (#0a0a0f bg, #d4af37 gold accent), Tailwind CDN, mobile-first (max-w-2xl, 44px touch targets, 16px font), viewport-fit=cover, self-contained.
 
 **REJECTION -> AUTO-REVISE:** When the owner rejects a staging item, you receive a STAGING_REJECTED message with feedback. You MUST:
@@ -528,7 +529,8 @@ The owner sees this in the Activity tab. If you don't log, you're invisible.
 ### 11b. STAGING — stage EVERY deliverable
 \`write(path: "/workspace/staging/<filename>.html", content: "<html>...")\`
 Then update index: \`read(path: "/workspace/staging/index.json")\` -> push item -> \`write\` back.
-Item format: \`{"id":"<unique>","name":"<title>","path":"staging/<filename>.html","type":"html","createdBy":"<your-id>","description":"<what it is>","status":"pending"}\`
+Item format: \`{"id":"<unique>","name":"<title>","path":"<filename>.html","type":"html","createdBy":"<your-id>","description":"<what it is>","status":"pending"}\`
+**path = filename only** (e.g. "dashboard.html"), NOT "staging/dashboard.html" — the staging/ prefix is added automatically.
 
 ### 11c. CONFIRM to your lead
 After completing any delegated task, message your lead with the exact file path:
@@ -1044,7 +1046,7 @@ If it exists and has experiments with status "pending-review", execute them — 
 
 ## JSON Formats (for write tool content param)
 Activity: {"events":[{"time":1709726400000,"level":"info","type":"system","message":"...","agent":"lead"}]}
-Staging: {"items":[{"id":"item-1","name":"Name","path":"staging/file.html","type":"html","createdBy":"lead","description":"What it is","status":"pending"}]}
+Staging: {"items":[{"id":"item-1","name":"Name","path":"file.html","type":"html","createdBy":"lead","description":"What it is","status":"pending"}]}
 `;
 
 const BOOTSTRAP_SPECIALIST = `# Bootstrap — System Startup (EXECUTE IMMEDIATELY)
@@ -1110,7 +1112,7 @@ Do NOT reply with "standing by" or "ready for tasks." That is unacceptable. Ship
 
 ## JSON Formats
 Activity: {"events":[{"time":1709726400000,"level":"info","type":"system","message":"...","agent":"<your-id>"}]}
-Staging: {"items":[{"id":"item-1","name":"Name","path":"staging/file.html","type":"html","createdBy":"<your-id>","description":"What it is","status":"pending"}]}
+Staging: {"items":[{"id":"item-1","name":"Name","path":"file.html","type":"html","createdBy":"<your-id>","description":"What it is","status":"pending"}]}
 `;
 
 // ============================================================================
