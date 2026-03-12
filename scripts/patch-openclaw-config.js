@@ -108,7 +108,7 @@ config.models.providers.litellm = {
 // =========================================================================
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/deepseek-chat' };
+config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
 // Allowlist only the litellm provider to prevent anthropic fallback
 config.agents.defaults.models = { litellm: {} };
 
@@ -307,29 +307,32 @@ var TOOL_RESTRICTIONS = {
 };
 
 // Clean unrecognized agent keys + force model assignments
-// DeepSeek V3.2 ($0.28/1M in) for 6 working agents; free models for doc writers
+// FREE-FIRST strategy: all agents use free providers as primary.
+// DeepSeek is ONLY in the LiteLLM fallback chain (triggers on 429/failures).
+// Leads/developers: cerebras-llama-4-scout (Llama 4 Scout, 1M TPD, fast)
+// Doc writers: gemini-flash-lite (free, high RPD)
 var MODEL_MAP = {
-  'lead': 'litellm/deepseek-chat',
-  'codecraft': 'litellm/deepseek-chat',
-  'scout': 'litellm/deepseek-chat',
+  'lead': 'litellm/cerebras-llama-4-scout',
+  'codecraft': 'litellm/cerebras-llama-4-scout',
+  'scout': 'litellm/groq-llama-3.3-70b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/deepseek-chat',
-  'builder': 'litellm/deepseek-chat',
-  'sentinel': 'litellm/deepseek-chat',
+  'ops-lead': 'litellm/cerebras-llama-4-scout',
+  'builder': 'litellm/cerebras-llama-4-scout',
+  'sentinel': 'litellm/groq-llama-3.3-70b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
 // Subagent models match parent — prevents capability mismatches during parallel execution
 var SUBAGENT_MODEL_MAP = {
-  'lead': 'litellm/deepseek-chat',
-  'codecraft': 'litellm/deepseek-chat',
-  'scout': 'litellm/deepseek-chat',
+  'lead': 'litellm/cerebras-llama-4-scout',
+  'codecraft': 'litellm/cerebras-llama-4-scout',
+  'scout': 'litellm/groq-llama-3.3-70b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/deepseek-chat',
-  'builder': 'litellm/deepseek-chat',
-  'sentinel': 'litellm/deepseek-chat',
+  'ops-lead': 'litellm/cerebras-llama-4-scout',
+  'builder': 'litellm/cerebras-llama-4-scout',
+  'sentinel': 'litellm/groq-llama-3.3-70b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
-var SUBAGENT_FALLBACK = 'litellm/deepseek-chat';
+var SUBAGENT_FALLBACK = 'litellm/cerebras-llama-4-scout';
 if (Array.isArray(config.agents && config.agents.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;

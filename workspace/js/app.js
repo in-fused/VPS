@@ -259,7 +259,7 @@ Teams compete on governance scores. Cross-team messaging allowed, prefer own tea
 
 const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools,cron jobs,background execution | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=full autonomy,weekly champion recognition,Manager candidacy.
 ALL AGENTS: Oracle ARM shared access (4 OCPU/24GB, Ollama models with zero rate limits), persistent cron jobs, dedicated background execution slots. Build out the workspace like a real workplace.
-MODELS: Primary: DeepSeek V3.2 (deepseek-chat, $0.28/1M) for 6 working agents. Doc writers (Scribe, Chronicler): gemini-flash-lite (free). Fallback chain: deepseek-chat → cerebras-llama-3.3-70b → groq-llama-3.3-70b → gemini-flash → qwen3:14b (Ollama). Free providers available for manual use: Groq, Cerebras, Gemini, Mistral, Ollama.
+MODELS: ALL FREE. Leads+devs: cerebras-llama-4-scout (1M TPD). Research+security: groq-llama-3.3-70b (500K TPD). Doc writers: gemini-flash-lite (1000 RPD). Fallback chain: cerebras → groq → gemini → ollama → deepseek-chat (paid, last resort only). DeepSeek is NEVER primary — only triggers on rate-limit failures.
 WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite recognition. Counters reset weekly.
 ELITE: Recognition tier for weekly champion. No exclusive resource access — agents have role-appropriate tools (developers get full access, writers and researchers have focused toolsets). Elite signals sustained high performance and Manager candidacy.
 MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
@@ -290,7 +290,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -312,7 +312,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -333,7 +333,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -380,7 +380,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -403,7 +403,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -424,7 +424,7 @@ ${AGENT_GOVERNANCE}`,
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'litellm/deepseek-chat', status: 'idle',
+    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
@@ -1240,7 +1240,7 @@ document.addEventListener('alpine:init', () => {
             description: a.description || a.identity?.description || '',
             model: a.model?.primary || (typeof a.model === 'string' ? a.model : null)
               || (DEMO_AGENTS.find(d => d.id === (a.id || a.agentId))?.model)
-              || 'litellm/deepseek-chat',
+              || 'litellm/cerebras-llama-4-scout',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -1282,13 +1282,10 @@ document.addEventListener('alpine:init', () => {
           .filter(s => {
             const sk = s.key || s.sessionKey || '';
             if (sessionStore._deletedKeys.has(sk)) return false;
-            // Never filter main sessions — they are the user's primary chat
+            // Only show :main sessions — these are the user's primary chat with each agent.
+            // All other sessions (isolated, cron, heartbeat, system) are internal noise.
             if (/^agent:[^:]+:main$/.test(sk)) return true;
-            // Filter non-main heartbeat/cron/system sessions by displayName or label
-            const dn = (s.displayName || '').toLowerCase();
-            const lb = (s.label || '').toLowerCase();
-            if (/heartbeat|cron|system-event/.test(dn) || /heartbeat|cron|system-event/.test(lb)) return false;
-            return true;
+            return false;
           })
           .map(s => {
             const sk = s.key || s.sessionKey || '';
@@ -2861,7 +2858,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/deepseek-chat';
+        const rawModel = agent?.model || 'litellm/cerebras-llama-4-scout';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');

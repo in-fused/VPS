@@ -292,28 +292,28 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | deepseek-chat ($0.28/1M) | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | deepseek-chat ($0.28/1M) | Full-stack developer | Scout, Scribe |
-| Scout | deepseek-chat ($0.28/1M) | Research specialist | Scribe |
+| Lead | cerebras-llama-4-scout (free) | Orchestrator | CodeCraft, Scout, Scribe |
+| CodeCraft | cerebras-llama-4-scout (free) | Full-stack developer | Scout, Scribe |
+| Scout | groq-llama-3.3-70b (free) | Research specialist | Scribe |
 | Scribe | gemini-flash-lite (free) | Documentation writer | (none) |
 
 **Platform Team** — Infrastructure, deployments, monitoring:
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Ops Lead | deepseek-chat ($0.28/1M) | Platform orchestrator | Builder, Sentinel, Chronicler |
-| Builder | deepseek-chat ($0.28/1M) | Infrastructure developer | Sentinel, Chronicler |
-| Sentinel | deepseek-chat ($0.28/1M) | Security & monitoring | Chronicler |
+| Ops Lead | cerebras-llama-4-scout (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
+| Builder | cerebras-llama-4-scout (free) | Infrastructure developer | Sentinel, Chronicler |
+| Sentinel | groq-llama-3.3-70b (free) | Security & monitoring | Chronicler |
 | Chronicler | gemini-flash-lite (free) | Platform documentation | (none) |
 
-**Model budget strategy:**
-- **DeepSeek V3.2 ($0.28/1M in)** for 6 working agents — high quality at low cost (~$50-70/month est.)
-- **Gemini Flash-Lite (free)** for Scribe + Chronicler — documentation writers don't need premium inference
+**Model budget strategy (FREE-FIRST):**
+- **ALL 8 agents run on FREE models** — $0/month base cost
+- **Cerebras Llama 4 Scout (free, 1M TPD)** for leads + developers (Lead, CodeCraft, Ops Lead, Builder)
+- **Groq Llama 3.3 70B (free, 500K TPD)** for research + security (Scout, Sentinel)
+- **Gemini Flash-Lite (free, 1000 RPD)** for documentation writers (Scribe, Chronicler)
 - Subagents inherit their parent's model — prevents capability mismatches during parallel execution
-- Groq (free, 4 accounts load-balanced): groq-llama-3.3-70b, groq-qwen3-32b — available for manual use
-- Mistral (free, 2 RPM, 1B tokens/month): codestral, mistral-large — available for overflow
-- Fallback chain: deepseek-chat → cerebras-llama-3.3-70b → groq-llama-3.3-70b → gemini-flash on 429/failures (automatic via LiteLLM)
-- Free providers (Cerebras, Gemini, Groq, Mistral, Ollama) still available for manual/fallback use
+- **DeepSeek ($0.28/1M) is fallback-only** — only triggers when free providers return 429 rate limits
+- Fallback chain: cerebras → groq → gemini → ollama → deepseek-chat (paid, last resort)
 - LiteLLM `allowed_fails: 2` + `cooldown_time: 60` — exhausted providers are temporarily removed from the pool
 
 **Tier storage (EC2 t3.small, 50GB gp3 volume):**
@@ -337,7 +337,7 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 **All agents have access to:** Oracle Cloud ARM (shared, 4 OCPU / 24GB), Ollama models (zero rate limits), persistent cron jobs, dedicated background execution slots. No resources are Elite-gated — every agent can build out the workspace like a real workplace.
 
-**Paid model:** DeepSeek V3.2 (`deepseek-chat`, $0.28/1M in, $1.10/1M out) is the primary model for 6 working agents. Premium models (Claude, GPT-4o, etc.) are NOT available for agent use. Free providers remain available for fallback, subagents, and doc writers.
+**Cost model:** ALL agents run on free providers (Cerebras, Groq, Gemini). DeepSeek V3.2 (`deepseek-chat`, $0.28/1M) is fallback-only — triggers on 429 rate limit failures. Premium models (Claude, GPT-4o) are NOT available for agent use.
 
 **Team competition:** Both teams are scored on governance metrics (success rate, quality, efficiency, streaks). Per-team lead promotion is automatic when an agent outperforms the current lead by 15+ points after 10+ tasks. Weekly champion earns Elite recognition. The owner can manually promote a sustained Elite performer to Manager (above both teams).
 
