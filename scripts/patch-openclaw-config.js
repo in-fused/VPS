@@ -169,12 +169,14 @@ config.session = config.session || {};
 config.session.agentToAgent = config.session.agentToAgent || {};
 config.session.agentToAgent.maxPingPongTurns = 5;
 
-// Session store maintenance: auto-prune stale sessions
-config.session.maintenance = config.session.maintenance || {};
-config.session.maintenance.mode = 'enforce';
-config.session.maintenance.pruneAfter = '14d';
-config.session.maintenance.maxEntries = 200;
-config.session.maintenance.maxDiskBytes = '200mb';
+// Session store maintenance: force-overwrite to scrub any agent-added invalid keys
+// (agents have previously added compactInterval, autoCompact, orphanCleanup via config RPC)
+config.session.maintenance = {
+  mode: 'enforce',
+  pruneAfter: '14d',
+  maxEntries: 200,
+  maxDiskBytes: '200mb',
+};
 
 // Memory search embeddings: use Gemini text-embedding-004 directly (free, 1500 RPM).
 // Native gemini provider avoids LiteLLM proxy hop for every embedding call.
@@ -291,15 +293,17 @@ if (config.tools && config.tools.agentToAgent) {
 }
 
 // Per-agent tool restrictions (Phase 1 optimization)
+// gateway tool lets agents modify openclaw.json at runtime — DENY for all agents.
+// Agents previously used it to add invalid session.maintenance keys, crashing OpenClaw.
 var TOOL_RESTRICTIONS = {
-  'lead':       { deny: ['browser'] },           // Orchestrator, doesn't need browser
-  'codecraft':  {},                               // Full access — developer
-  'scout':      { deny: ['exec'] },               // Research only
-  'scribe':     { deny: ['exec', 'browser'] },    // Documentation writer
-  'ops-lead':   { deny: ['browser'] },            // Platform orchestrator
-  'builder':    {},                               // Full access — infra developer
-  'sentinel':   {},                               // Full access — security auditing
-  'chronicler': { deny: ['exec', 'browser'] },    // Documentation writer
+  'lead':       { deny: ['browser', 'gateway'] },           // Orchestrator, doesn't need browser
+  'codecraft':  { deny: ['gateway'] },                      // Full access — developer (no config)
+  'scout':      { deny: ['exec', 'gateway'] },              // Research only
+  'scribe':     { deny: ['exec', 'browser', 'gateway'] },   // Documentation writer
+  'ops-lead':   { deny: ['browser', 'gateway'] },           // Platform orchestrator
+  'builder':    { deny: ['gateway'] },                      // Full access — infra developer (no config)
+  'sentinel':   { deny: ['gateway'] },                      // Full access — security auditing (no config)
+  'chronicler': { deny: ['exec', 'browser', 'gateway'] },   // Documentation writer
 };
 
 // Clean unrecognized agent keys + force model assignments
