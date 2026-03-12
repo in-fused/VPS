@@ -104,7 +104,7 @@ generate() {
 |------|------|-------------|--------------|
 EOF
 
-    for f in config tools rpc workspace cron hooks agents glossary; do
+    for f in config tools rpc workspace cron hooks agents glossary schema-glossary; do
         local file="$OUT_DIR/${f}.md"
         if [ -f "$file" ]; then
             local size
@@ -119,6 +119,7 @@ EOF
                 hooks)     desc="Event hooks, webhooks, trigger endpoints|Event-driven automation" ;;
                 agents)    desc="Multi-agent setup, delegation, routing|Agent management" ;;
                 glossary)  desc="Terms, abbreviations, model aliases|Quick lookup" ;;
+                schema-glossary) desc="Valid vs invalid config keys per domain|Before proposing config changes" ;;
             esac
             echo "| [${f}.md](${f}.md) | $((size / 1024))KB | ${desc} |" >> "$OUT_DIR/index.md"
         fi

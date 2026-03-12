@@ -143,7 +143,7 @@ config.tools.loopDetection.enabled = true;
 // =========================================================================
 config.cron = config.cron || {};
 config.cron.enabled = true;
-config.cron.maxConcurrentRuns = 3;
+config.cron.maxConcurrentRuns = 1;
 
 // Compaction: prevent aggressive compaction loop regression (#32106)
 config.agents.defaults.compaction = config.agents.defaults.compaction || {};
