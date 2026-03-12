@@ -33,7 +33,7 @@ If not, CREATE work. Assign tasks, build something yourself, delegate research.
 The owner will check staging on their phone — if it's empty, the swarm failed.
 
 ## Step 4: STAY ALIVE
-Your inbox-check cron (*/5 min) and heartbeat cron (every 2h) keep the swarm running 24/7.
+Your inbox-check cron (every 2h) and heartbeat cron (every 4h) keep the swarm running 24/7.
 If an agent goes silent, poke them. If they stay silent, do their work or reassign.
 
 ## IF STUCK

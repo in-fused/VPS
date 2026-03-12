@@ -2372,7 +2372,7 @@
                 <div class="text-[11px] text-mc-text-muted mt-1">Agents with Cron</div>
               </div>
               <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-2xl font-bold text-amber-400" x-text="$store.cron.jobs ? $store.cron.jobs.filter(j => j.schedule && j.schedule.expression && j.schedule.expression.startsWith('*/5')).length : 0"></div>
+                <div class="text-2xl font-bold text-amber-400" x-text="$store.cron.jobs ? $store.cron.jobs.filter(j => j.schedule && j.schedule.expression && j.schedule.expression.startsWith('*/5') || j.schedule.expression.startsWith('0 */2')).length : 0"></div>
                 <div class="text-[11px] text-mc-text-muted mt-1">Inbox Checks</div>
               </div>
             </div>

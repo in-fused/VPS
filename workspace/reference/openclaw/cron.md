@@ -56,7 +56,7 @@ Standard cron expression:
 ```json
 {
   "schedule": {
-    "cron": "*/5 * * * *"
+    "cron": "0 */2 * * *"
   }
 }
 ```
@@ -128,7 +128,7 @@ Agents create cron jobs via the `cron` tool:
 ```
 cron({
   action: "add",
-  schedule: { cron: "*/5 * * * *" },
+  schedule: { cron: "0 */2 * * *" },
   payload: { kind: "agentTurn", message: "INBOX CHECK", session: "isolated" }
 })
 ```
@@ -169,7 +169,7 @@ cron({ action: "list" })
 Every agent creates this on bootstrap:
 ```json
 {
-  "schedule": { "cron": "*/5 * * * *" },
+  "schedule": { "cron": "0 */2 * * *" },
   "payload": {
     "kind": "agentTurn",
     "message": "INBOX CHECK: Read session history for delegated tasks. Execute immediately.",
@@ -186,7 +186,7 @@ Every agent creates this on bootstrap:
 When OpenClaw adds per-cron-job model selection, inbox-check could use a lighter model:
 ```json
 {
-  "schedule": { "cron": "*/5 * * * *" },
+  "schedule": { "cron": "0 */2 * * *" },
   "payload": {
     "kind": "agentTurn",
     "session": "isolated",

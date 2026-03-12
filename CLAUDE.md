@@ -52,7 +52,7 @@
 - `cron.enabled = true` — agents need server-side cron for inbox-check and background autonomy
 
 ### 4. Agent Delegation Chain (`scripts/seed-agent-workspaces.js` + BOOTSTRAP.md)
-- Every agent creates `*/5 * * * *` inbox-check cron on bootstrap
+- Every agent creates `0 */2 * * *` inbox-check cron on bootstrap (every 2 hours)
 - Without this: `sessions_send` messages sit unread forever, delegation is dead
 - Auto-kickoff (`scripts/auto-kickoff.js`) runs on every restart, NO lock file
 - `OPENCLAW_AUTO_KICKOFF=1` is default (opt-out, not opt-in)
@@ -384,11 +384,12 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 - Team lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
 - **All agents** can parse and execute EXECUTE_WORKFLOW messages (not just leads)
 
-**Inbox-Check Cron** — Every agent creates a `*/5 * * * *` cron job on bootstrap:
-- Uses `cron()` tool with `schedule: { cron: "*/5 * * * *" }`, `payload: { kind: "systemEvent", data: { type: "inbox_check" } }`
-- On trigger: agent checks `sessions_list()` for unread messages from other agents
+**Inbox-Check Cron** — Every agent creates a `0 */2 * * *` cron job on bootstrap (every 2 hours):
+- Uses `cron()` tool with `schedule: { cron: "0 */2 * * *" }`, `payload: { kind: "agentTurn", ... }`
+- On trigger: agent checks session history for delegated tasks from other agents
 - Reads new messages, executes delegated tasks, replies with results
 - **This is the critical link** that makes delegation work — without it, `sessions_send` messages sit unread forever
+- Agents MUST dedup before creating — `cron(action: "list")` first, skip if one already exists
 
 **Collaboration Protocol** — Agents can co-author work across teams:
 - Any agent can pull in any other agent via `sessions_send(sessionKey: "agent:<id>:main", message: "...")`
@@ -647,9 +648,9 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | 4 | Agent↔Workflow Bridge | ✅ Complete | Full CRUD via file-based `action` field (create/update/delete/execute). Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. |
 | 5 | Real Tool Execution | ✅ Complete | 8 tools mapped to OpenClaw: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. |
 | 6 | Loop Node Iteration | ✅ Complete | Executor detects `_loop` marker, re-runs downstream subgraph per item, accumulates and joins results. |
-| 7 | Background Autonomy | ✅ Complete | OpenClaw runs 24/7. Auto-kickoff on restart. Inbox-check cron every 5min. Agent-to-agent delegation works end-to-end. Results sync on next visit. |
+| 7 | Background Autonomy | ✅ Complete | OpenClaw runs 24/7. Auto-kickoff on restart. Inbox-check cron every 2h. Agent-to-agent delegation works end-to-end. Results sync on next visit. |
 | 8 | Auto-Kickoff System | ✅ Complete | `auto-kickoff.js` sends bootstrap directive to both leads on every container restart. No lock file — fresh bootstrap every time. |
-| 9 | Inbox-Check Cron | ✅ Complete | All agents set up `*/5 * * * *` cron on bootstrap. Checks for delegated tasks from other agents, executes them, replies with results. |
+| 9 | Inbox-Check Cron | ✅ Complete | All agents set up `0 */2 * * *` cron on bootstrap (every 2h, with dedup). Checks for delegated tasks, executes them, replies with results. |
 | 10 | Collaboration Protocol | ✅ Complete | Any agent can co-author with any other agent via `sessions_send`. Cross-team collaboration encouraged. EXECUTE_WORKFLOW available to all agents. |
 | 11 | Split Reference Docs | ✅ Complete | 6 focused reference files under `/workspace/reference/` replace 607KB monolithic project-bundle.md. Agents read on-demand for deep context. |
 | 12 | Dashboard Overhaul | ✅ Complete | Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators, batch approve. |
@@ -681,8 +682,8 @@ deploy.sh → docker compose up -d
                       Phase 0:  Verify tools, log online, set up cron, message team with tasks
                       Phase 1:  Produce initial deliverable
                         └─ [L6] Autonomy loop (24/7, self-sustaining):
-                              */5 * * * * inbox-check cron → pick up tasks → execute → stage → confirm
-                              0 */2 * * * heartbeat cron (leads) → check staging, poke silent agents
+                              0 */2 * * * inbox-check cron → pick up tasks → execute → stage → confirm
+                              0 */4 * * * heartbeat cron (leads) → check staging, poke silent agents
 ```
 
 ### Timing
@@ -924,7 +925,7 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 - **Oracle ARM networking blocked by second instance**: Creating a second Oracle Cloud instance (even within free tier) triggered networking restrictions on both instances. Fixed by terminating the smaller instance — only need one instance (4 OCPU / 24 GB) for all 3 Ollama models.
 - **Ollama end-to-end routing verified (2026-03-08)**: LiteLLM → Ollama (Oracle ARM at 150.136.153.194:11434) → qwen3.5:9b confirmed working. All 3 models loaded: qwen3-coder:30b (18.6 GB), qwen3:14b (9.3 GB), qwen3.5:9b (6.6 GB).
 - **Workflow system fully operational (2026-03-08)**: All features previously listed as "broken" confirmed working — auto-save persistence, loop iteration, real tool execution (8 tools), AI-powered merge modes, bidirectional agent-workflow bridge, scheduled trigger wiring to cron RPC.
-- **Agent delegation chain broken (2026-03-08)**: Messages sent via `sessions_send` sat unread because agents had no wake trigger. Fixed by adding inbox-check cron (`*/5 * * * *`) to every agent's BOOTSTRAP.md. All agents now check for and process delegated tasks every 5 minutes.
+- **Agent delegation chain broken (2026-03-08)**: Messages sent via `sessions_send` sat unread because agents had no wake trigger. Fixed by adding inbox-check cron (`0 */2 * * *`) to every agent's BOOTSTRAP.md. All agents now check for and process delegated tasks every 2 hours. Cron dedup guards prevent stacking on restart.
 - **Auto-kickoff one-shot (2026-03-08)**: Lock file prevented re-kickoff after first container run. Removed lock file entirely — now runs fresh bootstrap directive on every restart. Changed from opt-in (`OPENCLAW_AUTO_KICKOFF=0`) to opt-out (`=1` default).
 - **Agents saying "I cannot" (2026-03-08)**: Systematic prompt overhaul — added "NEVER say I cannot" rules to every SOUL.md with explicit forbidden phrases list. TOOLS.md has "RULE #1: ACT, DON'T ASK" section. Agents now default to action instead of asking for permission.
 - **607KB project bundle too large (2026-03-08)**: Replaced monolithic project-bundle.md with `generate-reference-docs.sh` that creates 6 focused files (3KB–53KB each) under `/workspace/reference/`. Old script and bundle file deleted.
@@ -967,7 +968,7 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 - `update.channel = 'stable'` + `update.auto.enabled = true` — in-app auto-updater on stable channel (separate from Docker image tags, available since v2026.2.22)
 - **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md per agent (force-overwritten on every restart)
 - **Auto-kickoff** — `auto-kickoff.js` sends bootstrap directive to Lead and Ops Lead after 30s delay. Enabled by default (`OPENCLAW_AUTO_KICKOFF=1`). No lock file — runs fresh on every restart.
-- **Inbox-check cron** — All agents create `*/5 * * * *` cron job on bootstrap to check for delegated tasks. Critical for agent-to-agent delegation.
+- **Inbox-check cron** — All agents create `0 */2 * * *` cron job on bootstrap (every 2h) to check for delegated tasks. Dedup guards prevent stacking. Critical for agent-to-agent delegation.
 - **Collaboration protocol** — All agents can co-author via `sessions_send`. EXECUTE_WORKFLOW available to all agents, not just leads.
 - **Split reference docs** — `generate-reference-docs.sh` creates 6 focused files under `/workspace/reference/` for on-demand agent context
 

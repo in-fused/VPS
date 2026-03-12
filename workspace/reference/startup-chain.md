@@ -23,7 +23,7 @@ deploy.sh
                                                                                        │
                                                                                        └─→ Each specialist gets a task message from their lead
                                                                                              │
-                                                                                             └─→ Specialist inbox-check cron fires (*/5 * * * *) → picks up task → executes → stages output
+                                                                                             └─→ Specialist inbox-check cron fires (0 */2 * * *) → picks up task → executes → stages output
 ```
 
 ## Layer Details
@@ -84,14 +84,14 @@ deploy.sh
 **When:** Triggered by kickoff message
 **What:** Lead executes BOOTSTRAP.md phases:
 - **Phase -1:** Load context — read AGENTS.md, TOOLS.md, MEMORY.md, reference docs
-- **Phase 0:** Verify tools (read, write, comms), log online, set up inbox-check cron (*/5 * * * *), set up heartbeat cron (every 2h), message each team member with a specific task
+- **Phase 0:** Verify tools (read, write, comms), log online, set up inbox-check cron (0 */2 — every 2h, dedup first), set up heartbeat cron (0 */4 — every 4h), message each team member with a specific task
 - **Phase 1:** Initial output sprint — produce at least 1 staged deliverable, check prompt evolution state
 
 ### Layer 6: Agent Autonomy Loop (ongoing, 24/7)
 **When:** After bootstrap, runs forever
 **What:** Two interlocking cron jobs per agent:
-- **Inbox-check** (*/5 * * * *): Check for delegated tasks, execute them, stage output, confirm back. If no tasks, create work.
-- **Heartbeat** (every 2h, leads only): Check staging count, identify silent agents, assign more work, verify delegations.
+- **Inbox-check** (0 */2 * * *, every 2h): Check for delegated tasks, execute them, stage output, confirm back. If no tasks, create work. Dedup guard: agents check `cron(action: "list")` before creating.
+- **Heartbeat** (0 */4 * * *, every 4h, leads only): Check staging count, identify silent agents, assign more work, verify delegations.
 
 **The autonomy loop is self-sustaining.** Even if an agent's session is reset, the cron jobs persist (they're server-side). The next cron tick wakes the agent, which reads BOOTSTRAP.md and re-establishes the loop.
 
