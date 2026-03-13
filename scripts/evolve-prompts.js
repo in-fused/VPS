@@ -39,8 +39,8 @@ const SEED_SCRIPT = path.resolve(__dirname, 'seed-agent-workspaces.js');
 // Model roles:
 //   FAST_MODEL  — runs test tasks (agent simulation). Smaller = faster iteration.
 //   JUDGE_MODEL — evaluates outputs + generates mutations. Bigger = smarter judgment.
-const FAST_MODEL = 'qwen3:14b';
-const JUDGE_MODEL = 'qwen3-coder:30b';
+let FAST_MODEL = 'qwen3:14b';
+let JUDGE_MODEL = 'qwen3-coder:30b';
 
 const DEFAULT_GENERATIONS = 3;   // max refinement iterations per agent
 const RUNS_PER_TASK = 3;         // runs per task per generation (statistical stability)
@@ -152,7 +152,7 @@ async function chat(model, system, user, opts = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(opts.timeout ?? 180000),
+    signal: AbortSignal.timeout(opts.timeout ?? 600000),
   });
 
   if (!resp.ok) {
@@ -249,7 +249,7 @@ Output as JSON only:
   const result = await chat(JUDGE_MODEL, 'You are a strict AI evaluator. Output valid JSON only. No markdown fences.', judgePrompt, {
     temperature: 0.3, // low temp for consistent judging
     maxTokens: 1024,
-    timeout: 240000,
+    timeout: 600000,
   });
 
   try {
@@ -339,7 +339,7 @@ Output the prompt text directly, no JSON wrapping, no markdown fences.`;
   const result = await chat(JUDGE_MODEL, 'You are a prompt engineering expert. Output the improved prompt directly.', refinementPrompt, {
     temperature: 0.5,
     maxTokens: 4096,
-    timeout: 300000,
+    timeout: 600000,
   });
 
   // Extract changes by comparing
@@ -697,6 +697,7 @@ Options:
   --agents <list>      Comma-separated agent IDs (default: all)
   --generations <n>    Max refinement iterations per agent (default: ${DEFAULT_GENERATIONS})
   --dry-run            Run tests but don't write results
+  --single-model       Use qwen3:14b for both test + judge (avoids model swap, much faster)
   --help               Show this help
 
 How it works:
@@ -718,6 +719,12 @@ All inference runs on Oracle ARM Ollama — zero cost.
   const gensIdx = args.indexOf('--generations');
   const maxGen = gensIdx >= 0 ? parseInt(args[gensIdx + 1]) : DEFAULT_GENERATIONS;
   const dryRun = args.includes('--dry-run');
+
+  // --single-model: use qwen3:14b for both test + judge (avoids 30b model swap, 4x faster)
+  if (args.includes('--single-model')) {
+    JUDGE_MODEL = FAST_MODEL;
+    console.log('Single-model mode: using qwen3:14b for both test and judge (no model swaps)');
+  }
 
   // Verify Ollama
   console.log(`Checking Ollama at ${OLLAMA_URL}...`);
