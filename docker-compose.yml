@@ -282,6 +282,9 @@ services:
     environment:
       - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
       - DOMAIN=${DOMAIN:-in-fused.org}
+      - WEBHOOK_ARCHIVE_URL=${WEBHOOK_ARCHIVE_URL:-}
+      - WEBHOOK_ARCHIVE_TOKEN=${WEBHOOK_ARCHIVE_TOKEN:-}
+      - WEBHOOK_ARCHIVE_AFTER_MINS=${WEBHOOK_ARCHIVE_AFTER_MINS:-30}
     networks:
       - ai-net
     depends_on:

@@ -240,6 +240,7 @@ Docker network: ai-hub-network (bridge)
 | litellm-db | postgres:16-alpine | 128M | 5432 |
 | openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
 | scrapling | in-fused/scrapling:latest (custom build) | 512M | 8000 (internal) |
+| webhook | in-fused/webhook:latest (custom build) | 64M | 9090 (internal) |
 | openclaw-init | alpine:3 | — | — |
 | workspace-init | alpine:3 | — | — |
 
@@ -654,11 +655,11 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | 10 | Collaboration Protocol | ✅ Complete | Any agent can co-author with any other agent via `sessions_send`. Cross-team collaboration encouraged. EXECUTE_WORKFLOW available to all agents. |
 | 11 | Split Reference Docs | ✅ Complete | 6 focused reference files under `/workspace/reference/` replace 607KB monolithic project-bundle.md. Agents read on-demand for deep context. |
 | 12 | Dashboard Overhaul | ✅ Complete | Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators, batch approve. |
+| 13 | Webhook Triggers | ✅ Complete | Full webhook handler service (`webhook/handler.js`). External POST → token-validated trigger → OpenClaw notification + MC polling. Trigger node UI: register/copy/revoke webhook URLs. Output node: POST results to external webhooks. Oracle ARM archival for payload storage offload. |
 
 ### Remaining Work
 
-1. **Webhook triggers** — No backend endpoint for incoming webhooks to trigger workflows
-2. **Reference doc auto-refresh** — Currently generated only at deploy time; could be regenerated on config changes
+1. **Reference doc auto-refresh** — Currently generated only at deploy time; could be regenerated on config changes
 
 ---
 
@@ -730,6 +731,11 @@ VPS/
 │   ├── Dockerfile                ← Python 3.12 + Scrapling + FastAPI
 │   ├── api.py                    ← Scraping API endpoints
 │   └── requirements.txt          ← scrapling[fetchers], fastapi, uvicorn
+├── webhook/                      ← External workflow trigger handler
+│   ├── Dockerfile                ← Node.js 20 Alpine + ws
+│   ├── handler.js                ← HTTP server: trigger, register, revoke, list
+│   ├── package.json              ← Dependencies (ws)
+│   └── archive-server.js         ← Oracle ARM archive receiver (deploy separately)
 ├── workspace/                    ← Mission Control SPA
 │   ├── index.html                ← Main SPA (2360+ lines, dashboard overhaul)
 │   ├── auth.html                 ← Site login page
@@ -760,6 +766,7 @@ VPS/
     ├── auto-kickoff.js           ← Sends bootstrap directive to leads on restart
     ├── generate-reference-docs.sh ← Generates split reference docs for agents
     ├── caddy-entrypoint.sh       ← Auth token generation
+    ├── setup-webhook-archive.sh  ← Oracle ARM archive server setup
     └── test-api-keys.sh          ← API key validation
 ```
 
@@ -782,6 +789,8 @@ VPS/
 | `LITELLM_SALT_KEY` | LiteLLM encryption salt |
 | `OPENCLAW_PASSWORD` | Site-wide password (Caddy + OpenClaw + Mission Control) |
 | `DB_PASSWORD` | PostgreSQL for LiteLLM |
+| `WEBHOOK_ARCHIVE_URL` | Oracle ARM archive endpoint (optional, e.g. `http://150.136.153.194:9091`) |
+| `WEBHOOK_ARCHIVE_TOKEN` | Bearer token for archive auth |
 | `COMPOSE_PROJECT_NAME` | ai-hub |
 | `OPENCLAW_AUTO_KICKOFF` | `1` (default) — sends bootstrap directive to leads on restart. Set `0` to disable. |
 | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | `1` — allows plaintext WS on Docker bridge (v2026.3.2+) |
@@ -885,6 +894,38 @@ exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
 ```
 
 **Files:** `scrapling/Dockerfile`, `scrapling/api.py`, `scrapling/requirements.txt`
+
+---
+
+## Webhook Handler — External Workflow Triggers (added 2026-03-14)
+
+**Purpose:** Receives POST requests from external services (GitHub, Stripe, Discord, etc.) and triggers workflow execution. Runs as a separate Docker service proxied through Caddy.
+
+**Endpoints (via Caddy at `/api/webhook/*`):**
+- `POST /api/webhook/trigger/{workflowId}?token=xxx` — Public, per-webhook token auth
+- `POST /api/webhook/register` — Register webhook, returns secret URL (site-auth)
+- `DELETE /api/webhook/revoke/{workflowId}` — Revoke webhook (site-auth)
+- `GET /api/webhook/list` — List registered webhooks (site-auth)
+- `GET /api/webhook/health` — Health check
+
+**Trigger flow:**
+1. External service POSTs to `/api/webhook/trigger/{wfId}?token={secret}`
+2. Handler validates token against `webhook-registry.json`
+3. Writes trigger file to `/workspace/webhook-triggers/{triggerId}.json`
+4. Updates index (polled by Mission Control's workflow bridge every 15s)
+5. Best-effort: connects to OpenClaw WS, sends `WEBHOOK_TRIGGER:{wfId}` to Lead agent
+6. MC executes workflow client-side OR Lead executes server-side — whichever fires first
+
+**Oracle ARM Payload Archive (optional):**
+- Set `WEBHOOK_ARCHIVE_URL` + `WEBHOOK_ARCHIVE_TOKEN` in `.env` to offload processed triggers
+- Handler archives triggers older than 30 min to Oracle ARM, deletes local files
+- Without archive URL: local trigger files are cleaned up after 30 min (index entries preserved)
+- Archive server setup: `bash scripts/setup-webhook-archive.sh` on Oracle ARM
+- Archive stores up to 5 GB organized by date, auto-cleans oldest when full
+
+**Docker:** `webhook` service, 64M memory, port 9090 (internal), healthcheck via wget.
+
+**Files:** `webhook/handler.js`, `webhook/Dockerfile`, `webhook/package.json`, `webhook/archive-server.js`, `scripts/setup-webhook-archive.sh`
 
 ---
 

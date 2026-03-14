@@ -29,6 +29,12 @@ const TRIGGERS_INDEX = path.join(TRIGGERS_DIR, 'index.json');
 const OPENCLAW_PASSWORD = process.env.OPENCLAW_PASSWORD || '';
 const DOMAIN = process.env.DOMAIN || 'in-fused.org';
 
+// Oracle ARM archive — offloads processed trigger payloads to free up EC2 disk
+const ARCHIVE_URL = process.env.WEBHOOK_ARCHIVE_URL || ''; // e.g. http://150.136.153.194:9091
+const ARCHIVE_TOKEN = process.env.WEBHOOK_ARCHIVE_TOKEN || '';
+const ARCHIVE_AFTER_MINS = parseInt(process.env.WEBHOOK_ARCHIVE_AFTER_MINS || '30', 10);
+const ARCHIVE_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
+
 // Compute site password SHA-256 (same algorithm as caddy-entrypoint.sh)
 const SITE_PASSWORD_SHA256 = OPENCLAW_PASSWORD
   ? crypto.createHash('sha256').update(OPENCLAW_PASSWORD).digest('hex')
@@ -175,6 +181,86 @@ function notifyOpenClaw(workflowId, triggerData) {
 }
 
 // ---------------------------------------------------------------------------
+// Archive + Cleanup — Ships processed triggers to Oracle ARM, frees EC2 disk
+// ---------------------------------------------------------------------------
+
+async function archiveTrigger(triggerFile, triggerData) {
+  if (!ARCHIVE_URL) return false;
+  try {
+    const url = `${ARCHIVE_URL}/store`;
+    const body = JSON.stringify(triggerData);
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(ARCHIVE_TOKEN ? { 'Authorization': `Bearer ${ARCHIVE_TOKEN}` } : {}),
+      },
+      body,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) {
+      console.warn(`[webhook] Archive failed (${resp.status}): ${triggerFile}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn(`[webhook] Archive error: ${err.message}`);
+    return false;
+  }
+}
+
+async function runArchiveCycle() {
+  try {
+    const cutoff = Date.now() - (ARCHIVE_AFTER_MINS * 60 * 1000);
+    const files = fs.readdirSync(TRIGGERS_DIR).filter(f => f.endsWith('.json') && f !== 'index.json');
+    let archived = 0, cleaned = 0;
+
+    for (const file of files) {
+      const filePath = path.join(TRIGGERS_DIR, file);
+      let data;
+      try { data = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { continue; }
+
+      const triggeredAt = new Date(data.triggeredAt || 0).getTime();
+      if (triggeredAt > cutoff) continue; // Too recent, keep on EC2
+
+      if (ARCHIVE_URL) {
+        const ok = await archiveTrigger(file, data);
+        if (ok) {
+          fs.unlinkSync(filePath);
+          archived++;
+        }
+      } else {
+        // No archive URL — just clean up old trigger files to free disk
+        // Keep the trigger in the index for history, delete the payload file
+        fs.unlinkSync(filePath);
+        cleaned++;
+      }
+    }
+
+    // Prune index entries for deleted files
+    const index = loadTriggerIndex();
+    const remaining = new Set(
+      fs.readdirSync(TRIGGERS_DIR).filter(f => f.endsWith('.json') && f !== 'index.json')
+    );
+    index.triggers = index.triggers.filter(t => remaining.has(t.file) || (
+      new Date(t.triggeredAt).getTime() > cutoff // Keep recent index entries even if file gone
+    ));
+    saveTriggerIndex(index);
+
+    if (archived || cleaned) {
+      console.log(`[webhook] Cleanup: ${archived} archived to Oracle ARM, ${cleaned} cleaned locally`);
+    }
+  } catch (err) {
+    console.warn(`[webhook] Cleanup cycle error: ${err.message}`);
+  }
+}
+
+// Run archive/cleanup cycle periodically
+setInterval(runArchiveCycle, ARCHIVE_INTERVAL_MS);
+// Run once on startup after 60s delay (let things settle)
+setTimeout(runArchiveCycle, 60000);
+
+// ---------------------------------------------------------------------------
 // HTTP Server
 // ---------------------------------------------------------------------------
 
@@ -195,9 +281,13 @@ const server = http.createServer(async (req, res) => {
   // Health check
   if (pathname === '/health' && req.method === 'GET') {
     const registry = loadRegistry();
+    const triggerFiles = fs.readdirSync(TRIGGERS_DIR).filter(f => f.endsWith('.json') && f !== 'index.json');
     return sendJSON(res, 200, {
       status: 'ok',
       webhooks: Object.keys(registry.webhooks).length,
+      localTriggers: triggerFiles.length,
+      archiveEnabled: !!ARCHIVE_URL,
+      archiveUrl: ARCHIVE_URL ? ARCHIVE_URL.replace(/\/\/.*@/, '//***@') : null,
     });
   }
 
