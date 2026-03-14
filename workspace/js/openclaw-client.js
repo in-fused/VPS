@@ -418,8 +418,8 @@ class OpenClawClient {
   //   auth.token     — required for token-mode compat; some versions check this
   //   auth.password  — required for password-mode; omitting → "gateway password missing"
   //   auth.mode      — do NOT include; schema rejects it as unexpected property
-  //   client.id      — must be 'webchat' (schema rejects unknown constants)
-  //   client.mode    — must be 'webchat'
+  //   client.id      — 'openclaw-control-ui' for full operator scopes (cron, config, etc.)
+  //   client.mode    — 'ui' (matches control-ui client type)
   //   device block   — must be OMITTED entirely (dummy crypto → "device identity mismatch")
   //   role/scopes    — 'operator' with full scope list
   //
@@ -448,10 +448,10 @@ class OpenClawClient {
         role: 'operator',
         scopes: ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'],
         client: {
-          id: 'webchat',
+          id: 'openclaw-control-ui',
           version: '1.0.0',
           platform: 'web',
-          mode: 'webchat',
+          mode: 'ui',
         },
         // NO device block — dangerouslyDisableDeviceAuth + allowInsecureAuth
         // on the server means device identity is not required. Sending dummy
@@ -459,7 +459,7 @@ class OpenClawClient {
       },
     };
 
-    this._log('info', `Handshake frame: type=req method=connect proto=3 (no device block — auth bypass)`);
+    this._log('info', `Handshake frame: type=req method=connect proto=3 client=openclaw-control-ui (no device block — auth bypass)`);
     this._send(authMsg);
   }
 
