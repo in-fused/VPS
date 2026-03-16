@@ -170,6 +170,28 @@ if [ -z "${OPENCLAW_PASSWORD:-}" ]; then
     UPDATED_ENV=true
 fi
 
+if [ -z "${PAPERCLIP_DB_PASSWORD:-}" ]; then
+    PCDBPASS=$(openssl rand -hex 16)
+    if grep -q "^PAPERCLIP_DB_PASSWORD=" .env; then
+        sed -i "s|^PAPERCLIP_DB_PASSWORD=.*|PAPERCLIP_DB_PASSWORD=$PCDBPASS|" .env
+    else
+        echo "PAPERCLIP_DB_PASSWORD=$PCDBPASS" >> .env
+    fi
+    log_info "Generated PAPERCLIP_DB_PASSWORD"
+    UPDATED_ENV=true
+fi
+
+if [ -z "${BETTER_AUTH_SECRET:-}" ]; then
+    AUTHSEC=$(openssl rand -hex 32)
+    if grep -q "^BETTER_AUTH_SECRET=" .env; then
+        sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$AUTHSEC|" .env
+    else
+        echo "BETTER_AUTH_SECRET=$AUTHSEC" >> .env
+    fi
+    log_info "Generated BETTER_AUTH_SECRET"
+    UPDATED_ENV=true
+fi
+
 if [ "$UPDATED_ENV" = true ]; then
     # Re-source after updates
     set -a
@@ -233,7 +255,7 @@ log_ok "Cleanup complete"
 log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
 # Explicitly list services that use pre-built images (not caddy/scrapling which have build:)
-PULL_SERVICES="litellm litellm-db openclaw watchtower searxng"
+PULL_SERVICES="litellm litellm-db openclaw watchtower searxng paperclip-db"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
         break
@@ -272,6 +294,14 @@ if docker compose build webhook; then
     log_ok "Webhook handler image built"
 else
     log_error "Webhook build failed — check webhook/Dockerfile"
+    exit 1
+fi
+
+log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
+if docker compose build paperclip; then
+    log_ok "Paperclip image built"
+else
+    log_error "Paperclip build failed — check paperclip/Dockerfile"
     exit 1
 fi
 
@@ -361,6 +391,7 @@ echo "  Landing Page:    $BASE/"
 echo "  Mission Control: $BASE/workspace/"
 echo "  OpenClaw Agent:  $BASE/openclaw/"
 echo "  LiteLLM API:     $BASE/api/litellm/"
+echo "  Paperclip:       $BASE/paperclip/"
 if [ -n "${OPENCLAW_PASSWORD:-}" ]; then
     echo ""
     echo "  OpenClaw password: (saved in .env — run 'grep OPENCLAW_PASSWORD .env' to view)"

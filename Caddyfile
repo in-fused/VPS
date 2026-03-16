@@ -172,6 +172,37 @@
 	}
 
 	# =========================================================================
+	# Paperclip — Agent Orchestration UI + API — /paperclip/*
+	# =========================================================================
+	# Cookie-gated proxy to Paperclip's built-in React UI and REST API.
+	# Paperclip runs on port 3100 with its own auth (BETTER_AUTH_SECRET),
+	# but we gate access at the Caddy level with the site cookie first.
+	@paperclipbare path /paperclip
+	redir @paperclipbare /paperclip/ 301
+	handle_path /paperclip/* {
+		@pc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @pc_noauth {
+			reverse_proxy paperclip:3100 {
+				flush_interval -1
+			}
+		}
+
+		@pc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @pc_authed {
+			reverse_proxy paperclip:3100 {
+				flush_interval -1
+			}
+		}
+
+		handle {
+			rewrite * /auth.html
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
+		}
+	}
+
+	# =========================================================================
 	# OpenClaw Web UI + WebSocket Gateway — /openclaw/*
 	# =========================================================================
 	# Cookie-based auth gate: caddy-entrypoint.sh exports WORKSPACE_PASS_SHA256,

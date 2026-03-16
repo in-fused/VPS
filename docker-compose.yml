@@ -305,6 +305,74 @@ services:
       start_period: 10s
 
   # ===========================================================================
+  # Paperclip — AI Agent Orchestration Layer
+  # ===========================================================================
+  # Open-source orchestration for managing agent teams (org charts, budgets,
+  # governance, goal alignment). Replaces custom governance/workflow code.
+  # Built from source — no pre-built image on ghcr.io.
+  # UI + API at /paperclip/ via Caddy.
+  paperclip:
+    build:
+      context: ./paperclip
+      dockerfile: Dockerfile
+    image: in-fused/paperclip:latest
+    container_name: paperclip
+    restart: unless-stopped
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3100
+      - PAPERCLIP_HOME=/paperclip
+      - DATABASE_URL=postgresql://paperclip:${PAPERCLIP_DB_PASSWORD}@paperclip-db:5432/paperclip
+      - NODE_ENV=production
+      - PAPERCLIP_DEPLOYMENT_MODE=authenticated
+      - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+      - PAPERCLIP_PUBLIC_URL=https://${DOMAIN:-localhost}/paperclip
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+    volumes:
+      - paperclip-data:/paperclip
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3100/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ===========================================================================
+  # Paperclip Database — PostgreSQL
+  # ===========================================================================
+  paperclip-db:
+    image: postgres:17-alpine
+    container_name: paperclip-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paperclip
+      POSTGRES_PASSWORD: ${PAPERCLIP_DB_PASSWORD}
+      POSTGRES_DB: paperclip
+    volumes:
+      - paperclip-pgdata:/var/lib/postgresql/data
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content
   # ===========================================================================
   # Runs once on deploy to sync workspace/ seed files into the shared volume.
@@ -394,4 +462,6 @@ volumes:
   litellm-db-data:
   openclaw-data:
   agent-workspace:
+  paperclip-data:
+  paperclip-pgdata:
   ollama-data:
