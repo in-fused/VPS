@@ -191,6 +191,9 @@ services:
       # Oracle Cloud ARM — agents SSH here for builds, deploys, background compute
       - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
       - ORACLE_ARM_IP_2=${ORACLE_ARM_IP_2:-}
+      # Native Ollama provider — direct connection for tool calling + streaming
+      # (LiteLLM OpenAI-compat /v1 silently drops tool calls when streaming)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
       # Gemini API key — used directly by OpenClaw for memory_search embeddings
       # (free, 1500 RPM, avoids LiteLLM proxy hop for embedding calls)
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}

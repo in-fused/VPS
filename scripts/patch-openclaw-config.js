@@ -104,13 +104,38 @@ config.models.providers.litellm = {
 };
 
 // =========================================================================
+// Native Ollama provider — direct connection for tool calling + streaming
+// =========================================================================
+// The LiteLLM OpenAI-compat layer (/v1) silently drops tool calls when
+// streaming is enabled (OpenClaw hardcodes stream:true). The native Ollama
+// provider uses /api/chat which supports both simultaneously.
+var ollamaUrl = process.env.OLLAMA_BASE_URL || '';
+if (ollamaUrl) {
+  // Strip /v1 suffix if present — native provider needs bare URL
+  ollamaUrl = ollamaUrl.replace(/\/v1\/?$/, '');
+  config.models.providers.ollama = {
+    baseUrl: ollamaUrl,
+    apiKey: 'ollama-local',
+    api: 'ollama',
+    models: [
+      { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B (free/local)', contextWindow: 32768, maxTokens: 8192, reasoning: false, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+      { id: 'qwen3:14b', name: 'Qwen3 14B (free/local)', contextWindow: 32768, maxTokens: 8192, reasoning: false, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+      { id: 'qwen3-coder:30b', name: 'Qwen3 Coder 30B (free/local)', contextWindow: 131072, maxTokens: 8192, reasoning: false, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } },
+    ],
+  };
+  console.log('[config-patch] Native Ollama provider added: ' + ollamaUrl + ' (3 models, tool calling enabled)');
+}
+
+// =========================================================================
 // Agent defaults
 // =========================================================================
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
 config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
-// Allowlist only the litellm provider to prevent anthropic fallback
-config.agents.defaults.models = { litellm: {} };
+// Allowlist litellm + ollama providers (prevents anthropic fallback)
+config.agents.defaults.models = ollamaUrl
+  ? { litellm: {}, ollama: {} }
+  : { litellm: {} };
 
 // =========================================================================
 // Tools configuration
