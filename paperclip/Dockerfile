@@ -25,7 +25,7 @@ RUN pnpm install --frozen-lockfile
 # ---------------------------------------------------------------------------
 FROM deps AS build
 
-RUN pnpm run build:ui && pnpm run build:server
+RUN pnpm --filter @paperclipai/ui build && pnpm --filter @paperclipai/server build
 
 # Verify server build output exists
 RUN test -f server/dist/index.js || (echo "Server build failed" && exit 1)
