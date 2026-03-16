@@ -219,17 +219,6 @@ const mcAudio = (() => {
       ], _volume() * 0.3);
     },
 
-    // Descending two-note — workflow complete
-    workflowComplete() {
-      if (!_enabled('workflows') || _throttled('wfComplete')) return;
-      const v = _volume() * 0.3;
-      _playTones([
-        { freq: 880, duration: 0.1, delay: 0 },
-        { freq: 660, duration: 0.08, delay: 0.11 },
-        { freq: 1047, duration: 0.15, delay: 0.2 },
-      ], v);
-    },
-
     // Subtle tick for new background activity events
     activityEvent() {
       if (!_enabled('activity') || _throttled('activity')) return;
@@ -248,7 +237,6 @@ const mcAudio = (() => {
   };
 })();
 
-// Expose globally for workflow.js
 window.mcAudio = mcAudio;
 
 // Governance and orchestration moved to Paperclip (https://in-fused.org/paperclip/)
@@ -769,9 +757,6 @@ document.addEventListener('alpine:init', () => {
       // Stop health checker polling to prevent leaked intervals
       healthChecker.stop();
 
-      // Stop workflow bridge polling
-      if (window.workflowBridge) window.workflowBridge.stopPolling();
-
       // Stop staging and activity polling
       if (Alpine.store('staging')) Alpine.store('staging').stopPolling();
       if (Alpine.store('activity')) Alpine.store('activity').stopPolling();
@@ -781,13 +766,6 @@ document.addEventListener('alpine:init', () => {
       if (appStore?._lastActiveTimer) {
         clearInterval(appStore._lastActiveTimer);
         appStore._lastActiveTimer = null;
-      }
-
-      // Stop workflow auto-save timer
-      const wfStore = Alpine.store('workflows');
-      if (wfStore?._autoSaveTimer) {
-        clearInterval(wfStore._autoSaveTimer);
-        wfStore._autoSaveTimer = null;
       }
 
       // Disconnect the OpenClaw WebSocket to prevent leaked sockets.
@@ -840,7 +818,6 @@ document.addEventListener('alpine:init', () => {
     sidebarOpen: window.innerWidth >= 768,
     mobile: window.innerWidth < 768,
     chatPanelOpen: false,  // mobile: toggleable session list
-    workflowPanelOpen: false, // mobile: toggleable node palette
     connected: false,     // true if LiteLLM is reachable (chat works)
     ocConnected: false,   // true if OpenClaw is reachable
     demoMode: true,       // false when LiteLLM is reachable
@@ -863,7 +840,6 @@ document.addEventListener('alpine:init', () => {
           // Switching to desktop: open sidebar, close mobile panels
           this.sidebarOpen = true;
           this.chatPanelOpen = false;
-          this.workflowPanelOpen = false;
         } else {
           // Switching to mobile: close sidebar
           this.sidebarOpen = false;
@@ -886,11 +862,7 @@ document.addEventListener('alpine:init', () => {
       if (this.mobile) this.sidebarOpen = false;
       // Reset panel states on view change
       this.chatPanelOpen = false;
-      this.workflowPanelOpen = false;
       this.stagingPanelOpen = false;
-      if (v === 'workflows' && window.initWorkflowCanvas) {
-        setTimeout(() => window.initWorkflowCanvas(), 100);
-      }
     },
 
     async boot() {
@@ -945,17 +917,6 @@ document.addEventListener('alpine:init', () => {
           monitor.addLog('warn', `OpenClaw WebSocket: ${err.message} — using local mode`);
           ocMode = 'fallback';
         }
-      }
-
-      // Start workflow bridge polling (agent-to-workflow sync)
-      if (window.workflowBridge) {
-        window.workflowBridge.startPolling(15000);
-      }
-
-      // Resume workflow auto-save if a workflow was active before reload
-      const wfStore = Alpine.store('workflows');
-      if (wfStore.activeId) {
-        wfStore.setupAutoSave();
       }
 
       // Start activity polling (server-side agent events)
@@ -2851,259 +2812,24 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // STORE: WORKFLOWS
+  // STORE: WORKFLOWS (stub — workflows moved to Paperclip)
   // --------------------------------------------------------------------------
 
   Alpine.store('workflows', {
-    list: storage.load('workflows', []),
-    activeId: storage.load('workflows-activeId', null),
+    list: [],
+    activeId: null,
     running: false,
-    _autoSaveTimer: null,
-    _lastSerialized: null,
-
-    get active() {
-      return this.list.find(w => w.id === this.activeId) || null;
-    },
-
-    // Start auto-save polling (LiteGraph has no onChange callback)
-    setupAutoSave() {
-      if (this._autoSaveTimer) clearInterval(this._autoSaveTimer);
-      this._autoSaveTimer = setInterval(() => {
-        if (this.activeId && window.workflowGraph) this._autoSave();
-      }, 5000);
-    },
-
-    _autoSave() {
-      if (!this.activeId || !window.workflowGraph) return;
-      const data = JSON.stringify(window.workflowGraph.serialize());
-      if (data !== this._lastSerialized) {
-        this._lastSerialized = data;
-        localStorage.setItem('mc-workflow-' + this.activeId, data);
-        const wf = this.active;
-        if (wf) {
-          wf.nodes = window.workflowGraph._nodes?.length || 0;
-          wf.updatedAt = Date.now();
-        }
-        this._persistList();
-      }
-    },
-
-    create(name) {
-      if (!name) return null;
-      const wf = {
-        id: generateId(),
-        name: name,
-        nodes: 0,
-        lastRun: 'Never',
-        status: 'draft',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        createdBy: 'user',
-      };
-      this.list.unshift(wf);
-      this._persistList();
-
-      // Clear current graph and load default template
-      this.activeId = wf.id;
-      storage.save('workflows-activeId', wf.id);
-      if (window.workflowGraph) {
-        window.workflowGraph.clear();
-        if (window.addDefaultWorkflow) addDefaultWorkflow(window.workflowGraph);
-      }
-      this.save();
-      this.setupAutoSave();
-      Alpine.store('monitor').addLog('info', `Workflow "${wf.name}" created`);
-      return wf;
-    },
-
-    save() {
-      if (!this.activeId || !window.workflowGraph) return;
-      const data = JSON.stringify(window.workflowGraph.serialize());
-      this._lastSerialized = data;
-      localStorage.setItem('mc-workflow-' + this.activeId, data);
-      const wf = this.active;
-      if (wf) {
-        wf.nodes = window.workflowGraph._nodes?.length || 0;
-        wf.updatedAt = Date.now();
-      }
-      this._persistList();
-      Alpine.store('monitor').addLog('info', 'Workflow saved');
-
-      // Auto-sync to shared volume so other devices and agents can see it
-      if (window.workflowBridge) {
-        window.workflowBridge.syncWorkflow(this.activeId);
-      }
-    },
-
-    load(id) {
-      // Auto-save current workflow before switching
-      if (this.activeId && this.activeId !== id) this._autoSave();
-
-      this.activeId = id;
-      storage.save('workflows-activeId', id);
-      const data = localStorage.getItem('mc-workflow-' + id);
-      if (data && window.workflowGraph) {
-        try {
-          window.workflowGraph.configure(JSON.parse(data));
-          this._lastSerialized = data;
-          // Force canvas redraw after loading graph data
-          if (window.workflowCanvas) {
-            window.workflowCanvas.setDirty(true, true);
-            window.workflowCanvas.draw(true, true);
-          }
-        } catch (e) {
-          Alpine.store('monitor').addLog('error', `Failed to load workflow: ${e.message}`);
-        }
-      } else if (window.workflowGraph) {
-        window.workflowGraph.clear();
-        this._lastSerialized = null;
-        if (window.workflowCanvas) {
-          window.workflowCanvas.setDirty(true, true);
-        }
-      }
-      this.setupAutoSave();
-    },
-
-    rename(id, newName) {
-      if (!newName) return;
-      const wf = this.list.find(w => w.id === id);
-      if (wf) {
-        wf.name = newName;
-        wf.updatedAt = Date.now();
-        this._persistList();
-      }
-    },
-
-    delete(id) {
-      this.list = this.list.filter(w => w.id !== id);
-      localStorage.removeItem('mc-workflow-' + id);
-      if (this.activeId === id) {
-        this.activeId = null;
-        storage.save('workflows-activeId', null);
-        this._lastSerialized = null;
-        if (window.workflowGraph) window.workflowGraph.clear();
-      }
-      this._persistList();
-      Alpine.store('monitor').addLog('info', 'Workflow deleted');
-    },
-
-    duplicate(id) {
-      const source = this.list.find(w => w.id === id);
-      if (!source) return null;
-      const newId = generateId();
-      const newWf = {
-        ...JSON.parse(JSON.stringify(source)),
-        id: newId,
-        name: source.name + ' (copy)',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      const graphData = localStorage.getItem('mc-workflow-' + id);
-      if (graphData) localStorage.setItem('mc-workflow-' + newId, graphData);
-      this.list.unshift(newWf);
-      this._persistList();
-      Alpine.store('monitor').addLog('info', `Duplicated workflow "${source.name}"`);
-      return newWf;
-    },
-
-    // Export workflow as JSON (used by agent bridge)
-    exportJSON(id) {
-      const wf = this.list.find(w => w.id === id);
-      const graphData = localStorage.getItem('mc-workflow-' + id);
-      if (!wf) return null;
-      return {
-        meta: { ...wf },
-        graph: graphData ? JSON.parse(graphData) : null,
-      };
-    },
-
-    // Import workflow from JSON (used by agent bridge)
-    importJSON(json) {
-      if (!json?.meta?.id || !json?.graph) return null;
-      const wf = {
-        id: json.meta.id,
-        name: json.meta.name || 'Agent Workflow',
-        nodes: json.meta.nodes || json.graph.nodes?.length || 0,
-        lastRun: json.meta.lastRun || 'Never',
-        status: json.meta.status || 'draft',
-        createdAt: json.meta.createdAt || Date.now(),
-        updatedAt: json.meta.updatedAt || Date.now(),
-        createdBy: json.meta.createdBy || 'agent',
-      };
-      // Update existing or add new
-      const idx = this.list.findIndex(w => w.id === wf.id);
-      if (idx >= 0) {
-        this.list[idx] = wf;
-      } else {
-        this.list.unshift(wf);
-      }
-      localStorage.setItem('mc-workflow-' + wf.id, JSON.stringify(json.graph));
-      this._persistList();
-      return wf;
-    },
-
-    async run() {
-      if (!this.activeId || this.running) return;
-      if (window.workflowGraph && window.WorkflowExecutor) {
-        const executor = new WorkflowExecutor(window.workflowGraph);
-        await executor.execute();
-      } else {
-        this.running = true;
-        Alpine.store('monitor').addLog('info', `Workflow "${this.active?.name}" executing...`);
-        setTimeout(() => {
-          this.running = false;
-          const wf = this.active;
-          if (wf) { wf.lastRun = 'Just now'; wf.status = 'completed'; }
-          Alpine.store('monitor').addLog('info', 'Workflow completed (demo mode)');
-        }, 2000);
-      }
-    },
-
-    // Send workflow to OpenClaw for background execution (server-side, survives browser close)
-    async runInBackground() {
-      if (!this.activeId || this.running) return;
-      if (!window.openclawClient?.authenticated) {
-        Alpine.store('monitor').addLog('warn', 'Background run requires OpenClaw connection');
-        return;
-      }
-      const wf = this.active;
-      if (!wf) return;
-      const graphData = localStorage.getItem('mc-workflow-' + this.activeId);
-      if (!graphData) return;
-
-      try {
-        // Route to the appropriate team lead based on first agent node in the workflow
-        let targetAgent = 'lead';
-        try {
-          const graph = JSON.parse(graphData);
-          const agentNode = (graph.nodes || []).find(n => n.type === 'mission/agent');
-          if (agentNode?.properties?.agent) {
-            const a = agentNode.properties.agent;
-            if (['ops-lead', 'builder', 'sentinel', 'chronicler'].includes(a)) targetAgent = 'ops-lead';
-          }
-        } catch (e) { /* parse error — use default lead */ }
-
-        await window.openclawClient.sendChat(
-          `EXECUTE_WORKFLOW:${this.activeId}\nWorkflow: ${wf.name}\n${graphData}`,
-          { sessionKey: 'agent:' + targetAgent + ':main' }
-        );
-        wf.status = 'running-bg';
-        wf.lastRun = 'Background';
-        this._persistList();
-        Alpine.store('monitor').addLog('info', `Workflow "${wf.name}" sent to OpenClaw for background execution`);
-      } catch (e) {
-        Alpine.store('monitor').addLog('error', `Background run failed: ${e.message}`);
-      }
-    },
-
-    _persistList() {
-      storage.save('workflows', this.list.map(w => ({
-        id: w.id, name: w.name, nodes: w.nodes,
-        lastRun: w.lastRun, status: w.status,
-        createdAt: w.createdAt, updatedAt: w.updatedAt,
-        createdBy: w.createdBy,
-      })));
-    },
+    get active() { return null; },
+    create() { return null; },
+    save() {},
+    load() {},
+    rename() {},
+    delete() {},
+    duplicate() { return null; },
+    exportJSON() { return null; },
+    importJSON() { return null; },
+    run() {},
+    runInBackground() {},
   });
 
   // --------------------------------------------------------------------------
