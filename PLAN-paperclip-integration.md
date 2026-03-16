@@ -100,37 +100,42 @@ Add generation to `deploy.sh` (same pattern as existing `DB_PASSWORD`).
 
 ## Phase 2: Configure Paperclip ↔ OpenClaw
 
-**What:** Register OpenClaw agents in Paperclip using the HTTP adapter. Paperclip sends heartbeats → OpenClaw agents wake up and do work.
+**What:** Register OpenClaw agents in Paperclip using the built-in `openclaw_gateway` adapter (added in v0.3.0). Paperclip sends heartbeats → OpenClaw agents wake up and do work.
 
-### 2a. OpenClaw HTTP Adapter
+### 2a. OpenClaw Gateway Adapter (BUILT-IN)
 
-Paperclip has two adapter types: **Process** (subprocess) and **HTTP** (REST). We use HTTP since OpenClaw is a separate Docker service.
+Paperclip has a native `openclaw_gateway` adapter at `packages/adapters/openclaw-gateway/`. No custom bridge needed.
 
-Each agent gets registered in Paperclip with `adapter_config`:
+Each agent gets registered with `adapterType: "openclaw_gateway"` and config:
 
 ```json
 {
-  "type": "http",
-  "base_url": "http://openclaw:18789/openclaw",
-  "env": {
-    "OPENCLAW_PASSWORD": "ref:company_secrets/openclaw-password"
+  "adapterType": "openclaw_gateway",
+  "adapterConfig": {
+    "gatewayUrl": "http://openclaw:18789",
+    "headers": {
+      "x-openclaw-token": "<OPENCLAW_PASSWORD value>"
+    }
   }
 }
 ```
 
-**Integration bridge needed:** Paperclip's HTTP adapter expects a REST endpoint that accepts heartbeat invocations. OpenClaw uses WebSocket RPC. We need a thin bridge service (or a Paperclip custom adapter) that:
+**Known bug ([openclaw/openclaw#44493](https://github.com/openclaw/openclaw/issues/44493)):** The `x-openclaw-token` header is NOT auto-populated during "Hire Agent" flow. Workaround — patch via SQL after agent creation:
 
-1. Receives Paperclip heartbeat → connects to OpenClaw WS → sends `chat.send` with the task
-2. Streams OpenClaw `chat` events back → reports completion to Paperclip
-3. Reports cost events (token usage from OpenClaw `usage` field on `state: "final"`)
+```sql
+UPDATE agents
+SET adapter_config = adapter_config ||
+  '{"headers": {"x-openclaw-token": "<token>"}}'::jsonb
+WHERE adapter_type = 'openclaw_gateway';
+```
 
-**Option A — Custom adapter script (~100 lines Node.js):**
-A small Node.js script that Paperclip calls via Process adapter. It connects to OpenClaw WS, sends the task, waits for completion, reports back.
+Or use tokenized URL: `http://openclaw:18789/#token=<gateway-token>`
 
-**Option B — Sidecar bridge service:**
-A lightweight HTTP server (similar to webhook handler) that Paperclip calls. Translates REST → OpenClaw WS RPC. Could reuse `openclaw-client.js` patterns.
+**How heartbeats work:** Paperclip uses "fire-and-forget" mode for OpenClaw — it pings the agent to wake up, agent calls back to Paperclip for context. This replaces our auto-kickoff.js and inbox-check cron system.
 
-**Recommendation: Option A** — simpler, no extra Docker service. Paperclip spawns it as a process, it talks to OpenClaw, exits when done.
+**Adapter uses SSE streaming** (not raw WebSocket like our current openclaw-client.js). This is Paperclip's own protocol — Mission Control chat still uses our existing WS client unchanged.
+
+**Compatibility with our setup:** Already have `dangerouslyDisableDeviceAuth=true` + `allowInsecureAuth=true` + Docker bridge networking. Just need to expose `OPENCLAW_PASSWORD` as the gateway token.
 
 ### 2b. Agent Registration
 
@@ -277,7 +282,7 @@ Phase 5 (Oracle migration)  → separate project, after EC2 promo ends
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Paperclip doesn't have native OpenClaw adapter | High (confirmed — no built-in adapter) | Write thin bridge script (~100 lines) |
+| `openclaw_gateway` adapter token bug (#44493) | High (confirmed) | Manual SQL patch or tokenized URL workaround |
 | Memory pressure on t3.small | Medium | Paperclip is lightweight (256M); share Postgres instances if needed |
 | Paperclip API changes (young project, 1 week old) | Medium | Pin to specific version/commit, not :latest |
 | Agent behavior changes during transition | Low | Phase 1 adds Paperclip without removing anything — old system keeps running |
