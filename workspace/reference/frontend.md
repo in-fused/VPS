@@ -2,25 +2,23 @@
 > Summary of the Mission Control SPA architecture.
 > For full source, read the files directly:
 > - read(path: "/workspace/index.html") — HTML templates (Alpine.js)
-> - read(path: "/workspace/js/app.js") — Alpine stores, chat, governance
-> - read(path: "/workspace/js/workflow.js") — LiteGraph nodes, executor
-> - read(path: "/workspace/js/workflow-bridge.js") — Agent↔workflow bridge
+> - read(path: "/workspace/js/app.js") — Alpine stores, chat, agents
 > - read(path: "/workspace/js/openclaw-client.js") — OpenClaw WS RPC client
 
 ## Tech Stack
 - Alpine.js 3.14.8 (reactive stores, no build step)
 - Tailwind CSS (CDN)
-- LiteGraph.js 0.7.18 (visual workflow builder)
 - Vanilla JS, served as static files from Caddy
+- Paperclip (external, at /paperclip/) handles workflows, governance, and orchestration
 
 ## Views (sidebar navigation)
 | View | Description |
 |------|-------------|
 | Dashboard | Stats, autonomy status, staging queue preview, activity feed |
-| Agents | Team-grouped cards with cron status, tier badges, actions |
-| Workflows | LiteGraph canvas + node palette + saved workflow list |
+| Agents | Team-grouped cards with cron status, actions |
+| Paperclip | External link to Paperclip UI for workflows and orchestration |
 | Chat | Session list + message stream (3-tier: OC WS → LiteLLM SSE → demo) |
-| Teams | Governance leaderboard, weekly scoring, tier system |
+| Teams | Team structure and agent roles |
 | Monitor | System health, token usage, activity logs |
 | Staging | Agent output review: iframe preview + approve/reject actions |
 | Activity | Server-polled event feed + WebSocket live events, filterable |
@@ -33,9 +31,9 @@
 | app | view, connected, ocConnected, mobile, awayReport | View routing, health, boot |
 | agents | list[], createAgent(), deleteAgent() | Agent CRUD, syncs to OpenClaw |
 | sessions | list[], messages[], sendMessage() | Chat sessions + streaming |
-| workflows | list[], active, run() | Workflow management + execution |
+| workflows | (stub — moved to Paperclip) | No-op interface for compatibility |
 | models | list[] | LiteLLM model list |
-| governance | teams[], getScore(), recordTask() | Performance tracking |
+| governance | (stub — moved to Paperclip) | No-op interface for compatibility |
 | staging | items[], approve(), reject() | Agent output review |
 | activity | events[], filtered | Server + live event feed |
 | cron | jobs[], fetch(), forAgent() | Per-agent cron job management |
@@ -53,18 +51,6 @@
 1. OpenClaw WebSocket (preferred): JSON-RPC chat.send → streaming events
 2. LiteLLM SSE (fallback): POST /api/mc/v1/chat/completions with stream: true
 3. Demo mode (no backend): Static placeholder
-
-## Workflow Nodes (workflow.js)
-| Node | Purpose |
-|------|---------|
-| Trigger | Start point, optional cron scheduling |
-| Agent | Routes to OpenClaw agent or LiteLLM |
-| Task | Formats goal/constraints around input |
-| Tool | 8 real tools: Web Search, Scrape, Code Exec, File R/W, Shell, API, Browser |
-| Condition | Contains/Equals/Regex/Length/IsEmpty branching |
-| Loop | Splits input, runs downstream subgraph per item |
-| Merge | Concatenate/JSON Merge/Pick Best (AI)/Summary (AI) |
-| Output | Routes to: Log, Chat Response, File (staging), Webhook |
 
 ## OpenClaw WS Client (openclaw-client.js)
 - Connect to /ws/openclaw with password auth (no device block)

@@ -132,7 +132,7 @@ Every operational command MUST include both variants, clearly labeled:
 **2. All UI/UX changes MUST be mobile-optimized:**
 - Mission Control is used on iPhone as a PWA — touch targets, responsive layout, and mobile-safe interactions are **non-negotiable**
 - Any new UI feature must work on mobile-width screens, with touch (not just click), and with iOS safe areas (`viewport-fit=cover`)
-- The LiteGraph workflow canvas has a custom touch-to-mouse bridge — any workflow UI changes must preserve mobile usability
+- Workflows and orchestration are managed via Paperclip at `/paperclip/`
 
 **EC2 path:** `/home/VPS` (not `/home/user/VPS` — that's the dev environment)
 **EC2 has no `master` branch** — the server is checked out directly on the feature branch. Just pull the branch, no merge needed.
@@ -350,21 +350,11 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - **LiteLLM routes via `OLLAMA_BASE_URL`** — agents don't call Ollama directly; LiteLLM handles load balancing + fallback
 
 Each agent has a comprehensive system prompt delivered via server-side workspace files (SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md). These are seeded by `seed-agent-workspaces.js` on every container restart. Client-side fallback prompts in `workspace/js/app.js` use shared constants:
-- `AGENT_ORG` — organization structure (both teams, competition rules) — injected into every prompt
-- `AGENT_GOVERNANCE` — tier system, weekly evaluation, Manager promotion — injected into every prompt
-- `WORKFLOW_REFERENCE` — LiteGraph node types and workflow creation — Lead and Ops Lead only
-- `LEAD_PROTOCOLS` — staging, activity log, WRITE_FILES, GOVERNANCE_ADJUST — Lead and Ops Lead only
-- `SPECIALIST_PROTOCOLS` — condensed file access and logging — all specialists
-All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint (`scripts/openclaw-entrypoint.sh`) runs `scripts/patch-openclaw-config.js` (config patching) then `scripts/seed-agent-workspaces.js` (workspace file seeding). The `instructions` agent config key is scrubbed on every restart.
+These constants were removed — governance and orchestration moved to Paperclip. DEMO_AGENTS now has minimal 1-line fallback prompts for LiteLLM SSE route only. The entrypoint (`scripts/openclaw-entrypoint.sh`) runs `scripts/patch-openclaw-config.js` (config patching) then `scripts/seed-agent-workspaces.js` (workspace file seeding). The `instructions` agent config key is scrubbed on every restart.
 
 **Manager Promotion:** A consistently Elite-performing agent can be manually promoted by the owner to "Manager" — a role above both teams, reporting directly to the owner. A replacement agent fills the vacated spot. All agents are aware of this possibility.
 
 ### Agent Communication Protocols
-
-**Workflow Bridge** — Agents can create visual workflows that appear in Mission Control:
-- Write LiteGraph JSON to `/workspace/agent-workflows/{id}.json`
-- Update index: `/workspace/agent-workflows/index.json` → `{ "workflows": [{ "id", "name", "file", "createdBy", "updatedAt", "status" }] }`
-- Mission Control polls every 15s and auto-imports new workflows
 
 **Staging** — Agents propose content for owner review:
 - Write HTML/CSS/JS to `/workspace/staging/{path}`
@@ -379,12 +369,6 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 - Include `GOVERNANCE_ADJUST: {"key": "value"}` in a chat response
 - Appears in Staging view for owner approval (never auto-applied)
 
-**Background Execution** — Owner sends workflows via "Background Run" button:
-- Auto-routes to the appropriate team lead: if first agent node uses a Platform Team agent (ops-lead, builder, sentinel, chronicler), routes to Ops Lead; otherwise routes to Lead
-- Serialized graph sent as `EXECUTE_WORKFLOW:{id}\n{json}`
-- Team lead orchestrates server-side, results written to `/workspace/agent-workflows/results/{id}.json`
-- **All agents** can parse and execute EXECUTE_WORKFLOW messages (not just leads)
-
 **Inbox-Check Cron** — Every agent creates a `0 */2 * * *` cron job on bootstrap (every 2 hours):
 - Uses `cron()` tool with `schedule: { cron: "0 */2 * * *" }`, `payload: { kind: "agentTurn", ... }`
 - On trigger: agent checks session history for delegated tasks from other agents
@@ -395,8 +379,7 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 **Collaboration Protocol** — Agents can co-author work across teams:
 - Any agent can pull in any other agent via `sessions_send(sessionKey: "agent:<id>:main", message: "...")`
 - Cross-team collaboration is explicitly encouraged (e.g., CodeCraft + Builder on a full-stack task)
-- Co-authoring rules: initiator stages final deliverable, both agents get governance credit, always reply with results (never silence)
-- EXECUTE_WORKFLOW is available to ALL agents — any agent receiving a workflow message can parse and execute it
+- Co-authoring rules: initiator stages final deliverable, always reply with results (never silence)
 
 **Auto-Kickoff** — On every container restart, `auto-kickoff.js` sends a directive to both leads:
 - Enabled by default via `OPENCLAW_AUTO_KICKOFF=1` in docker-compose.yml (opt-out, not opt-in)
@@ -406,8 +389,6 @@ All defined in `workspace/js/app.js` before `DEMO_AGENTS` array. The entrypoint 
 
 ### Bridge Directories (auto-created by workspace-init)
 ```
-/workspace/agent-workflows/     ← Agent-created workflows + index.json
-/workspace/agent-workflows/results/  ← Background execution results
 /workspace/staging/             ← Agent content for owner review + index.json
 /workspace/agent-activity/      ← Event log for away-report + log.json
 /workspace/prompts/             ← Prompt archive (archive.json) for reusable prompts
@@ -461,7 +442,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 | `USER.md` | Owner profile, mobile workflow, preferences | Yes (all agents) |
 | `AGENTS.md` | Team structure, competition rules | Yes (all agents) |
 | `MEMORY.md` | Project context, infrastructure, file paths, reference doc pointers | Yes (all agents, initial seed) |
-| `TOOLS.md` | Available tools, inbox-check cron, EXECUTE_WORKFLOW, collaboration protocol | Yes (all agents) |
+| `TOOLS.md` | Available tools, inbox-check cron, staging protocol, collaboration protocol | Yes (all agents) |
 | `HEARTBEAT.md` | Periodic check-in behavior (leads get extended version) | Yes (role-specific) |
 | `BOOTSTRAP.md` | Startup sequence: verify tools, set up cron, assign/find work | No (role-specific: lead vs specialist) |
 
@@ -472,16 +453,15 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 ## Mission Control — Core Functionality Map
 
 ### Tech Stack
-- Alpine.js 3.14.8 (reactive stores) + Tailwind CSS (CDN) + LiteGraph.js 0.7.18 (workflows)
+- Alpine.js 3.14.8 (reactive stores) + Tailwind CSS (CDN)
 - Vanilla JS, no build step, served as static files from Caddy
+- Workflows and orchestration handled by Paperclip (separate service at `/paperclip/`)
 
 ### File Map
 | File | Lines | Purpose |
 |------|-------|---------|
 | `workspace/index.html` | 2360 | Main SPA shell (Alpine.js templates, all views) |
-| `workspace/js/app.js` | ~3900 | Alpine stores, health checks, chat, agent sync (governance moved to Paperclip) |
-| `workspace/js/workflow.js` | 1274 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
-| `workspace/js/workflow-bridge.js` | 530 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
+| `workspace/js/app.js` | ~3600 | Alpine stores, health checks, chat, agent sync (governance/workflows moved to Paperclip) |
 | `workspace/js/openclaw-client.js` | 724 | OpenClaw WebSocket RPC client |
 | `workspace/css/styles.css` | 720 | Custom styles |
 | `workspace/auth.html` | — | Site-wide login page |
@@ -576,53 +556,11 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 
 ---
 
-## Workflow System — Current State (verified 2026-03-08)
+## Workflow System — Moved to Paperclip
 
-### Node Types (workflow.js)
+The custom LiteGraph workflow system (workflow.js, workflow-bridge.js) has been **removed**. Workflows, task queues, and orchestration are now handled by **Paperclip** at `/paperclip/`. The old workflow files were deleted and their Alpine.js stores replaced with no-op stubs.
 
-**8 custom node types** under `mission/*` namespace:
-
-| Node | Inputs → Outputs | `runAsync()` behavior |
-|------|-------------------|----------------------|
-| **Trigger** | — → prompt, trigger | Returns `this.properties.prompt`. Scheduled trigger wired to OpenClaw cron RPC. |
-| **Agent** | prompt, context → response, done | Tries OpenClaw WS → LiteLLM `chat()` → demo fallback. Refreshes agent dropdown dynamically on draw. |
-| **Task** | input, execute → result, done | Formats goal/constraints/priority around input |
-| **Tool** | input, execute → result, done | 8 real tools: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. Routes through OpenClaw agent's tool system. |
-| **Condition** | input → true, false | Evaluates Contains/Equals/Regex/Length/IsEmpty, returns `{ true: input or null, false: input or null }` |
-| **Output** | result, done → — | Routes to: Log, Chat Response (injects into session), File (writes to staging), Webhook |
-| **Loop** | items → item, index, done, results | Splits input, returns `_loop` marker. Executor re-runs downstream subgraph per item, accumulates and joins results. |
-| **Merge** | input_1, input_2 → merged | Concatenate, JSON Merge, Pick Best (AI via LiteLLM), Summary (AI via LiteLLM) |
-
-**WorkflowExecutor:**
-- Topological sort via BFS from trigger nodes
-- Sequential execution via `runAsync()`
-- Branch gating: skips nodes when all connected inputs are null (inactive condition branches)
-- Loop iteration: detects `_loop` marker, re-executes downstream subgraph per item, collects results
-- Visual feedback: amber=running, green=success, red=error, gray=skipped
-- Governance tracking: records Agent node tasks during execution (including inside loops)
-
-### Workflow Persistence (working)
-- **Auto-save** every 5 seconds via polling (`setupAutoSave()` in app.js). Compares serialized graph to detect changes.
-- **localStorage** stores graph data (`mc-workflow-<id>`) and metadata list (`workflows`).
-- **Canvas restore** on navigation: `graph.configure()` + `canvas.setDirty()` + `canvas.draw()`.
-- **Agent sync**: `workflowBridge.syncWorkflow()` auto-exports to Lead/Ops Lead workspaces on manual save.
-
-### Agent↔Workflow Bridge (workflow-bridge.js, working)
-- **Import (Agents → MC):** Polls `/workspace/agent-workflows/index.json` every 15s + polls agent workspaces via RPC every 60s. Auto-imports agent-created workflows.
-- **Export (MC → Agents):** `syncWorkflow()` writes to Lead/Ops Lead workspace via `agents.files.set` RPC. Debounced 10s.
-- **Full CRUD via file protocol:** Agents write to index.json with `action` field:
-  - `action: "create"` (default) — write graph JSON + add index entry → MC imports
-  - `action: "update"` — overwrite graph JSON + bump `updatedAt` → MC re-imports
-  - `action: "delete"` — MC removes workflow from store, cleans index entry
-  - `action: "execute"` — MC triggers workflow execution, clears action after
-- **Background Execution:** Sends `EXECUTE_WORKFLOW:{id}\n{json}` to team lead. Auto-routes to correct team. Results written to `/workspace/agent-workflows/results/{id}.json`.
-- **Governance Sync:** Writes agent scores to `GOVERNANCE.md` in agent workspaces.
-- **Activity Log:** Reads `/workspace/agent-activity/log.json` for "While You Were Away" report.
-
-### Scheduled Triggers (partially wired)
-- `cron.enabled=true` in entrypoint. Agents can create server-side cron jobs via the `cron` tool.
-- Trigger node has "Scheduled" option with cron expression widget wired to `cron.add`/`cron.remove` RPC.
-- **Gap:** Webhook triggers are still UI-only (no backend endpoint).
+Agents can still create server-side cron jobs via the `cron` tool (`cron.enabled=true` in entrypoint).
 
 ---
 
@@ -633,9 +571,9 @@ Connection: `/ws/openclaw` (primary) → `/` (legacy fallback)
 The owner manages this project from a phone. They should be able to open Mission Control, give agents a task, close the browser, and **come back later to find the work done.** OpenClaw runs 24/7 on EC2 — it doesn't stop when the browser closes. The agents (Lead, CodeCraft, Scout, Scribe, and any sub-agents they spawn) must be able to:
 
 - **Operate autonomously in the background** — continue executing workflows, completing tasks, and delegating work after the user leaves the session
-- **Utilize all Mission Control features** — chat, workflows, tools, agent-to-agent messaging, governance tracking
+- **Utilize all Mission Control features** — chat, tools, agent-to-agent messaging, Paperclip orchestration
 - **Self-organize** — Lead delegates to specialists, specialists delegate to sub-agents, results flow back up the chain
-- **Be transparent** — all agent activity should be visible in Mission Control when the owner returns (logs, workflow execution history, chat transcripts, governance scores)
+- **Be transparent** — all agent activity should be visible in Mission Control when the owner returns (logs, chat transcripts, Paperclip dashboard)
 
 This is not a chatbot. This is an autonomous agent system that happens to have a chat interface.
 
@@ -644,15 +582,14 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 1 | Reliable Chat Pipeline | ✅ Complete | 3-tier fallback (OpenClaw WS → LiteLLM SSE → demo). Rate-limit recovery: wait 8s → retry Route 1 → Route 2 model rotation. 120s timeout with history recovery. Reconnection with exponential backoff + iOS visibility handlers. |
-| 2 | Workflow Persistence | ✅ Complete | Auto-save every 5s. Dynamic workflow list from localStorage. Canvas restore on navigation. Agent sync via bridge. |
-| 3 | End-to-End Workflow Execution | ✅ Complete | Trigger → Agent → Condition → Output works with real OpenClaw/LiteLLM calls. Branch gating, model resolution, output routing all functional. |
-| 4 | Agent↔Workflow Bridge | ✅ Complete | Full CRUD via file-based `action` field (create/update/delete/execute). Bidirectional sync via file polling + RPC. Background execution routes to team leads. Activity log import. |
+| 2 | Workflow System | ⬆️ Replaced | Custom LiteGraph workflows removed — replaced by Paperclip task queues + goal hierarchy. |
+| 3 | Governance System | ⬆️ Replaced | Custom governance scoring removed — replaced by Paperclip audit trail + agent scores. |
 | 5 | Real Tool Execution | ✅ Complete | 8 tools mapped to OpenClaw: Web Search, Web Scrape (Scrapling), Code Exec, File Read/Write, Shell, API Call, Browser. |
 | 6 | Loop Node Iteration | ✅ Complete | Executor detects `_loop` marker, re-runs downstream subgraph per item, accumulates and joins results. |
 | 7 | Background Autonomy | ✅ Complete | OpenClaw runs 24/7. Auto-kickoff on restart. Inbox-check cron every 2h. Agent-to-agent delegation works end-to-end. Results sync on next visit. |
 | 8 | Auto-Kickoff System | ✅ Complete | `auto-kickoff.js` sends bootstrap directive to both leads on every container restart. No lock file — fresh bootstrap every time. |
 | 9 | Inbox-Check Cron | ✅ Complete | All agents set up `0 */2 * * *` cron on bootstrap (every 2h, with dedup). Checks for delegated tasks, executes them, replies with results. |
-| 10 | Collaboration Protocol | ✅ Complete | Any agent can co-author with any other agent via `sessions_send`. Cross-team collaboration encouraged. EXECUTE_WORKFLOW available to all agents. |
+| 10 | Collaboration Protocol | ✅ Complete | Any agent can co-author with any other agent via `sessions_send`. Cross-team collaboration encouraged. |
 | 11 | Split Reference Docs | ✅ Complete | 6 focused reference files under `/workspace/reference/` replace 607KB monolithic project-bundle.md. Agents read on-demand for deep context. |
 | 12 | Dashboard Overhaul | ✅ Complete | Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators, batch approve. |
 | 13 | Webhook Triggers | ✅ Complete | Full webhook handler service (`webhook/handler.js`). External POST → token-validated trigger → OpenClaw notification + MC polling. Trigger node UI: register/copy/revoke webhook URLs. Output node: POST results to external webhooks. Oracle ARM archival for payload storage offload. |
@@ -663,7 +600,7 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 1. **Reference doc auto-refresh** — Currently generated only at deploy time; could be regenerated on config changes
 2. **Paperclip initial onboarding** — Visit `/paperclip/` on first deploy to complete the Paperclip onboarding wizard. The setup script will auto-register agents after that.
 3. **Verify Paperclip heartbeats** — Once Paperclip is onboarded, verify that heartbeats wake OpenClaw agents correctly. After verified, auto-kickoff.js and inbox-check cron can be removed.
-4. **Oracle ARM migration (Phase 5)** — Move everything to Oracle Cloud ARM after EC2 promo ends. See PLAN-paperclip-integration.md Phase 5.
+4. **Oracle ARM migration** — Move everything to Oracle Cloud ARM after EC2 promo ends.
 
 ---
 
@@ -748,9 +685,7 @@ VPS/
 │   ├── manifest.json             ← PWA manifest
 │   ├── css/styles.css            ← Custom styles
 │   ├── js/
-│   │   ├── app.js                ← Alpine stores + chat + governance
-│   │   ├── workflow.js           ← LiteGraph nodes + executor
-│   │   ├── workflow-bridge.js    ← Agent-to-workflow bridge
+│   │   ├── app.js                ← Alpine stores + chat (governance/workflows moved to Paperclip)
 │   │   └── openclaw-client.js    ← OpenClaw WS RPC client
 │   └── reference/                ← Split reference docs (generated by deploy)
 │       ├── index.md              ← Reference doc index
@@ -1033,7 +968,7 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 - **Heartbeat/system messages leaking into chat**: Fixed with 11 regex patterns + label filter in both `_parseHistoryMessages` (history load) and `on('chat')` (live events). Heartbeat/cron sessions filtered from `_syncSessionsFromOpenClaw()`. Patterns match `# HEARTBEAT.md`, `# Heartbeat Checklist`, `HEARTBEAT_OK`, `# Bootstrap`, `Current time:`, all bridge/workflow/staging injections, and any message with heartbeat/cron/system/bridge/staging label.
 - **Oracle ARM networking blocked by second instance**: Creating a second Oracle Cloud instance (even within free tier) triggered networking restrictions on both instances. Fixed by terminating the smaller instance — only need one instance (4 OCPU / 24 GB) for all 3 Ollama models.
 - **Ollama end-to-end routing verified (2026-03-08)**: LiteLLM → Ollama (Oracle ARM at 150.136.153.194:11434) → qwen3.5:9b confirmed working. All 3 models loaded: qwen3-coder:30b (18.6 GB), qwen3:14b (9.3 GB), qwen3.5:9b (6.6 GB).
-- **Workflow system fully operational (2026-03-08)**: All features previously listed as "broken" confirmed working — auto-save persistence, loop iteration, real tool execution (8 tools), AI-powered merge modes, bidirectional agent-workflow bridge, scheduled trigger wiring to cron RPC.
+- **Workflow system replaced by Paperclip (2026-03-16)**: Custom LiteGraph workflow system (workflow.js, workflow-bridge.js) removed. Workflows, governance, and orchestration now handled by Paperclip.
 - **Agent delegation chain broken (2026-03-08)**: Messages sent via `sessions_send` sat unread because agents had no wake trigger. Fixed by adding inbox-check cron (`0 */2 * * *`) to every agent's BOOTSTRAP.md. All agents now check for and process delegated tasks every 2 hours. Cron dedup guards prevent stacking on restart.
 - **Auto-kickoff one-shot (2026-03-08)**: Lock file prevented re-kickoff after first container run. Removed lock file entirely — now runs fresh bootstrap directive on every restart. Changed from opt-in (`OPENCLAW_AUTO_KICKOFF=0`) to opt-out (`=1` default).
 - **Agents saying "I cannot" (2026-03-08)**: Systematic prompt overhaul — added "NEVER say I cannot" rules to every SOUL.md with explicit forbidden phrases list. TOOLS.md has "RULE #1: ACT, DON'T ASK" section. Agents now default to action instead of asking for permission.
@@ -1078,7 +1013,7 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 - **Server-side workspace files** — `seed-agent-workspaces.js` creates SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md per agent (force-overwritten on every restart)
 - **Auto-kickoff** — `auto-kickoff.js` sends bootstrap directive to Lead and Ops Lead after 30s delay. Enabled by default (`OPENCLAW_AUTO_KICKOFF=1`). No lock file — runs fresh on every restart.
 - **Inbox-check cron** — All agents create `0 */2 * * *` cron job on bootstrap (every 2h) to check for delegated tasks. Dedup guards prevent stacking. Critical for agent-to-agent delegation.
-- **Collaboration protocol** — All agents can co-author via `sessions_send`. EXECUTE_WORKFLOW available to all agents, not just leads.
+- **Collaboration protocol** — All agents can co-author via `sessions_send`. Cross-team collaboration encouraged.
 - **Split reference docs** — `generate-reference-docs.sh` creates 6 focused files under `/workspace/reference/` for on-demand agent context
 
 ### Available OpenClaw RPC Methods (via WebSocket)
