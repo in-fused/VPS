@@ -479,7 +479,7 @@ These directories persist in the Docker volume and are NOT overwritten by worksp
 | File | Lines | Purpose |
 |------|-------|---------|
 | `workspace/index.html` | 2360 | Main SPA shell (Alpine.js templates, all views) |
-| `workspace/js/app.js` | 3994 | Shared prompt constants, Alpine stores, health checks, chat, governance |
+| `workspace/js/app.js` | ~3900 | Alpine stores, health checks, chat, agent sync (governance moved to Paperclip) |
 | `workspace/js/workflow.js` | 1274 | LiteGraph nodes, WorkflowExecutor (loop iteration, governance), touch bridge |
 | `workspace/js/workflow-bridge.js` | 530 | Agent-to-workflow file-based bridge (polls /workspace/agent-workflows/) |
 | `workspace/js/openclaw-client.js` | 724 | OpenClaw WebSocket RPC client |
@@ -656,10 +656,14 @@ This is not a chatbot. This is an autonomous agent system that happens to have a
 | 11 | Split Reference Docs | ✅ Complete | 6 focused reference files under `/workspace/reference/` replace 607KB monolithic project-bundle.md. Agents read on-demand for deep context. |
 | 12 | Dashboard Overhaul | ✅ Complete | Staging queue, activity count, cron job stats, 8-agent autonomy status grid with live cron indicators, batch approve. |
 | 13 | Webhook Triggers | ✅ Complete | Full webhook handler service (`webhook/handler.js`). External POST → token-validated trigger → OpenClaw notification + MC polling. Trigger node UI: register/copy/revoke webhook URLs. Output node: POST results to external webhooks. Oracle ARM archival for payload storage offload. |
+| 14 | Paperclip Integration | ✅ Complete | Paperclip orchestration layer replaces custom governance/workflow code. Docker service + Postgres. Setup script registers agents with openclaw_gateway adapter. Mission Control links to Paperclip UI. ~660 lines removed from app.js, ~170 lines removed from index.html. |
 
 ### Remaining Work
 
 1. **Reference doc auto-refresh** — Currently generated only at deploy time; could be regenerated on config changes
+2. **Paperclip initial onboarding** — Visit `/paperclip/` on first deploy to complete the Paperclip onboarding wizard. The setup script will auto-register agents after that.
+3. **Verify Paperclip heartbeats** — Once Paperclip is onboarded, verify that heartbeats wake OpenClaw agents correctly. After verified, auto-kickoff.js and inbox-check cron can be removed.
+4. **Oracle ARM migration (Phase 5)** — Move everything to Oracle Cloud ARM after EC2 promo ends. See PLAN-paperclip-integration.md Phase 5.
 
 ---
 
@@ -767,6 +771,7 @@ VPS/
     ├── generate-reference-docs.sh ← Generates split reference docs for agents
     ├── caddy-entrypoint.sh       ← Auth token generation
     ├── setup-webhook-archive.sh  ← Oracle ARM archive server setup
+    ├── setup-paperclip.js        ← Registers agents in Paperclip on startup
     └── test-api-keys.sh          ← API key validation
 ```
 
@@ -926,6 +931,69 @@ exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
 **Docker:** `webhook` service, 64M memory, port 9090 (internal), healthcheck via wget.
 
 **Files:** `webhook/handler.js`, `webhook/Dockerfile`, `webhook/package.json`, `webhook/archive-server.js`, `scripts/setup-webhook-archive.sh`
+
+---
+
+## Paperclip — Agent Orchestration Layer (added 2026-03-16)
+
+**Purpose:** Replaces custom governance, workflow, and orchestration code with Paperclip as the management layer. OpenClaw remains the agent runtime, Paperclip manages the org chart, budgets, goals, task queues, and audit trails.
+
+**Access:** `https://in-fused.org/paperclip/` (cookie-gated via Caddy)
+
+**Architecture:**
+```
+Owner → Paperclip (orchestration, goals, budgets) → OpenClaw (agent runtime, tools, memory)
+                                                   → LiteLLM (model routing)
+                                                   → Scrapling (web scraping)
+```
+
+**Docker:** `paperclip` service (built from source, v0.3.1, port 3100, 256M) + `paperclip-db` (Postgres 17, 128M)
+
+**Integration with OpenClaw:**
+- Each agent registered in Paperclip with `openclaw_gateway` adapter
+- Adapter connects via WebSocket to `ws://openclaw:18789`
+- Paperclip sends heartbeats → OpenClaw agents wake, check task queue, execute, report back
+- Session key strategy: `issue` (one session per task)
+- Auth via `OPENCLAW_PASSWORD` as gateway token
+
+**Setup script:** `scripts/setup-paperclip.js` runs on every restart (60s delay, non-blocking):
+1. Waits for Paperclip health
+2. Creates "in-fused.org" company if missing
+3. Registers all 8 agents with openclaw_gateway adapter
+4. Creates initial goals
+- Idempotent — skips existing resources
+
+**Known issues:**
+- `openclaw_gateway` adapter token bug ([#44493](https://github.com/openclaw/openclaw/issues/44493)): `x-openclaw-token` header may not auto-populate during "Hire Agent" flow. Workaround: patch via SQL after agent creation.
+- Paperclip needs initial onboarding via the web UI before the API accepts requests. If setup-paperclip.js logs "needs initial onboarding", visit `/paperclip/` to complete setup.
+
+**What Paperclip replaces:**
+| Old (custom code) | New (Paperclip) |
+|---|---|
+| `AGENT_ORG`, `AGENT_GOVERNANCE` constants in app.js | Paperclip org chart + budget controls |
+| Governance Alpine.js store (~540 lines) | Paperclip audit trail + agent scores |
+| LiteGraph workflow engine (workflow.js, 1274 lines) | Paperclip task queues + goal hierarchy |
+| Workflow bridge (workflow-bridge.js, 530 lines) | Paperclip agent heartbeats |
+| Custom auto-kickoff (auto-kickoff.js) | Paperclip heartbeat wakeups (kept as fallback) |
+| Custom inbox-check cron | Paperclip periodic heartbeats (kept as fallback) |
+| DEMO_AGENTS systemPrompts (~180 lines each) | Minimal fallback prompts (1 line each) |
+
+**What was kept:**
+- OpenClaw as agent runtime (tools, memory, sessions, cron)
+- LiteLLM for multi-provider model routing
+- Caddy for auth/proxy/HTTPS
+- Scrapling for web scraping
+- Webhook handler for external triggers
+- Chat system (3-tier fallback: OpenClaw WS → LiteLLM SSE → demo)
+- All protected fixes (auth handshake, streaming, config guards, message filtering)
+- `seed-agent-workspaces.js` (still needed for OpenClaw workspace files)
+- `seed-via-rpc.js` (still needed for RPC file push)
+- `auto-kickoff.js` (kept as fallback until Paperclip heartbeats verified)
+- `patch-openclaw-config.js` (still needed for gateway/auth/tools/cron config)
+
+**Env vars:** `PAPERCLIP_DB_PASSWORD` (auto-generated), `BETTER_AUTH_SECRET` (auto-generated)
+
+**Files:** `paperclip/Dockerfile`, `scripts/setup-paperclip.js`
 
 ---
 

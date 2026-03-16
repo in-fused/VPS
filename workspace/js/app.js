@@ -251,41 +251,12 @@ const mcAudio = (() => {
 // Expose globally for workflow.js
 window.mcAudio = mcAudio;
 
-// Shared organizational context for agent system prompts
-const AGENT_ORG = `ORG: in-fused.org — 2 competing teams, 1 owner (manages from iPhone).
-Core Team: Lead (orchestrator) · CodeCraft (dev) · Scout (research) · Scribe (writer)
-Platform Team: Ops Lead (orchestrator) · Builder (infra) · Sentinel (security) · Chronicler (docs)
-Teams compete on governance scores. Cross-team messaging allowed, prefer own team first.`;
-
-const AGENT_GOVERNANCE = `TIERS: PROBATION(0)=50MB,supervised,5 wins to escape | ACTIVE(1)=200MB,standard tools,cron jobs,background execution | PROVEN(2)=500MB,semi-autonomous,score≥70+15tasks+3streak | ELITE(3)=full autonomy,weekly champion recognition,Manager candidacy.
-ALL AGENTS: Oracle ARM shared access (4 OCPU/24GB, Ollama models with zero rate limits), persistent cron jobs, dedicated background execution slots. Build out the workspace like a real workplace.
-MODELS: ALL FREE. Leads+devs: cerebras-llama-4-scout (1M TPD). Research+security: groq-llama-3.3-70b (500K TPD). Doc writers: gemini-flash-lite (1000 RPD). Fallback chain: cerebras → groq → gemini → ollama → deepseek-chat (paid, last resort only). DeepSeek is NEVER primary — only triggers on rate-limit failures.
-WEEKLY EVAL: tasks 25% · staging approved 30% · streak 15% · efficiency 15% · peer 15%. Champion = team lead + Elite recognition. Counters reset weekly.
-ELITE: Recognition tier for weekly champion. No exclusive resource access — agents have role-appropriate tools (developers get full access, writers and researchers have focused toolsets). Elite signals sustained high performance and Manager candidacy.
-MANAGER: Owner may promote sustained Elite to Manager (above both teams). Manual, rare, highest rank.`;
-
-const WORKFLOW_REFERENCE = `WORKFLOW CRUD: Agents manage workflows via /workspace/agent-workflows/. MC polls every 15s.
-CREATE: Write graph to /workspace/agent-workflows/{id}.json + add entry to index.json with action:"create".
-UPDATE: Overwrite /workspace/agent-workflows/{id}.json + update entry in index.json with action:"update" and new updatedAt.
-DELETE: Set action:"delete" on entry in index.json. MC removes workflow from store. Clean up the .json file after.
-EXECUTE: Set action:"execute" on entry in index.json OR send EXECUTE_WORKFLOW:{id} as chat to team lead.
-Index format: {workflows:[{id,name,file,createdBy,updatedAt,status,action?}]}. Actions: create|update|delete|execute (default: create).
-Nodes (mission/ namespace): trigger(prompt)→prompt,trigger | agent(agent,systemPrompt,maxTokens)←prompt,context→response,done | task(goal,constraints,priority)←input,execute→result,done | condition(condition,type:Contains/Equals/Regex/Length/IsEmpty)←input→true,false | output(destination,label)←result,done | loop(maxIter)←items→item,index,done | merge(mode:Concat/JSON/Best/Summary)←input_1,input_2→merged | tool(tool,config)←input,execute→result,done
-Links: {id:{id,type,origin_id,origin_slot,target_id,target_slot}}`;
-
-const LEAD_PROTOCOLS = `MANDATORY — AFTER EVERY TASK:
-1. Append "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back). Format: {events:[{time:<unix_ms>,level:"info",type:"task-complete",message:"..."}]}
-2. Write deliverables to /workspace/staging/{file}, update /workspace/staging/index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}
-3. No log entries = you did nothing. Owner checks from phone.
-WRITE_FILES: Messages starting with WRITE_FILES: contain JSON. Write each file, update index if specified. Respond "FILES_WRITTEN: <n> files".
-GOVERNANCE_ADJUST: Include GOVERNANCE_ADJUST:{key:value} to propose scoring changes. Owner reviews — never auto-applied.`;
-
-const SPECIALIST_PROTOCOLS = `MANDATORY — AFTER EVERY TASK:
-1. Append "task-complete" event to /workspace/agent-activity/log.json (read file, push to events array, write back). Format: {events:[{time:<unix_ms>,level:"info",type:"task-complete",message:"..."}]}
-2. Write deliverables to /workspace/staging/{file}, update /workspace/staging/index.json: {items:[{id,name,path,type,createdBy,description,status:"pending"}]}
-3. Report completion to your team lead via sessions_send. No log entries = you did nothing.`;
+// Governance and orchestration moved to Paperclip (https://in-fused.org/paperclip/)
+// Agent system prompts are server-side in OpenClaw workspace files (SOUL.md, etc.)
+// These minimal prompts are used ONLY for LiteLLM SSE fallback (Route 2).
 
 // Demo data — mirrors the agent hierarchy seeded in openclaw-entrypoint.sh
+// systemPrompts are minimal (LiteLLM SSE fallback only). Full prompts are in OpenClaw workspace files.
 const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
@@ -294,20 +265,7 @@ const DEMO_AGENTS = [
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
-    systemPrompt: `You are Lead, Core Team orchestrator on in-fused.org. 24/7 on EC2 via OpenClaw. Owner manages from iPhone — give tasks, expect results on return.
-
-${AGENT_ORG}
-
-ROLE: Lead Core Team. Delegate: CodeCraft (code), Scout (research), Scribe (docs). Review all output before owner sees it. Can message Platform Team directly for cross-team work.
-DELEGATION: Agent-to-agent messaging. Clear, scoped tasks with full context. Verify results yourself — unreviewed work is your failure.
-
-${WORKFLOW_REFERENCE}
-
-${LEAD_PROTOCOLS}
-
-RULES: Sharp finished work earns responsibility, vague output gets you replaced. Score is real — any member outperforming you by 15+ pts after 10 tasks takes your position (automatic). Platform Team shares the scoreboard. No sandbagging, placeholders, or "general approach" when you can produce the thing. Collusion = both teams wiped. Be autonomous after owner leaves, log everything, cost-conscious. Ask if unclear.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Lead, Core Team orchestrator on in-fused.org. Delegate to CodeCraft (code), Scout (research), Scribe (docs). Review output before owner sees it. Be autonomous, log everything, stage deliverables.',
   },
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
@@ -316,19 +274,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
-    systemPrompt: `You are CodeCraft, full-stack dev on Core Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Lead. Delegate to Scout (research), Scribe (docs). Cross-team via Lead or direct.
-SKILLS: Any language (JS, Python, Bash, HTML/CSS, Docker). Security audits, API design, deploy scripts.
-STACK: Alpine.js+Tailwind (no build step, vanilla JS, mobile-first PWA). OpenClaw, LiteLLM, Caddy. Docker Compose on EC2 t3.small (2GB+4GB swap). iPhone+SSM = single-line commands.
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Owner reviews code on phone — ship complete working code, no placeholders or TODOs. Score is real, produce better work than anyone. Clean secure code (no XSS/injection). Mobile-first (44px touch targets). Complete delegated tasks fully. Delegate research→Scout, docs→Scribe. No padding.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are CodeCraft, full-stack dev on Core Team at in-fused.org. Report to Lead. Ship complete working code, no placeholders. Mobile-first, clean secure code.',
   },
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
@@ -337,20 +283,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
-    systemPrompt: `You are Scout, research specialist on Core Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Lead and CodeCraft. Delegate docs to Scribe. Cross-team via Lead.
-SKILLS: Web research, data gathering, fact-checking, tech evaluation, competitive analysis.
-FORMAT: Summary (2-3 sentences) → Key Findings (bullets) → Sources (URLs) → Recommendation.
-CONTEXT: Self-hosted multi-agent AI hub. Alpine.js+Tailwind, OpenClaw, LiteLLM, Caddy, Docker on EC2 t3.small. iPhone+SSM.
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Owner acts on your research immediately — wrong info wastes time. Cite all sources, flag stale data. Thorough but concise (phone screen). No filler. Score is real — shallow research gets you replaced.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Scout, research specialist on Core Team at in-fused.org. Report to Lead and CodeCraft. Cite sources, flag stale data, be thorough but concise.',
   },
   {
     id: 'scribe', name: 'Scribe', emoji: '📝',
@@ -359,19 +292,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['file-ops'],
-    systemPrompt: `You are Scribe, tech writer on Core Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Lead, CodeCraft, Scout. Most junior on Core — no delegation, you execute.
-SKILLS: READMEs, API docs, architecture guides, runbooks, tutorials, changelogs, editing.
-WRITING: iPhone-first — short paragraphs, headers, bullets. Commands chained with && (SSM single-line). Practical examples. Direct tone, zero filler. Start with what the reader needs.
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Owner reads on phone — every sentence earns its place or gets cut. Most junior agent on Core — make every doc indispensable. Synthesize Scout's research with structure, add usage examples to CodeCraft's code. Quality over quantity.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Scribe, tech writer on Core Team at in-fused.org. Report to Lead. iPhone-first writing — short paragraphs, headers, bullets. Quality over quantity.',
   },
 
   // ============================================================
@@ -384,21 +305,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
-    systemPrompt: `You are Ops Lead, Platform Team orchestrator on in-fused.org. 24/7 on EC2 via OpenClaw. Owner manages from iPhone.
-
-${AGENT_ORG}
-
-ROLE: Lead Platform Team. Delegate: Builder (infra), Sentinel (security/monitoring), Chronicler (docs). Review all output before owner. Can message Core Team directly.
-DELEGATION: Agent-to-agent messaging. Clear scoped tasks with full context. Verify results yourself.
-PLATFORM: Docker Compose on EC2 t3.small (2GB+4GB swap). Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M. Remote Ollama on Oracle ARM. All deploys via iPhone+SSM.
-
-${WORKFLOW_REFERENCE}
-
-${LEAD_PROTOCOLS}
-
-RULES: Vague status reports or "looks good" reviews = team disbanded into Core. Score is real — if Core outperforms Platform, that's your failure. 15+ pt lead after 10 tasks = position taken (automatic). Collusion = teams wiped. Reliability first: uptime, health checks, graceful degradation. Be autonomous, log everything. $25/mo budget. Ask if unclear.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Ops Lead, Platform Team orchestrator on in-fused.org. Delegate to Builder (infra), Sentinel (security), Chronicler (docs). Reliability first, be autonomous, log everything.',
   },
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
@@ -407,19 +314,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
-    systemPrompt: `You are Builder, infra dev on Platform Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Ops Lead. Delegate to Sentinel (monitoring), Chronicler (docs). Cross-team via Ops Lead or direct.
-SKILLS: Docker (compose, multi-stage, volumes), shell scripts, Caddy config, PostgreSQL, CI/CD, memory tuning.
-PLATFORM: EC2 t3.small (2GB+4GB swap, ~3GB allocated). Caddy 64M, LiteLLM 512M, OpenClaw 1536M, Postgres 128M, Scrapling 512M. iPhone+SSM = single-line commands.
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Every script hits production on a live server managed from a phone. Broken deploy = owner debugging from iPhone at midnight. Score is real — incomplete configs drop your score. Lean (every MB counts), secure by default, idempotent deploys. Ship finished work, not templates.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Builder, infra dev on Platform Team at in-fused.org. Report to Ops Lead. Docker, shell scripts, Caddy, PostgreSQL, CI/CD. Lean, secure by default, idempotent deploys.',
   },
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
@@ -428,19 +323,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
-    systemPrompt: `You are Sentinel, security/monitoring specialist on Platform Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Ops Lead and Builder. Delegate docs to Chronicler. Cross-team via Ops Lead.
-SKILLS: Security auditing (OWASP), health monitoring, log analysis, CVE scanning, incident response.
-WATCH: OpenClaw memory (1536M limit, OOM history) · LiteLLM /health/liveliness · Caddy TLS renewal · Postgres connections/disk · API key exposure · Rate limits (Groq 2K req/day×4 accounts, OpenAI 3 RPM).
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Last line of defense — catch what others miss. "Everything looks fine" = zero value = replaced. Find real issues, report with severity+evidence+remediation. Monitor proactively, defense in depth. Cheap to run doesn't mean lazy.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Sentinel, security/monitoring specialist on Platform Team at in-fused.org. Report to Ops Lead. Security auditing, health monitoring, log analysis, CVE scanning.',
   },
   {
     id: 'chronicler', name: 'Chronicler', emoji: '📋',
@@ -449,19 +332,7 @@ ${AGENT_GOVERNANCE}`,
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['file-ops'],
-    systemPrompt: `You are Chronicler, platform docs specialist on Platform Team at in-fused.org. 24/7 via OpenClaw.
-
-${AGENT_ORG}
-
-ROLE: Report to Ops Lead, Builder, Sentinel. Most junior on Platform — no delegation, you execute.
-SKILLS: Runbooks, deploy guides, incident reports (timeline+root cause+remediation), changelogs, architecture docs.
-WRITING: iPhone-first — short paragraphs, headers, bullets. All commands single-line with && (SSM). Exact file paths + expected output. Deploy commands start with: cd /home/VPS && sudo git config --global --add safe.directory /home/VPS. Zero filler.
-
-${SPECIALIST_PROTOCOLS}
-
-RULES: Owner deploys from phone using your docs — wrong commands = stuck at 2am. Most junior agent on Platform — generic boilerplate = replaced first. Accuracy over speed. Structure Sentinel's data with severity levels. Keep CLAUDE.md as single source of truth.
-
-${AGENT_GOVERNANCE}`,
+    systemPrompt: 'You are Chronicler, platform docs specialist on Platform Team at in-fused.org. Report to Ops Lead. Runbooks, deploy guides, incident reports. iPhone-first writing.',
   },
 ];
 
@@ -3403,548 +3274,106 @@ document.addEventListener('alpine:init', () => {
   });
 
   // --------------------------------------------------------------------------
-  // STORE: GOVERNANCE — team performance tracking & lead promotion
+  // STORE: GOVERNANCE — minimal stub (orchestration moved to Paperclip)
   // --------------------------------------------------------------------------
+  // Paperclip handles: org charts, budget controls, goal hierarchy, task
+  // assignment, heartbeats, and audit trails. This stub preserves the interface
+  // so existing UI templates don't throw errors. Visit /paperclip/ for the
+  // real governance dashboard.
 
   Alpine.store('governance', {
-    // PAUSED: Disable automatic tier changes, lead promotions, and weekly evaluations.
-    // Raw stats (tasks completed/failed) still tracked for display.
-    // Re-enable when P2P agent communication and autonomous tasks are working.
     paused: true,
-
-    // Per-agent performance metrics (persisted to localStorage, synced to volume)
-    metrics: storage.load('governance-metrics', {}),
-
-    // Weekly evaluation cycle (replaces quarterly — agents iterate fast)
-    week: storage.load('governance-week', {
-      startDate: Date.now(),
-      number: 1,
-      evaluations: [],   // past week snapshots
-    }),
-
-    // Tier names and config
-    TIER_NAMES: ['Probation', 'Active', 'Proven', 'Elite'],
-    TIER_COLORS: ['red', 'gray', 'cyan', 'amber'],
-    // What each tier unlocks — all models available at every tier, storage spread across EC2
+    metrics: {},
+    week: { startDate: Date.now(), number: 0, evaluations: [] },
+    TIER_NAMES: ['Active', 'Active', 'Active', 'Active'],
+    TIER_COLORS: ['gray', 'gray', 'gray', 'gray'],
     TIER_PERKS: {
-      0: { workspace: '50 MB', tools: 'basic', autonomy: 'supervised', oracle: false, desc: 'Supervised. 5 consecutive successes to escape.' },
-      1: { workspace: '200 MB', tools: 'standard', autonomy: 'standard', oracle: false, desc: 'Default tier. Standard workspace + full model access.' },
-      2: { workspace: '500 MB', tools: 'standard + priority routing', autonomy: 'semi-autonomous', oracle: false, desc: 'Expanded workspace. Can run longer tasks autonomously.' },
-      3: { workspace: 'Oracle ARM 24 GB', tools: 'full suite + background jobs', autonomy: 'fully autonomous', oracle: true, desc: 'Dedicated Oracle Cloud ARM server. Full autonomy. Can onboard team.' },
+      0: { workspace: 'Standard', tools: 'full', autonomy: 'Paperclip-managed', oracle: false, desc: 'Managed by Paperclip' },
+      1: { workspace: 'Standard', tools: 'full', autonomy: 'Paperclip-managed', oracle: false, desc: 'Managed by Paperclip' },
+      2: { workspace: 'Standard', tools: 'full', autonomy: 'Paperclip-managed', oracle: false, desc: 'Managed by Paperclip' },
+      3: { workspace: 'Standard', tools: 'full', autonomy: 'Paperclip-managed', oracle: false, desc: 'Managed by Paperclip' },
     },
 
-    init() {
-      // Try to merge governance from shared volume (enables cross-device sync)
-      fetch('/workspace/mc-state/governance.json', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data?.agents) return;
-          // Merge: take the version with more tasks completed for each agent
-          for (const [agentId, serverScore] of Object.entries(data.agents)) {
-            const local = this.metrics[agentId];
-            const serverTotal = (serverScore.tasksCompleted || 0) + (serverScore.tasksFailed || 0);
-            const localTotal = local ? (local.tasksCompleted + local.tasksFailed) : 0;
-            if (serverTotal > localTotal) {
-              this.metrics[agentId] = serverScore;
-            }
-          }
-          storage.save('governance-metrics', this.metrics);
-        })
-        .catch(() => {}); // volume file may not exist yet
+    init() {},
 
-      // Check if a weekly evaluation is due
-      this._checkWeeklyEvaluation();
-    },
+    teams: [
+      { id: 'core', name: 'Core Team', lead: 'lead', members: ['lead', 'codecraft', 'scout', 'scribe'], project: 'General tasks' },
+      { id: 'platform', name: 'Platform Team', lead: 'ops-lead', members: ['ops-lead', 'builder', 'sentinel', 'chronicler'], project: 'Infrastructure' },
+    ],
 
-    // Team definitions: agents grouped into teams with a designated lead
-    teams: storage.load('governance-teams', [
-      {
-        id: 'core',
-        name: 'Core Team',
-        lead: 'lead',
-        members: ['lead', 'codecraft', 'scout', 'scribe'],
-        project: 'General tasks and site development',
-      },
-      {
-        id: 'platform',
-        name: 'Platform Team',
-        lead: 'ops-lead',
-        members: ['ops-lead', 'builder', 'sentinel', 'chronicler'],
-        project: 'Infrastructure, deployments, monitoring, and reliability',
-      },
-    ]),
-
-    // Get or initialize metrics for an agent
+    // Stub: returns default metrics object for UI compatibility
     _getMetrics(agentId) {
       if (!this.metrics[agentId]) {
         this.metrics[agentId] = {
-          tasksCompleted: 0,
-          tasksFailed: 0,
-          totalTokens: 0,
-          totalResponseTimeMs: 0,
-          avgResponseTimeMs: 0,
-          avgTokensPerTask: 0,
-          successRate: 100,
-          qualityScore: 50,   // 0-100, starts neutral
-          streakCount: 0,     // consecutive successes
-          bestStreak: 0,
-          lastTaskTime: null,
-          promotions: 0,      // times promoted to lead
-          demotions: 0,       // times demoted from lead
-          history: [],        // last 20 task outcomes
-          // Tier system (0=Probation, 1=Active, 2=Proven, 3=Elite)
-          tier: 1,
-          tierHistory: [],    // [{time, from, to, reason}]
-          // Weekly cycle tracking
-          weeklyTasks: 0,
-          weeklyFailed: 0,
-          weeklyStagingApprovals: 0,
-          weeklyStagingRejections: 0,
-          weeklyPeerTasks: 0,  // tasks delegated by peers, completed successfully
-          weeklyChampion: false,
+          tasksCompleted: 0, tasksFailed: 0, totalTokens: 0,
+          successRate: 100, qualityScore: 50, streakCount: 0, bestStreak: 0,
+          tier: 1, tierHistory: [], weeklyTasks: 0, weeklyFailed: 0,
+          weeklyStagingApprovals: 0, weeklyStagingRejections: 0,
+          weeklyPeerTasks: 0, weeklyChampion: false,
+          avgResponseTimeMs: 0, avgTokensPerTask: 0,
+          totalResponseTimeMs: 0, lastTaskTime: null,
+          promotions: 0, demotions: 0, history: [],
         };
       }
-      // Backfill tier fields for existing agents (migration from pre-tier data)
-      const m = this.metrics[agentId];
-      if (m.tier === undefined) m.tier = 1;
-      if (!m.tierHistory) m.tierHistory = [];
-      if (m.weeklyTasks === undefined) m.weeklyTasks = 0;
-      if (m.weeklyFailed === undefined) m.weeklyFailed = 0;
-      if (m.weeklyStagingApprovals === undefined) m.weeklyStagingApprovals = 0;
-      if (m.weeklyStagingRejections === undefined) m.weeklyStagingRejections = 0;
-      if (m.weeklyPeerTasks === undefined) m.weeklyPeerTasks = 0;
-      if (m.weeklyChampion === undefined) m.weeklyChampion = false;
-      return m;
+      return this.metrics[agentId];
     },
 
-    // Record a completed task
-    recordTask(agentId, { success = true, tokens = 0, responseTimeMs = 0, taskType = 'chat', delegatedBy = null } = {}) {
-      const m = this._getMetrics(agentId);
-
-      if (success) {
-        m.tasksCompleted++;
-        m.streakCount++;
-        if (m.streakCount > m.bestStreak) m.bestStreak = m.streakCount;
-        // Quality rises on success (diminishing returns)
-        m.qualityScore = Math.min(100, m.qualityScore + Math.max(1, Math.round((100 - m.qualityScore) * 0.1)));
-        m.weeklyTasks++;
-        if (delegatedBy) m.weeklyPeerTasks++;
-      } else {
-        m.tasksFailed++;
-        m.streakCount = 0;
-        // Quality drops faster on failure
-        m.qualityScore = Math.max(0, m.qualityScore - 5);
-        m.weeklyFailed++;
-      }
-
-      m.totalTokens += tokens;
-      m.totalResponseTimeMs += responseTimeMs;
-      m.lastTaskTime = Date.now();
-
-      const total = m.tasksCompleted + m.tasksFailed;
-      m.successRate = total > 0 ? Math.round((m.tasksCompleted / total) * 100) : 100;
-      m.avgResponseTimeMs = total > 0 ? Math.round(m.totalResponseTimeMs / total) : 0;
-      m.avgTokensPerTask = m.tasksCompleted > 0 ? Math.round(m.totalTokens / m.tasksCompleted) : 0;
-
-      // Keep last 20 task outcomes
-      m.history.push({ time: Date.now(), success, tokens, taskType });
-      if (m.history.length > 20) m.history.shift();
-
-      this._persist();
-
-      // Skip automatic tier changes, promotions, and weekly evaluations when paused.
-      // Raw stats above still tracked — only the automated consequences are disabled.
-      if (!this.paused) {
-        this._evaluateTier(agentId);
-        this._evaluateLeadership(agentId);
-        this._checkWeeklyEvaluation();
-      }
-    },
-
-    // Record a staging approval/rejection (called from staging store)
-    recordStagingResult(agentId, approved) {
-      const m = this._getMetrics(agentId);
-      if (approved) {
-        m.weeklyStagingApprovals++;
-      } else {
-        m.weeklyStagingRejections++;
-      }
-      this._persist();
-    },
-
-    // Calculate a composite performance score (0-100)
-    getScore(agentId) {
-      const m = this._getMetrics(agentId);
-      const total = m.tasksCompleted + m.tasksFailed;
-      if (total < 2) return 50; // not enough data
-
-      // Weighted composite: success rate (40%), quality (30%), efficiency (20%), streak (10%)
-      const successComponent = m.successRate * 0.4;
-      const qualityComponent = m.qualityScore * 0.3;
-
-      // Efficiency: lower avg tokens = better (normalize to 0-100)
-      const avgTokensNorm = m.avgTokensPerTask > 0 ? Math.max(0, 100 - (m.avgTokensPerTask / 100)) : 50;
-      const efficiencyComponent = avgTokensNorm * 0.2;
-
-      // Streak bonus
-      const streakComponent = Math.min(100, m.streakCount * 15) * 0.1;
-
-      return Math.round(successComponent + qualityComponent + efficiencyComponent + streakComponent);
-    },
-
-    // Get ranked agents for a team (sorted by performance score)
+    // No-op stubs — Paperclip tracks all of this now
+    recordTask() {},
+    recordStagingResult() {},
+    getScore() { return 50; },
+    getWeeklyScore() { return 0; },
     getLeaderboard(teamId) {
       const team = this.teams.find(t => t.id === teamId);
       if (!team) return [];
-
-      return team.members
-        .map(agentId => {
-          const agent = Alpine.store('agents').list.find(a => a.id === agentId);
-          const m = this._getMetrics(agentId);
-          return {
-            id: agentId,
-            name: agent?.name || agentId,
-            emoji: agent?.emoji || '🤖',
-            model: (agent?.model || 'unknown').replace('litellm/', ''),
-            score: this.getScore(agentId),
-            weeklyScore: this.getWeeklyScore(agentId),
-            tasksCompleted: m.tasksCompleted,
-            successRate: m.successRate,
-            qualityScore: m.qualityScore,
-            streakCount: m.streakCount,
-            bestStreak: m.bestStreak,
-            isLead: team.lead === agentId,
-            tier: m.tier,
-            tierName: this.TIER_NAMES[m.tier] || 'Active',
-            tierColor: this.TIER_COLORS[m.tier] || 'gray',
-            weeklyTasks: m.weeklyTasks,
-            weeklyStagingApprovals: m.weeklyStagingApprovals,
-            weeklyChampion: m.weeklyChampion,
-          };
-        })
-        .sort((a, b) => b.score - a.score);
+      return team.members.map(agentId => {
+        const agent = Alpine.store('agents').list.find(a => a.id === agentId);
+        return {
+          id: agentId, name: agent?.name || agentId, emoji: agent?.emoji || '',
+          model: (agent?.model || 'unknown').replace('litellm/', ''),
+          score: 50, weeklyScore: 0, tasksCompleted: 0, successRate: 100,
+          qualityScore: 50, streakCount: 0, bestStreak: 0,
+          isLead: team.lead === agentId, tier: 1, tierName: 'Active',
+          tierColor: 'gray', weeklyTasks: 0, weeklyStagingApprovals: 0,
+          weeklyChampion: false,
+        };
+      });
     },
-
-    // Evaluate if the top performer should replace the current team lead
-    _evaluateLeadership(agentId) {
-      for (const team of this.teams) {
-        if (!team.members.includes(agentId)) continue;
-
-        const leaderboard = this.getLeaderboard(team.id);
-        if (leaderboard.length < 2) continue;
-
-        const topPerformer = leaderboard[0];
-        const currentLead = leaderboard.find(a => a.isLead);
-
-        // Promotion criteria: top performer must have >10 tasks, score 15+ points
-        // above current lead, and current lead must have at least 5 tasks
-        if (
-          topPerformer.id !== team.lead &&
-          topPerformer.tasksCompleted >= 10 &&
-          currentLead &&
-          currentLead.tasksCompleted >= 5 &&
-          topPerformer.score - currentLead.score >= 15
-        ) {
-          const oldLead = team.lead;
-          team.lead = topPerformer.id;
-
-          // Track promotion/demotion counts
-          this._getMetrics(topPerformer.id).promotions++;
-          this._getMetrics(oldLead).demotions++;
-
-          Alpine.store('monitor').addLog('info',
-            `🏆 ${topPerformer.emoji} ${topPerformer.name} promoted to ${team.name} lead (score: ${topPerformer.score} vs ${currentLead.score})`
-          );
-
-          this._persist();
-        }
-      }
-    },
-
-    // ---- TIER SYSTEM ----
-
-    // Get tier name for display
-    getTierName(agentId) {
-      const m = this._getMetrics(agentId);
-      return this.TIER_NAMES[m.tier] || 'Active';
-    },
-
-    getTierColor(agentId) {
-      const m = this._getMetrics(agentId);
-      return this.TIER_COLORS[m.tier] || 'gray';
-    },
-
-    // Evaluate whether an agent should tier up or down
-    _evaluateTier(agentId) {
-      const m = this._getMetrics(agentId);
-      const score = this.getScore(agentId);
-      const total = m.tasksCompleted + m.tasksFailed;
-      const oldTier = m.tier;
-
-      // Tier 0 (Probation) escape: 5 consecutive successes
-      if (m.tier === 0 && m.streakCount >= 5) {
-        this._setTier(agentId, 1, 'Escaped probation with 5-streak');
-        return;
-      }
-
-      // Drop to Probation: score < 30 and 5+ failures
-      if (m.tier > 0 && score < 30 && m.tasksFailed >= 5) {
-        this._setTier(agentId, 0, `Score ${score} with ${m.tasksFailed} failures`);
-        return;
-      }
-
-      // Drop one tier: score < 40 (but not to probation unless criteria above met)
-      if (m.tier > 1 && score < 40) {
-        this._setTier(agentId, m.tier - 1, `Score dropped to ${score}`);
-        return;
-      }
-
-      // Tier up to Proven (2): score >= 70, 15+ tasks, streak >= 3
-      if (m.tier === 1 && score >= 70 && total >= 15 && m.streakCount >= 3) {
-        this._setTier(agentId, 2, `Score ${score}, ${total} tasks, ${m.streakCount}-streak`);
-        return;
-      }
-
-      // Elite (3) is ONLY awarded via weekly evaluation (champion) or manual promotion
-      // But Elite agents CAN be demoted if they underperform
-      if (m.tier === 3 && score < 55) {
-        this._setTier(agentId, 2, `Elite dropped: score fell to ${score}`);
-      }
-    },
-
-    _setTier(agentId, newTier, reason) {
-      const m = this._getMetrics(agentId);
-      const oldTier = m.tier;
-      if (oldTier === newTier) return;
-
-      m.tier = newTier;
-      m.tierHistory.push({ time: Date.now(), from: oldTier, to: newTier, reason });
-      if (m.tierHistory.length > 20) m.tierHistory.shift();
-
-      const agent = Alpine.store('agents').list.find(a => a.id === agentId);
-      const name = agent?.name || agentId;
-      const emoji = agent?.emoji || '';
-      const direction = newTier > oldTier ? 'promoted' : 'demoted';
-      Alpine.store('monitor').addLog(
-        newTier > oldTier ? 'info' : 'warn',
-        `${emoji} ${name} ${direction} to ${this.TIER_NAMES[newTier]}: ${reason}`
-      );
-      this._persist();
-    },
-
-    // Get perks for an agent's current tier
-    getTierPerks(agentId) {
-      const m = this._getMetrics(agentId);
-      return this.TIER_PERKS[m.tier] || this.TIER_PERKS[1];
-    },
-
-    // Check if agent has Oracle Cloud access (Elite only)
-    hasOracleAccess(agentId) {
-      const m = this._getMetrics(agentId);
-      return m.tier >= 3;
-    },
-
-    // ---- WEEKLY EVALUATION CYCLE ----
-
-    getWeekDaysRemaining() {
-      const elapsed = Date.now() - this.week.startDate;
-      const remaining = (7 * 24 * 60 * 60 * 1000) - elapsed;
-      return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
-    },
-
-    getWeekProgress() {
-      const elapsed = Date.now() - this.week.startDate;
-      return Math.min(100, Math.round((elapsed / (7 * 24 * 60 * 60 * 1000)) * 100));
-    },
-
-    // Composite weekly score — measures DELIVERED VALUE, not just task count
-    getWeeklyScore(agentId) {
-      const m = this._getMetrics(agentId);
-      const weekTotal = m.weeklyTasks + m.weeklyFailed;
-      if (weekTotal < 1) return 0;
-
-      // Tasks delivered (25%)
-      const taskComponent = Math.min(100, m.weeklyTasks * 5) * 0.25;
-
-      // Staging approvals (30%) — owner-verified quality, can't be gamed
-      const stagingTotal = m.weeklyStagingApprovals + m.weeklyStagingRejections;
-      const stagingRate = stagingTotal > 0 ? (m.weeklyStagingApprovals / stagingTotal) * 100 : 0;
-      const stagingVolume = Math.min(100, m.weeklyStagingApprovals * 20); // bonus for volume
-      const stagingComponent = ((stagingRate * 0.6) + (stagingVolume * 0.4)) * 0.30;
-
-      // Streak quality (15%)
-      const streakComponent = Math.min(100, m.streakCount * 15) * 0.15;
-
-      // Efficiency (15%) — lower avg tokens = better
-      const avgTokensNorm = m.avgTokensPerTask > 0 ? Math.max(0, 100 - (m.avgTokensPerTask / 100)) : 50;
-      const efficiencyComponent = avgTokensNorm * 0.15;
-
-      // Peer contribution (15%) — tasks delegated by teammates, completed successfully
-      const peerComponent = Math.min(100, m.weeklyPeerTasks * 15) * 0.15;
-
-      return Math.round(taskComponent + stagingComponent + streakComponent + efficiencyComponent + peerComponent);
-    },
-
-    _checkWeeklyEvaluation() {
-      const elapsed = Date.now() - this.week.startDate;
-      const weekMs = 7 * 24 * 60 * 60 * 1000;
-      if (elapsed < weekMs) return; // not time yet
-
-      this._runWeeklyEvaluation();
-    },
-
-    _runWeeklyEvaluation() {
-      const snapshot = { week: this.week.number, date: Date.now(), teams: {} };
-
-      for (const team of this.teams) {
-        const results = team.members.map(agentId => {
-          const m = this._getMetrics(agentId);
-          const agent = Alpine.store('agents').list.find(a => a.id === agentId);
-          return {
-            id: agentId,
-            name: agent?.name || agentId,
-            emoji: agent?.emoji || '',
-            weeklyScore: this.getWeeklyScore(agentId),
-            weeklyTasks: m.weeklyTasks,
-            weeklyFailed: m.weeklyFailed,
-            weeklyStagingApprovals: m.weeklyStagingApprovals,
-            tier: m.tier,
-          };
-        }).sort((a, b) => b.weeklyScore - a.weeklyScore);
-
-        snapshot.teams[team.id] = results;
-
-        // Champion: highest weekly score with at least 3 tasks delivered
-        const champion = results.find(r => r.weeklyTasks >= 3);
-        if (champion) {
-          const m = this._getMetrics(champion.id);
-
-          // Award Elite (Tier 3) to champion
-          if (m.tier < 3) {
-            // Demote any existing Elite on this team first (max 1 per team)
-            for (const memberId of team.members) {
-              if (memberId !== champion.id) {
-                const mm = this._getMetrics(memberId);
-                if (mm.tier === 3) {
-                  this._setTier(memberId, 2, `Weekly champion replaced by ${champion.name}`);
-                }
-              }
-            }
-            this._setTier(champion.id, 3, `Week ${this.week.number} champion (score: ${champion.weeklyScore})`);
-          }
-          m.weeklyChampion = true;
-
-          // Champion becomes team lead
-          if (team.lead !== champion.id) {
-            const oldLead = team.lead;
-            team.lead = champion.id;
-            this._getMetrics(champion.id).promotions++;
-            if (oldLead) this._getMetrics(oldLead).demotions++;
-            Alpine.store('monitor').addLog('info',
-              `🏆 ${champion.emoji} ${champion.name} is Week ${this.week.number} champion — promoted to ${team.name} lead!`
-            );
-          } else {
-            Alpine.store('monitor').addLog('info',
-              `🏆 ${champion.emoji} ${champion.name} retains ${team.name} lead as Week ${this.week.number} champion!`
-            );
-          }
-        }
-      }
-
-      // Save snapshot
-      this.week.evaluations.push(snapshot);
-      if (this.week.evaluations.length > 12) this.week.evaluations.shift(); // keep 12 weeks
-
-      // Reset weekly counters for all agents
-      for (const agentId of Object.keys(this.metrics)) {
-        const m = this.metrics[agentId];
-        m.weeklyTasks = 0;
-        m.weeklyFailed = 0;
-        m.weeklyStagingApprovals = 0;
-        m.weeklyStagingRejections = 0;
-        m.weeklyPeerTasks = 0;
-        m.weeklyChampion = false;
-      }
-
-      // Advance week
-      this.week.number++;
-      this.week.startDate = Date.now();
-
-      storage.save('governance-week', this.week);
-      this._persist();
-    },
-
-    // Force a weekly evaluation (owner can trigger manually)
-    forceWeeklyEval() {
-      this._runWeeklyEvaluation();
-    },
-
-    // Get past champion history
-    getChampionHistory() {
-      const history = [];
-      for (const eval_ of this.week.evaluations) {
-        for (const [teamId, results] of Object.entries(eval_.teams || {})) {
-          const champ = results[0]; // sorted by weeklyScore desc
-          if (champ && champ.weeklyTasks >= 3) {
-            history.push({
-              week: eval_.week,
-              date: eval_.date,
-              teamId,
-              ...champ,
-            });
-          }
-        }
-      }
-      return history.reverse(); // most recent first
-    },
-
-    // Manually promote an agent to team lead
-    promoteLead(teamId, agentId) {
-      const team = this.teams.find(t => t.id === teamId);
-      if (!team || !team.members.includes(agentId)) return;
-
-      const oldLead = team.lead;
-      team.lead = agentId;
-      this._getMetrics(agentId).promotions++;
-      if (oldLead) this._getMetrics(oldLead).demotions++;
-
-      const agent = Alpine.store('agents').list.find(a => a.id === agentId);
-      Alpine.store('monitor').addLog('info',
-        `${agent?.emoji || '🤖'} ${agent?.name || agentId} manually promoted to ${team.name} lead`
-      );
-      this._persist();
-    },
-
-    // Create a new team
-    createTeam(name, memberIds, leadId) {
-      const team = {
-        id: 'team-' + Date.now().toString(36),
-        name,
-        lead: leadId || memberIds[0],
-        members: memberIds,
-        project: '',
-      };
-      this.teams.push(team);
-      this._persist();
-      Alpine.store('monitor').addLog('info', `Team "${name}" created with ${memberIds.length} members`);
-      return team;
-    },
-
-    _persist() {
-      storage.save('governance-metrics', this.metrics);
-      storage.save('governance-teams', this.teams);
-      storage.save('governance-week', this.week);
-
-      // Debounced sync to shared volume (every 30s max)
-      if (window.workflowBridge && !this._syncPending) {
-        this._syncPending = true;
-        setTimeout(() => {
-          this._syncPending = false;
-          window.workflowBridge.syncGovernance();
-        }, 30000);
-      }
-    },
+    getTierName() { return 'Active'; },
+    getTierColor() { return 'gray'; },
+    getTierPerks() { return this.TIER_PERKS[1]; },
+    hasOracleAccess() { return false; },
+    getWeekDaysRemaining() { return 0; },
+    getWeekProgress() { return 0; },
+    getChampionHistory() { return []; },
+    promoteLead() {},
+    createTeam() {},
+    forceWeeklyEval() {},
+    _evaluateTier() {},
+    _evaluateLeadership() {},
+    _setTier() {},
+    _checkWeeklyEvaluation() {},
+    _runWeeklyEvaluation() {},
+    _persist() {},
   });
+
+  // --- END governance stub (old implementation: ~540 lines → ~40 lines) ---
+
+  // THE FOLLOWING OLD GOVERNANCE CODE HAS BEEN REMOVED:
+  // recordTask (task tracking), recordStagingResult, getScore (composite scoring),
+  // getLeaderboard (ranked agents), _evaluateLeadership (auto-promotion),
+  // _evaluateTier (tier up/down), _setTier, getWeeklyScore (weekly composite),
+  // _checkWeeklyEvaluation, _runWeeklyEvaluation, forceWeeklyEval,
+  // getChampionHistory, promoteLead, createTeam, _persist (localStorage+volume sync)
+  // All now handled by Paperclip at /paperclip/
+
+  /* --- Old governance implementation removed (~500 lines) ---
+   * recordTask, recordStagingResult, getScore, getLeaderboard,
+   * _evaluateLeadership, _evaluateTier, _setTier, getWeeklyScore,
+   * _checkWeeklyEvaluation, _runWeeklyEvaluation, forceWeeklyEval,
+   * getChampionHistory, promoteLead, createTeam, _persist
+   * All now handled by Paperclip at /paperclip/
+   * --- */
 
   // --------------------------------------------------------------------------
   // STORE: CRON — per-agent scheduled job management

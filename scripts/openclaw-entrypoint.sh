@@ -44,6 +44,11 @@ node /opt/scripts/seed-agent-workspaces.js
 # burn out before the gateway is even listening.
 (sleep 45 && node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
 
+# Step 3b: Register agents in Paperclip (background, non-blocking).
+# Waits for Paperclip to be healthy, creates company + agents + goals.
+# Idempotent — skips existing resources. Non-fatal on failure.
+(sleep 60 && node /opt/scripts/setup-paperclip.js) &
+
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.
 exec node openclaw.mjs gateway --allow-unconfigured

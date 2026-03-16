@@ -50,8 +50,7 @@
   <!-- Custom Styles -->
   <link rel="stylesheet" href="css/styles.css">
 
-  <!-- LiteGraph.js CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.18/css/litegraph.css">
+  <!-- LiteGraph removed — workflows moved to Paperclip -->
 
   <!-- Alpine.js (deferred — runs after app.js registers stores) -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
@@ -249,16 +248,15 @@
                 x-text="$store.sessions.list.reduce((n, s) => n + s.unread, 0)"></span>
         </button>
 
-        <!-- Workflows -->
-        <button x-show="$store.settings.isVisible('workflows')"
-                @click="$store.app.setView('workflows')"
-                :class="$store.app.view === 'workflows' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Workflows">
+        <!-- Paperclip — Agent Orchestration -->
+        <a href="/paperclip/" target="_blank"
+           x-show="$store.settings.isVisible('workflows')"
+           class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text" data-tip="Paperclip">
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
           </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Workflows</span>
-        </button>
+          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Paperclip</span>
+        </a>
 
         <!-- ── OBSERVE ── -->
         <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="mc-nav-section-header">OBSERVE</div>
@@ -588,6 +586,19 @@
             </div>
           </div>
 
+          <!-- Paperclip Quick Access -->
+          <a href="/paperclip/" target="_blank"
+             class="mb-6 flex items-center gap-4 p-4 bg-mc-surface border border-mc-border rounded-xl hover:border-cyan-500/30 transition-all group cursor-pointer block">
+            <div class="text-2xl">📎</div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-mc-text group-hover:text-cyan-400 transition-colors">Paperclip — Agent Orchestration</div>
+              <div class="text-xs text-mc-text-muted">Org charts, budgets, goals, task queues, audit trails</div>
+            </div>
+            <svg class="w-4 h-4 text-mc-text-muted group-hover:text-cyan-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+            </svg>
+          </a>
+
           <!-- Active Agents -->
           <div class="mb-8">
             <div class="flex items-center justify-between mb-4">
@@ -902,190 +913,22 @@
         </div>
 
         <!-- ==========================================
-             VIEW: WORKFLOWS
+             VIEW: WORKFLOWS — Redirects to Paperclip
              ========================================== -->
         <div x-show="$store.app.view === 'workflows'"
              x-transition:enter="animate-fade-up"
-             class="h-full flex overflow-hidden relative">
-
-          <!-- Workflow Sidebar (desktop: inline panel, mobile: bottom sheet) -->
-          <div :class="$store.app.mobile ? 'mc-workflow-panel-mobile' + ($store.app.workflowPanelOpen ? ' open' : '') : 'w-52 min-w-[208px]'"
-               class="bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
-            <!-- Mobile drag handle -->
-            <div x-show="$store.app.mobile" class="flex justify-center pt-2 pb-1 flex-shrink-0"
-                 @click="$store.app.workflowPanelOpen = false">
-              <div class="w-10 h-1 rounded-full bg-mc-border"></div>
-            </div>
-            <div class="p-4 border-b border-mc-border flex-shrink-0" x-data="{ nodesOpen: false }">
-              <button @click="nodesOpen = !nodesOpen" class="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-1">
-                <span>Node Palette</span>
-                <svg class="w-3.5 h-3.5 transition-transform" :class="nodesOpen && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
-                </svg>
-              </button>
-              <div x-show="nodesOpen" x-transition class="grid grid-cols-2 gap-1.5 mt-2">
-                <button @click="addNodeToCanvas('trigger')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🎯</span> Trigger
-                </button>
-                <button @click="addNodeToCanvas('agent')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🤖</span> Agent
-                </button>
-                <button @click="addNodeToCanvas('task')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">📋</span> Task
-                </button>
-                <button @click="addNodeToCanvas('tool')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🔧</span> Tool
-                </button>
-                <button @click="addNodeToCanvas('condition')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🔀</span> Condition
-                </button>
-                <button @click="addNodeToCanvas('loop')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🔄</span> Loop
-                </button>
-                <button @click="addNodeToCanvas('merge')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">🔗</span> Merge
-                </button>
-                <button @click="addNodeToCanvas('output')" class="mc-palette-node flex items-center gap-1.5 px-2.5 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs text-mc-text-sec">
-                  <span class="text-sm">📤</span> Output
-                </button>
-              </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 min-h-[120px]">
-              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted mb-3">Saved Workflows</div>
-              <button @click="$store.workflows.create(prompt('Workflow name:', 'Untitled Workflow'))"
-                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 mb-3 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                </svg>
-                New Workflow
-              </button>
-              <div class="space-y-1.5">
-                <template x-for="wf in $store.workflows.list" :key="wf.id">
-                  <div class="group relative">
-                    <button @click="$store.workflows.load(wf.id)"
-                            class="w-full text-left px-3 py-2 rounded-lg text-xs transition-all"
-                            :class="$store.workflows.activeId === wf.id ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated'">
-                      <div class="font-medium truncate flex items-center gap-1.5">
-                        <span x-text="wf.name"></span>
-                        <span x-show="wf.createdBy && wf.createdBy !== 'user'"
-                              class="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0"
-                              x-text="wf.createdBy"></span>
-                        <span x-show="wf.status === 'running-bg'"
-                              class="text-[10px] px-1 py-0.5 rounded bg-cyan-500/10 text-cyan-400 flex-shrink-0 animate-pulse">bg</span>
-                      </div>
-                      <div class="text-mc-text-muted mt-0.5" x-text="wf.nodes + ' nodes · ' + wf.lastRun"></div>
-                    </button>
-                    <div class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 flex gap-0.5 transition-opacity">
-                      <button @click.stop="$store.workflows.rename(wf.id, prompt('Rename workflow:', wf.name))"
-                              class="p-1 rounded text-mc-text-muted hover:text-cyan-400 transition-colors" title="Rename">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z"/>
-                        </svg>
-                      </button>
-                      <button @click.stop="$store.workflows.duplicate(wf.id)"
-                              class="p-1 rounded text-mc-text-muted hover:text-violet-400 transition-colors" title="Duplicate">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/>
-                        </svg>
-                      </button>
-                      <button @click.stop="if(confirm('Delete this workflow?')) $store.workflows.delete(wf.id)"
-                              class="p-1 rounded text-mc-text-muted hover:text-red-400 transition-colors" title="Delete">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </template>
-                <div x-show="$store.workflows.list.length === 0" class="p-3 text-center text-xs text-mc-text-muted">
-                  No workflows yet. Create one to get started.
-                </div>
-              </div>
-            </div>
-            <div class="p-3 border-t border-mc-border space-y-1.5">
-              <div class="flex gap-1.5">
-                <button @click="$store.workflows.save()"
-                        :disabled="!$store.workflows.activeId"
-                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all disabled:opacity-30">
-                  Save
-                </button>
-                <button @click="window.workflowBridge?.syncToVolume()"
-                        :disabled="!$store.app.ocConnected || $store.workflows.list.length === 0"
-                        class="flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-amber-400 transition-all disabled:opacity-30"
-                        title="Sync all workflows to agent workspaces">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
-                  </svg>
-                  Sync
-                </button>
-              </div>
-              <button @click="$store.workflows.run()"
-                      :disabled="$store.workflows.running || !$store.workflows.activeId"
-                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                      :class="$store.workflows.running ? 'bg-mc-warning-dim text-amber-400 cursor-wait' : 'bg-cyan-500 text-mc-bg hover:brightness-110'"
-                      :style="(!$store.workflows.running && !$store.workflows.activeId) ? 'opacity:0.3;cursor:not-allowed' : ''">
-                <span x-text="$store.workflows.running ? 'Running...' : 'Run Workflow'"></span>
-              </button>
-              <button @click="$store.workflows.runInBackground()"
-                      :disabled="$store.workflows.running || !$store.workflows.activeId || !$store.app.ocConnected"
-                      class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-mc-secondary-dim text-violet-400 hover:bg-violet-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                Background Run
-              </button>
-            </div>
-          </div>
-
-          <!-- Canvas -->
-          <div class="flex-1 relative bg-mc-bg flex flex-col">
-            <!-- Background execution results banner -->
-            <template x-if="$store.workflows.active?._bgResult">
-              <div class="flex items-center gap-3 px-4 py-2 border-b border-mc-border text-xs"
-                   :class="$store.workflows.active?.status === 'completed' ? 'bg-emerald-500/10' : 'bg-red-500/10'">
-                <span :class="$store.workflows.active?.status === 'completed' ? 'text-emerald-400' : 'text-red-400'"
-                      x-text="$store.workflows.active?.status === 'completed' ? 'Background run completed' : 'Background run failed'"></span>
-                <span class="text-mc-text-muted" x-text="$store.workflows.active?.lastRun"></span>
-                <button @click="$store.app._showBgResults = !$store.app._showBgResults"
-                        class="ml-auto text-cyan-400 hover:text-cyan-300 transition-colors">
-                  <span x-text="$store.app._showBgResults ? 'Hide Results' : 'Show Results'"></span>
-                </button>
-                <button @click="$store.workflows.active._bgResult = null"
-                        class="text-mc-text-muted hover:text-mc-text transition-colors">Dismiss</button>
-              </div>
-            </template>
-            <!-- Background results detail panel -->
-            <div x-show="$store.app._showBgResults && $store.workflows.active?._bgResult"
-                 x-transition class="border-b border-mc-border bg-mc-surface max-h-64 overflow-y-auto p-3 space-y-2">
-              <!-- Structured output cards when outputs is an object -->
-              <template x-if="$store.workflows.active?._bgResult?.outputs && typeof $store.workflows.active._bgResult.outputs === 'object'">
-                <div class="space-y-2">
-                  <template x-for="[label, value] in Object.entries($store.workflows.active._bgResult.outputs)" :key="label">
-                    <div class="bg-mc-bg rounded-lg border border-mc-border p-3">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-semibold text-cyan-400" x-text="label"></span>
-                        <button @click="$el.parentElement.nextElementSibling.classList.toggle('line-clamp-3')"
-                                class="text-[10px] text-mc-text-muted hover:text-mc-text active:text-cyan-400 min-w-[44px] min-h-[44px] flex items-center justify-center">Expand</button>
-                      </div>
-                      <div class="text-xs text-mc-text-sec whitespace-pre-wrap line-clamp-3" x-text="typeof value === 'string' ? value : JSON.stringify(value, null, 2)"></div>
-                    </div>
-                  </template>
-                  <div class="text-[10px] text-mc-text-muted" x-show="$store.workflows.active?._bgResult?.completedAt"
-                       x-text="'Completed: ' + new Date($store.workflows.active._bgResult.completedAt).toLocaleString()"></div>
-                </div>
-              </template>
-              <!-- Fallback for non-structured results -->
-              <template x-if="!$store.workflows.active?._bgResult?.outputs || typeof $store.workflows.active._bgResult.outputs !== 'object'">
-                <pre class="text-xs text-mc-text-sec font-mono whitespace-pre-wrap"
-                     x-text="JSON.stringify($store.workflows.active?._bgResult, null, 2)"></pre>
-              </template>
-            </div>
-            <!-- Mobile: toggle palette button -->
-            <button @click="$store.app.workflowPanelOpen = !$store.app.workflowPanelOpen"
-                    class="mc-mobile-panel-toggle absolute top-3 left-3 z-10 flex items-center gap-2 px-3 py-2 bg-mc-surface border border-mc-border rounded-lg text-xs text-mc-text-sec shadow-lg">
+             class="h-full flex items-center justify-center">
+          <div class="text-center p-8">
+            <div class="text-4xl mb-4">📎</div>
+            <h2 class="text-xl font-bold text-mc-text mb-2">Workflows moved to Paperclip</h2>
+            <p class="text-mc-text-muted mb-6 max-w-md">Agent orchestration, workflows, budgets, and governance are now managed by Paperclip.</p>
+            <a href="/paperclip/" target="_blank"
+               class="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold transition-colors">
+              Open Paperclip
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
               </svg>
-              Nodes
-            </button>
-            <canvas id="workflow-canvas" class="flex-1 w-full"></canvas>
+            </a>
           </div>
         </div>
 
@@ -1981,8 +1824,8 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
                     </svg>
                     <div>
-                      <div class="text-sm text-mc-text">Workflows</div>
-                      <div class="text-[11px] text-mc-text-muted">Visual workflow builder with LiteGraph.js</div>
+                      <div class="text-sm text-mc-text">Paperclip</div>
+                      <div class="text-[11px] text-mc-text-muted">Agent orchestration dashboard (opens in new tab)</div>
                     </div>
                   </div>
                   <button @click="$store.settings.toggle('workflows')"
@@ -2632,14 +2475,12 @@
   </div>
 
   <!-- ====================================================================
-       SCRIPTS (order matters: openclaw-client → app.js → litegraph → workflow.js)
+       SCRIPTS (order matters: openclaw-client → app.js)
        ==================================================================== -->
   <script src="js/native-bridge.js"></script>
   <script src="js/openclaw-client.js"></script>
   <script src="js/app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/litegraph.js@0.7.18/build/litegraph.min.js"></script>
-  <script src="js/workflow.js"></script>
-  <script src="js/workflow-bridge.js"></script>
+  <!-- LiteGraph + workflow.js + workflow-bridge.js removed — Paperclip handles workflows -->
 
 </body>
 </html>
