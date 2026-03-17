@@ -301,20 +301,15 @@ else
     exit 1
 fi
 
-# Paperclip is behind the 'paperclip' profile — only build if opted in
-if [[ "${COMPOSE_PROFILES:-}" == *paperclip* ]]; then
-    log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
-    if docker compose build paperclip; then
-        log_ok "Paperclip image built"
-    else
-        log_error "Paperclip build failed — check paperclip/Dockerfile"
-        exit 1
-    fi
-    log_info "Pulling Paperclip database image..."
-    docker compose pull paperclip-db || true
+log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
+if docker compose build paperclip; then
+    log_ok "Paperclip image built"
 else
-    log_info "Paperclip profile not active — skipping build (enable with COMPOSE_PROFILES=paperclip)"
+    log_error "Paperclip build failed — check paperclip/Dockerfile"
+    exit 1
 fi
+log_info "Pulling Paperclip database image..."
+docker compose pull paperclip-db || true
 
 ###############################################################################
 # 6. Start the stack
