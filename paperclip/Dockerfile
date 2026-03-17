@@ -25,7 +25,7 @@ RUN pnpm install --frozen-lockfile
 # ---------------------------------------------------------------------------
 FROM deps AS build
 
-RUN NODE_OPTIONS="--max-old-space-size=1024" pnpm --filter @paperclipai/ui build \
+RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @paperclipai/ui build \
     && pnpm --filter @paperclipai/server build
 
 # Verify server build output exists
