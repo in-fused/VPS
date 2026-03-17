@@ -330,7 +330,13 @@ services:
       - PAPERCLIP_DEPLOYMENT_MODE=authenticated
       - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
       - PAPERCLIP_PUBLIC_URL=https://${DOMAIN:-localhost}/paperclip
+      # Better Auth URL must be the origin only (no /paperclip path) because
+      # Caddy handle_path strips the /paperclip/ prefix before proxying.
+      # If the path is included, Better Auth registers routes at /paperclip/api/auth/*
+      # which never match (server only sees /api/auth/* after Caddy strip).
+      - BETTER_AUTH_URL=https://${DOMAIN:-localhost}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_TRUSTED_ORIGINS=https://${DOMAIN:-localhost}
     volumes:
       - paperclip-data:/paperclip
     networks:
