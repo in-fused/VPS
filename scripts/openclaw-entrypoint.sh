@@ -47,7 +47,8 @@ node /opt/scripts/seed-agent-workspaces.js
 # Step 3b: Register agents in Paperclip (background, non-blocking).
 # Waits for Paperclip to be healthy, creates company + agents + goals.
 # Idempotent — skips existing resources. Non-fatal on failure.
-(sleep 60 && node /opt/scripts/setup-paperclip.js) &
+# Only runs if Paperclip is reachable (it's behind an optional Docker profile).
+(sleep 60 && wget -qO- http://paperclip:3100/api/health >/dev/null 2>&1 && node /opt/scripts/setup-paperclip.js || echo "[entrypoint] Paperclip not running — skipping agent registration") &
 
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.

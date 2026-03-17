@@ -243,11 +243,15 @@ if [ -z "${ORACLE_ARM_IP_2:-}" ] && [ -n "${OLLAMA_BASE_URL_2:-}" ]; then
 fi
 
 ###############################################################################
-# 5. Clean up old Docker images to prevent disk-full failures
+# 5. Clean up orphaned containers and old Docker images
 ###############################################################################
+log_info "Stopping orphaned containers from previous runs..."
+docker compose down --remove-orphans 2>/dev/null || true
+log_ok "Orphan cleanup complete"
+
 log_info "Cleaning up unused Docker images..."
 docker image prune -f > /dev/null 2>&1
-log_ok "Cleanup complete"
+log_ok "Image cleanup complete"
 
 ###############################################################################
 # 5. Pull latest images
@@ -255,7 +259,7 @@ log_ok "Cleanup complete"
 log_info "Pulling latest container images (excluding locally-built services)..."
 PULL_ATTEMPTS=3
 # Explicitly list services that use pre-built images (not caddy/scrapling which have build:)
-PULL_SERVICES="litellm litellm-db openclaw watchtower searxng paperclip-db"
+PULL_SERVICES="litellm litellm-db openclaw watchtower searxng"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
         break
@@ -297,12 +301,19 @@ else
     exit 1
 fi
 
-log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
-if docker compose build paperclip; then
-    log_ok "Paperclip image built"
+# Paperclip is behind the 'paperclip' profile — only build if opted in
+if [[ "${COMPOSE_PROFILES:-}" == *paperclip* ]]; then
+    log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
+    if docker compose build paperclip; then
+        log_ok "Paperclip image built"
+    else
+        log_error "Paperclip build failed — check paperclip/Dockerfile"
+        exit 1
+    fi
+    log_info "Pulling Paperclip database image..."
+    docker compose pull paperclip-db || true
 else
-    log_error "Paperclip build failed — check paperclip/Dockerfile"
-    exit 1
+    log_info "Paperclip profile not active — skipping build (enable with COMPOSE_PROFILES=paperclip)"
 fi
 
 ###############################################################################

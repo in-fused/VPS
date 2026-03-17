@@ -177,6 +177,9 @@
 	# Cookie-gated proxy to Paperclip's built-in React UI and REST API.
 	# Paperclip runs on port 3100 with its own auth (BETTER_AUTH_SECRET),
 	# but we gate access at the Caddy level with the site cookie first.
+	# Paperclip is optional (docker compose profile). When the service is
+	# not running, Caddy will return 502 on proxy failure — which is fine.
+	# The reverse_proxy directive handles DNS resolution errors gracefully.
 	@paperclipbare path /paperclip
 	redir @paperclipbare /paperclip/ 301
 	handle_path /paperclip/* {

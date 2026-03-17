@@ -305,12 +305,14 @@ services:
       start_period: 10s
 
   # ===========================================================================
-  # Paperclip — AI Agent Orchestration Layer
+  # Paperclip — AI Agent Orchestration Layer (OPTIONAL)
   # ===========================================================================
   # Open-source orchestration for managing agent teams (org charts, budgets,
   # governance, goal alignment). Replaces custom governance/workflow code.
   # Built from source — no pre-built image on ghcr.io.
   # UI + API at /paperclip/ via Caddy.
+  #
+  # Enable with: docker compose --profile paperclip up -d
   paperclip:
     build:
       context: ./paperclip
@@ -318,6 +320,8 @@ services:
     image: in-fused/paperclip:latest
     container_name: paperclip
     restart: unless-stopped
+    profiles:
+      - paperclip
     depends_on:
       paperclip-db:
         condition: service_healthy
@@ -347,12 +351,14 @@ services:
       start_period: 30s
 
   # ===========================================================================
-  # Paperclip Database — PostgreSQL
+  # Paperclip Database — PostgreSQL (OPTIONAL — required by paperclip)
   # ===========================================================================
   paperclip-db:
     image: postgres:17-alpine
     container_name: paperclip-db
     restart: unless-stopped
+    profiles:
+      - paperclip
     environment:
       POSTGRES_USER: paperclip
       POSTGRES_PASSWORD: ${PAPERCLIP_DB_PASSWORD}
