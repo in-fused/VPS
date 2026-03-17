@@ -57,6 +57,10 @@ RUN find ui/dist -name '*.js' -exec sed -i \
 # Verify server build output exists
 RUN test -f server/dist/index.js || (echo "Server build failed" && exit 1)
 
+# Strip .git and source files not needed at runtime
+RUN rm -rf .git .github docs cli/src ui/src server/src packages/*/src \
+    && find . -name '*.md' -not -path './node_modules/*' -delete 2>/dev/null || true
+
 # ---------------------------------------------------------------------------
 # Stage 3: Production image
 # ---------------------------------------------------------------------------
@@ -68,11 +72,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy built artifacts
-COPY --from=build /build/server ./server
-COPY --from=build /build/ui/dist ./ui/dist
-COPY --from=build /build/package.json ./
-COPY --from=build /build/node_modules ./node_modules
+# Copy entire monorepo — pnpm workspace symlinks in node_modules reference
+# sibling packages (packages/db, packages/shared, packages/adapters, etc.)
+# Cherry-picking dirs breaks the symlinks at runtime.
+COPY --from=build /build ./
 
 # Data directory
 RUN mkdir -p /paperclip && chown node:node /paperclip
