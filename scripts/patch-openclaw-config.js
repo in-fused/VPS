@@ -69,12 +69,13 @@ config.models.providers.litellm = {
     { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
     { id: 'groq-qwen3-32b', name: 'Qwen 3 32B on Groq (free)', contextWindow: 131072, maxTokens: 40960 },
     // Free — Cerebras (1M tokens/day, fastest inference)
-    { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
-    { id: 'cerebras-llama-4-scout', name: 'Llama 4 Scout on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
-    { id: 'cerebras-llama-3.1-8b', name: 'Llama 3.1 8B on Cerebras (free, fastest)', contextWindow: 8192, maxTokens: 8192 },
-    { id: 'cerebras-qwen3-235b', name: 'Qwen 3 235B on Cerebras (free)', contextWindow: 131072, maxTokens: 8192 },
-    { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7 on Cerebras (free, reasoning)', contextWindow: 128000, maxTokens: 8192 },
-    { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B on Cerebras (free, reasoning)', contextWindow: 8192, maxTokens: 8192 },
+    { id: 'groq-gpt-oss-120b', name: 'GPT-OSS 120B on Groq (free)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'groq-gpt-oss-20b', name: 'GPT-OSS 20B on Groq (free, fast)', contextWindow: 131072, maxTokens: 8192 },
+    // Free — Cerebras (production: gpt-oss-120b, llama3.1-8b. Preview: qwen3-235b, zai-glm)
+    { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B on Cerebras (free, primary)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-llama-3.1-8b', name: 'Llama 3.1 8B on Cerebras (free, fastest)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-qwen3-235b', name: 'Qwen 3 235B on Cerebras (free, preview)', contextWindow: 131072, maxTokens: 8192 },
+    { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7 on Cerebras (free, preview)', contextWindow: 128000, maxTokens: 8192 },
     // Free — Gemini
     { id: 'gemini-flash', name: 'Gemini 2.5 Flash (free)', contextWindow: 1048576, maxTokens: 65536 },
     { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite (free)', contextWindow: 1048576, maxTokens: 65536 },
@@ -131,7 +132,7 @@ if (ollamaUrl) {
 // =========================================================================
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-llama-4-scout' };
+config.agents.defaults.model = { primary: 'litellm/cerebras-gpt-oss-120b' };
 // Allowlist litellm + ollama providers (prevents anthropic fallback)
 config.agents.defaults.models = ollamaUrl
   ? { litellm: {}, ollama: {} }
@@ -334,30 +335,31 @@ var TOOL_RESTRICTIONS = {
 // Clean unrecognized agent keys + force model assignments
 // FREE-FIRST strategy: all agents use free providers as primary.
 // DeepSeek is ONLY in the LiteLLM fallback chain (triggers on 429/failures).
-// Leads/developers: cerebras-llama-4-scout (Llama 4 Scout, 1M TPD, fast)
+// Leads/developers: cerebras-gpt-oss-120b (GPT-OSS 120B, production, 3000 t/s)
+// Research/security: groq-gpt-oss-120b (GPT-OSS 120B on Groq, production, 500 t/s)
 // Doc writers: gemini-flash-lite (free, high RPD)
 var MODEL_MAP = {
-  'lead': 'litellm/cerebras-llama-4-scout',
-  'codecraft': 'litellm/cerebras-llama-4-scout',
-  'scout': 'litellm/groq-llama-3.3-70b',
+  'lead': 'litellm/cerebras-gpt-oss-120b',
+  'codecraft': 'litellm/cerebras-gpt-oss-120b',
+  'scout': 'litellm/groq-gpt-oss-120b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-llama-4-scout',
-  'builder': 'litellm/cerebras-llama-4-scout',
-  'sentinel': 'litellm/groq-llama-3.3-70b',
+  'ops-lead': 'litellm/cerebras-gpt-oss-120b',
+  'builder': 'litellm/cerebras-gpt-oss-120b',
+  'sentinel': 'litellm/groq-gpt-oss-120b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
 // Subagent models match parent — prevents capability mismatches during parallel execution
 var SUBAGENT_MODEL_MAP = {
-  'lead': 'litellm/cerebras-llama-4-scout',
-  'codecraft': 'litellm/cerebras-llama-4-scout',
-  'scout': 'litellm/groq-llama-3.3-70b',
+  'lead': 'litellm/cerebras-gpt-oss-120b',
+  'codecraft': 'litellm/cerebras-gpt-oss-120b',
+  'scout': 'litellm/groq-gpt-oss-120b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-llama-4-scout',
-  'builder': 'litellm/cerebras-llama-4-scout',
-  'sentinel': 'litellm/groq-llama-3.3-70b',
+  'ops-lead': 'litellm/cerebras-gpt-oss-120b',
+  'builder': 'litellm/cerebras-gpt-oss-120b',
+  'sentinel': 'litellm/groq-gpt-oss-120b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
-var SUBAGENT_FALLBACK = 'litellm/cerebras-llama-4-scout';
+var SUBAGENT_FALLBACK = 'litellm/cerebras-gpt-oss-120b';
 if (Array.isArray(config.agents && config.agents.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;

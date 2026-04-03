@@ -32,7 +32,7 @@ const AGENTS = [
     title: 'Core Team Lead',
     team: 'core',
     reportsTo: null,  // CEO — reports to board (owner)
-    model: 'cerebras-llama-4-scout',
+    model: 'cerebras-gpt-oss-120b',
     budgetMonthlyCents: 0, // free model
     capabilities: ['delegation', 'review', 'planning'],
     openclawAgentId: 'lead',
@@ -43,7 +43,7 @@ const AGENTS = [
     title: 'Full-Stack Developer',
     team: 'core',
     reportsTo: 'Lead',
-    model: 'cerebras-llama-4-scout',
+    model: 'cerebras-gpt-oss-120b',
     budgetMonthlyCents: 0,
     capabilities: ['coding', 'debugging', 'code-review', 'shell'],
     openclawAgentId: 'codecraft',
@@ -77,7 +77,7 @@ const AGENTS = [
     title: 'Platform Team Lead',
     team: 'platform',
     reportsTo: 'Lead',  // CTO reports to CEO
-    model: 'cerebras-llama-4-scout',
+    model: 'cerebras-gpt-oss-120b',
     budgetMonthlyCents: 0,
     capabilities: ['delegation', 'review', 'infrastructure', 'planning'],
     openclawAgentId: 'ops-lead',
@@ -88,7 +88,7 @@ const AGENTS = [
     title: 'Infrastructure Developer',
     team: 'platform',
     reportsTo: 'Ops Lead',
-    model: 'cerebras-llama-4-scout',
+    model: 'cerebras-gpt-oss-120b',
     budgetMonthlyCents: 0,
     capabilities: ['docker', 'scripting', 'ci-cd', 'shell'],
     openclawAgentId: 'builder',

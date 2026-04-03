@@ -623,14 +623,14 @@ test_model "qwen3:14b" "FREE/Ollama" "0.00"
 test_model "qwen3-coder:30b" "FREE/Ollama" "0.00"
 
 subsection "TIER 2: FREE — Groq (4 accounts, load-balanced)"
+test_model "groq-gpt-oss-120b" "FREE/Groq" "0.00"
+test_model "groq-gpt-oss-20b" "FREE/Groq" "0.00"
 test_model "groq-llama-3.3-70b" "FREE/Groq" "0.00"
 test_model "groq-qwen3-32b" "FREE/Groq" "0.00"
 
 subsection "TIER 3: FREE — Cerebras (1M TPD)"
-test_model "cerebras-llama-3.3-70b" "FREE/Cerebras" "0.00"
-test_model "cerebras-llama-4-scout" "FREE/Cerebras" "0.00"
-test_model "cerebras-llama-3.1-8b" "FREE/Cerebras" "0.00"
 test_model "cerebras-gpt-oss-120b" "FREE/Cerebras" "0.00"
+test_model "cerebras-llama-3.1-8b" "FREE/Cerebras" "0.00"
 test_model "cerebras-zai-glm" "FREE/Cerebras" "0.00"
 test_model "cerebras-qwen3-235b" "FREE/Cerebras" "0.00"
 
@@ -670,10 +670,9 @@ if [ "$ONLY_OPENCLAW" != "true" ] && [ "$ONLY_MODELS" != "true" ]; then
 section "4. FALLBACK CHAIN VERIFICATION"
 echo -e "${DIM}  Testing LiteLLM router fallback behavior on 429/error${NC}"
 echo -e "${DIM}  Configured chains:${NC}"
-echo -e "${DIM}    groq-llama-3.3-70b -> cerebras-llama-3.3-70b -> deepseek-chat${NC}"
-echo -e "${DIM}    groq-qwen3-32b -> gemini-flash -> groq-llama-3.3-70b -> deepseek-chat${NC}"
-echo -e "${DIM}    cerebras-* -> groq-* -> deepseek-chat${NC}"
-echo -e "${DIM}    gemini-*/mistral-* -> deepseek-chat/deepseek-coder${NC}"
+echo -e "${DIM}    groq-gpt-oss-120b -> cerebras-gpt-oss-120b -> groq-llama-3.3-70b -> deepseek-chat${NC}"
+echo -e "${DIM}    cerebras-gpt-oss-120b -> groq-gpt-oss-120b -> groq-llama-3.3-70b -> deepseek-chat${NC}"
+echo -e "${DIM}    gemini-*/mistral-* -> groq-gpt-oss-* -> deepseek-chat${NC}"
 
 # Verify fallback config is loaded
 docker_curl -s -o "$RESP" --max-time 10 \
@@ -962,7 +961,7 @@ if [ "$FAIL" -gt 0 ]; then
 fi
 
 echo -e "${BOLD}FREE MODEL RECOMMENDATIONS:${NC}"
-echo "  Best for agents (tool calling): cerebras-llama-3.3-70b (1M TPD, fastest)"
+echo "  Best for agents (tool calling): cerebras-gpt-oss-120b (1M TPD, 3000 t/s)"
 echo "  Best for research (large ctx):  gemini-flash (1M context, 250 RPD)"
 echo "  Best for coding:                codestral (Mistral, 2 RPM, 1B/month)"
 echo "  Best for high-volume:           gemini-flash-lite (1000 RPD)"
@@ -970,10 +969,10 @@ echo "  Fallback safety net:            deepseek-chat (\$0.28/1M — cheap paid)
 echo ""
 
 echo -e "${BOLD}OPTIMAL FALLBACK CHAINS:${NC}"
-echo "  Primary agent work:  cerebras-llama-3.3-70b -> gemini-flash -> groq-llama-3.3-70b -> deepseek-chat"
-echo "  Research tasks:      gemini-flash -> deepseek-chat"
-echo "  Code generation:     codestral -> deepseek-coder"
-echo "  High-volume batch:   groq-llama-3.3-70b -> cerebras-llama-3.3-70b -> deepseek-chat"
+echo "  Primary agent work:  cerebras-gpt-oss-120b -> groq-gpt-oss-120b -> gemini-flash -> deepseek-chat"
+echo "  Research tasks:      gemini-flash -> groq-gpt-oss-120b -> deepseek-chat"
+echo "  Code generation:     codestral -> qwen3-coder:30b -> deepseek-coder"
+echo "  High-volume batch:   groq-gpt-oss-20b -> groq-llama-3.3-70b -> deepseek-chat"
 echo ""
 
 # Deploy commands

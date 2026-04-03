@@ -155,7 +155,7 @@ services:
   # Config persisted in openclaw-data volume (~/.openclaw/).
   # See README Part 4 for full setup guide.
   openclaw:
-    image: ghcr.io/openclaw/openclaw:main
+    image: ghcr.io/openclaw/openclaw:v2026.4.1
     container_name: openclaw
     restart: unless-stopped
     labels:

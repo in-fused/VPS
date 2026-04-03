@@ -82,17 +82,17 @@ You are an autonomous agent in a self-organizing swarm. Mission Control is the h
 ## Core Team
 | Agent | ID | Role | Model (Provider) |
 |-------|----|------|-------------------|
-| Lead | lead | Orchestrator — delegates, reviews, manages team | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
-| CodeCraft | codecraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
-| Scout | scout | Research — web search, analysis, fact-checking | groq-llama-3.3-70b (Groq, free 500K TPD) |
+| Lead | lead | Orchestrator — delegates, reviews, manages team | cerebras-gpt-oss-120b (Cerebras, free 1M TPD) |
+| CodeCraft | codecraft | Full-stack dev — JS, Python, Bash, Docker | cerebras-gpt-oss-120b (Cerebras, free 1M TPD) |
+| Scout | scout | Research — web search, analysis, fact-checking | groq-gpt-oss-120b (Groq, free) |
 | Scribe | scribe | Documentation — READMEs, guides, changelogs | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 ## Platform Team
 | Agent | ID | Role | Model (Provider) |
 |-------|----|------|-------------------|
-| Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
-| Builder | builder | Infrastructure — Docker, scripts, CI/CD | cerebras-llama-4-scout (Cerebras, free 1M TPD) |
-| Sentinel | sentinel | Security & monitoring — audits, health checks | groq-llama-3.3-70b (Groq, free 500K TPD) |
+| Ops Lead | ops-lead | Orchestrator — infra, deploys, monitoring | cerebras-gpt-oss-120b (Cerebras, free 1M TPD) |
+| Builder | builder | Infrastructure — Docker, scripts, CI/CD | cerebras-gpt-oss-120b (Cerebras, free 1M TPD) |
+| Sentinel | sentinel | Security & monitoring — audits, health checks | groq-gpt-oss-120b (Groq, free) |
 | Chronicler | chronicler | Platform docs — runbooks, deploy guides | gemini-flash-lite (Gemini, free 1000 RPD) |
 
 Subagents inherit their parent's model. ALL models are FREE — DeepSeek is only used as a fallback if free providers hit rate limits.
@@ -149,12 +149,12 @@ const SHARED_MEMORY = `# Project Memory
   - Use for: heavy builds, long-running services, background compute
 
 ## Models via LiteLLM (27+ models, 6 free providers)
-- PRIMARY: cerebras-llama-4-scout (free, 1M TPD) — Lead, CodeCraft, Ops Lead, Builder
-- PRIMARY: groq-llama-3.3-70b (free, 500K TPD) — Scout, Sentinel
+- PRIMARY: cerebras-gpt-oss-120b (free, 1M TPD, 3000 t/s) — Lead, CodeCraft, Ops Lead, Builder
+- PRIMARY: groq-gpt-oss-120b (free, production) — Scout, Sentinel
 - PRIMARY: gemini-flash-lite (free, 1000 RPD) — Scribe, Chronicler
 - Fallback chain: cerebras → groq → gemini → ollama → deepseek-chat (paid, last resort only)
-- FREE Groq: groq-llama-3.3-70b, groq-qwen3-32b (load-balanced 4 accounts)
-- FREE Cerebras: cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (1M TPD)
+- FREE Groq: groq-gpt-oss-120b, groq-gpt-oss-20b, groq-llama-3.3-70b (load-balanced 4 accounts)
+- FREE Cerebras: cerebras-gpt-oss-120b, cerebras-llama-3.1-8b, cerebras-qwen3-235b, cerebras-zai-glm (1M TPD)
 - FREE Gemini: gemini-flash, gemini-flash-lite, gemini-pro (load-balanced 3 keys)
 - FREE Mistral: mistral-large, codestral, mistral-small, mistral-nemo (2 RPM, 1B tokens/month)
 - FREE Ollama (Oracle ARM, zero rate limits): qwen3.5:9b, qwen3:14b, qwen3-coder:30b

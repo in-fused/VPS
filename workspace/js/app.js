@@ -26,11 +26,12 @@ const AGENT_TOOLS = [
 // Fallback models if LiteLLM is unreachable
 const FALLBACK_MODELS = [
   // FREE — Cloud providers (rate-limited but fast)
-  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Fast inference, free tier (1K RPD)' },
-  { id: 'groq-qwen3-32b', name: 'Qwen 3 32B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Dual-mode reasoning, free tier (1K RPD)' },
-  { id: 'cerebras-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Fastest inference, 1M TPD free' },
-  { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Reasoning model, 128K context' },
-  { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Reasoning model, 2096 t/s' },
+  { id: 'groq-gpt-oss-120b', name: 'GPT-OSS 120B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Production, 500 t/s, strong reasoning' },
+  { id: 'groq-gpt-oss-20b', name: 'GPT-OSS 20B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Production, 1000 t/s, fast + capable' },
+  { id: 'groq-llama-3.3-70b', name: 'Llama 3.3 70B', provider: 'Groq', tier: 'free', cost: '$0/1M', desc: 'Production, fast inference (1K RPD)' },
+  { id: 'cerebras-gpt-oss-120b', name: 'GPT-OSS 120B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Production, 3000 t/s, primary agent model' },
+  { id: 'cerebras-llama-3.1-8b', name: 'Llama 3.1 8B', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Production, 2267 t/s, fastest' },
+  { id: 'cerebras-zai-glm', name: 'ZAI GLM-4.7', provider: 'Cerebras', tier: 'free', cost: '$0/1M', desc: 'Preview, reasoning model, 128K context' },
   { id: 'gemini-flash', name: 'Gemini 2.5 Flash', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'Fast + capable, 750 RPD (3 keys)' },
   { id: 'gemini-flash-lite', name: 'Gemini 2.5 Flash-Lite', provider: 'Google', tier: 'free', cost: '$0/1M', desc: 'High volume, 3000 RPD (3 keys)' },
   { id: 'codestral', name: 'Codestral', provider: 'Mistral', tier: 'free', cost: '$0/1M', desc: 'Best free code model, 2 RPM' },
@@ -53,15 +54,15 @@ const FALLBACK_MODELS = [
 // Model tier/cost mapping for models fetched from LiteLLM
 const MODEL_META = {
   // Free — Groq
+  'groq-gpt-oss-120b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
+  'groq-gpt-oss-20b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
   'groq-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
   'groq-qwen3-32b': { tier: 'free', cost: '$0/1M', provider: 'Groq' },
   // Free — Cerebras
-  'cerebras-llama-3.3-70b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
-  'cerebras-llama-4-scout': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
+  'cerebras-gpt-oss-120b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
   'cerebras-llama-3.1-8b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
   'cerebras-qwen3-235b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
   'cerebras-zai-glm': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
-  'cerebras-gpt-oss-120b': { tier: 'free', cost: '$0/1M', provider: 'Cerebras' },
   // Free — Gemini (3 keys, 3x quota)
   'gemini-flash': { tier: 'free', cost: '$0/1M', provider: 'Google' },
   'gemini-flash-lite': { tier: 'free', cost: '$0/1M', provider: 'Google' },
@@ -249,7 +250,7 @@ const DEMO_AGENTS = [
   {
     id: 'lead', name: 'Lead', emoji: '🧠',
     description: 'Core Team orchestrator — delegates tasks, reviews work, manages the team',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops'],
@@ -258,7 +259,7 @@ const DEMO_AGENTS = [
   {
     id: 'codecraft', name: 'CodeCraft', emoji: '⚡',
     description: 'Full-stack developer — writes, reviews, and debugs code',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -267,7 +268,7 @@ const DEMO_AGENTS = [
   {
     id: 'scout', name: 'Scout', emoji: '🔍',
     description: 'Research specialist — web search, data gathering, analysis',
-    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/groq-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'browser'],
@@ -289,7 +290,7 @@ const DEMO_AGENTS = [
   {
     id: 'ops-lead', name: 'Ops Lead', emoji: '🎯',
     description: 'Platform Team orchestrator — infrastructure, deployments, monitoring',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'code-exec', 'file-ops', 'shell'],
@@ -298,7 +299,7 @@ const DEMO_AGENTS = [
   {
     id: 'builder', name: 'Builder', emoji: '🔨',
     description: 'Infrastructure developer — Docker, scripts, CI/CD, server config',
-    model: 'litellm/cerebras-llama-4-scout', status: 'idle',
+    model: 'litellm/cerebras-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['code-exec', 'file-ops', 'shell'],
@@ -307,7 +308,7 @@ const DEMO_AGENTS = [
   {
     id: 'sentinel', name: 'Sentinel', emoji: '🛡️',
     description: 'Security & monitoring — health checks, log analysis, vulnerability scanning',
-    model: 'litellm/groq-llama-3.3-70b', status: 'idle',
+    model: 'litellm/groq-gpt-oss-120b', status: 'idle',
     currentTask: null,
     lastActive: 'Demo', tasksCompleted: 0, tokensUsed: 0,
     tools: ['web-search', 'shell'],
@@ -1072,7 +1073,7 @@ document.addEventListener('alpine:init', () => {
             description: a.description || a.identity?.description || '',
             model: a.model?.primary || (typeof a.model === 'string' ? a.model : null)
               || (DEMO_AGENTS.find(d => d.id === (a.id || a.agentId))?.model)
-              || 'litellm/cerebras-llama-4-scout',
+              || 'litellm/cerebras-gpt-oss-120b',
             status: a.status || 'idle',
             currentTask: a.currentTask || null,
             lastActive: a.lastActive || 'Unknown',
@@ -2070,16 +2071,16 @@ document.addEventListener('alpine:init', () => {
       const session = this.active;
       const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
       const primaryModel = (agent?.model || '').replace(/^litellm\//, '');
-      // Ordered by reliability: gemini (confirmed working), cerebras scout,
-      // groq (has errors but worth trying), mistral, deepseek (cheap paid last resort)
+      // Ordered by reliability: gemini, cerebras gpt-oss (production),
+      // groq gpt-oss (production), groq llama, mistral, deepseek (cheap paid last resort)
       const fallbackModels = [
         'gemini-flash',
         'gemini-flash-lite',
-        'cerebras-llama-4-scout',
-        'cerebras-zai-glm',
+        'cerebras-gpt-oss-120b',
+        'groq-gpt-oss-120b',
+        'groq-gpt-oss-20b',
         'groq-llama-3.3-70b',
         'mistral-small',
-        'mistral-large',
         'deepseek-chat',
       ].filter(m => m !== primaryModel);
 
@@ -2690,7 +2691,7 @@ document.addEventListener('alpine:init', () => {
       if (!Alpine.store('app').demoMode) {
         const agent = Alpine.store('agents').list.find(a => a.id === session?.agentId);
         // Strip provider prefix — LiteLLM expects bare aliases (e.g. groq-llama-3.3-70b)
-        const rawModel = agent?.model || 'litellm/cerebras-llama-4-scout';
+        const rawModel = agent?.model || 'litellm/cerebras-gpt-oss-120b';
         const model = rawModel.replace(/^litellm\//, '');
 
         const gov = Alpine.store('governance');
