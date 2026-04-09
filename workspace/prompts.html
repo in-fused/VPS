@@ -656,8 +656,8 @@ Log everything. No logs = no credit.</div>
         <div class="evo-config-row">
           <label>Model</label>
           <select id="evo-cfg-model" onchange="evoUpdateConfig()">
-            <option value="cerebras-llama-3.3-70b">Cerebras Llama 3.3 70B (free)</option>
             <option value="groq-llama-3.3-70b">Groq Llama 3.3 70B (free)</option>
+            <option value="groq-gpt-oss-120b">Groq GPT-OSS 120B (free)</option>
             <option value="groq-qwen3-32b">Groq Qwen3 32B (free)</option>
             <option value="qwen3-coder:30b">Ollama Qwen3 Coder 30B (ARM)</option>
             <option value="qwen3:14b">Ollama Qwen3 14B (ARM)</option>
@@ -918,7 +918,7 @@ Log everything. No logs = no credit.</div>
     let evoState = {
       config: {
         target: 'ec2',       // ec2 or arm
-        model: 'cerebras-llama-3.3-70b',
+        model: 'groq-llama-3.3-70b',
         schedule: 'manual',
         threshold: 70,
         autoPromote: false

@@ -307,6 +307,18 @@
 	}
 
 	# =========================================================================
+	# Webhook API — /api/webhooks/* (NO auth — external services call this)
+	# =========================================================================
+	# External webhook triggers for workflows. No cookie required.
+	# Security: per-webhook secrets validated by the handler service.
+	# Rate-limited by site_general zone (100 req/min/IP).
+	handle_path /api/webhooks/* {
+		reverse_proxy webhook:9000 {
+			flush_interval -1
+		}
+	}
+
+	# =========================================================================
 	# Agent Workspace (Mission Control) — /workspace/*
 	# =========================================================================
 	# Cookie-gated like all other protected paths. Unauthenticated requests
