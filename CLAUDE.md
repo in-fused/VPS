@@ -1,6 +1,6 @@
 # CLAUDE.md — in-fused.org Project Memory
 
-> **Updated:** Mar 9, 2026 | **Commits:** 100+ | **Milestone commit:** `98dee2d` | **Status:** Full autonomous operation — all systems verified working, production-ready
+> **Updated:** Apr 10, 2026 | **Commits:** 130+ | **Milestone commit:** `98dee2d` | **Status:** Full autonomous operation — all systems verified working, production-ready
 
 ## Project Overview
 
@@ -226,9 +226,12 @@ Internet → https://in-fused.org → Caddy (auto-HTTPS)
   ├── /workspace/*           → Static files from agent-workspace volume
   └── / (everything else)    → Cookie-gated → Landing page (landing.html)
 
-OpenClaw → LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, MiniMax, Ollama(Oracle Cloud ARM)
+OpenClaw → LiteLLM → Anthropic, OpenAI, DeepSeek, Groq, Cerebras, MiniMax, Gemini, Mistral, Ollama(Oracle ARM)
 OpenClaw agents → Scrapling :8000 (internal web scraping API)
-Docker network: ai-hub-network (bridge)
+OpenClaw agents → SearXNG :8080 (internal meta-search: Google, Bing, DDG, Wikipedia)
+Paperclip :3100 → OpenClaw (orchestration, task queues, goals)
+Watchtower → monitors OpenClaw for image updates (daily 4 AM UTC)
+Docker network: ai-net (bridge)
 ```
 
 ### Docker Services
@@ -236,15 +239,20 @@ Docker network: ai-hub-network (bridge)
 | Service | Image | Memory | Port |
 |---------|-------|--------|------|
 | caddy | in-fused/caddy:latest (custom build) | 64M | 80, 443 |
-| litellm | ghcr.io/berriai/litellm:main-stable | 512M | 4000 |
+| litellm | ghcr.io/berriai/litellm:v1.82.3-stable.patch.2 | 512M | 4000 |
 | litellm-db | postgres:16-alpine | 128M | 5432 |
-| openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
+| openclaw | ghcr.io/openclaw/openclaw:v2026.4.1 | 1536M | 18789 |
 | scrapling | in-fused/scrapling:latest (custom build) | 512M | 8000 (internal) |
+| searxng | searxng/searxng:latest | 256M | 8080 (internal) |
 | webhook | in-fused/webhook:latest (custom build) | 64M | 9090 (internal) |
+| paperclip | in-fused/paperclip:latest (custom build) | 256M | 3100 |
+| paperclip-db | postgres:17-alpine | 128M | — |
+| watchtower | nickfedor/watchtower:latest | 64M | — |
+| ollama | ollama/ollama:latest (profile: local-models) | 4G | — |
 | openclaw-init | alpine:3 | — | — |
 | workspace-init | alpine:3 | — | — |
 
-Total ~2.8GB (2GB RAM + 4GB swap). Custom images (caddy, scrapling) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`.
+Total ~3.5GB (2GB RAM + 4GB swap). Custom images (caddy, scrapling, paperclip) use `build:` in docker-compose — `deploy.sh` builds each then `docker compose up -d`. LiteLLM and OpenClaw are pinned to specific versions. Watchtower auto-updates OpenClaw daily at 4 AM UTC (label-filtered).
 
 ---
 
@@ -259,14 +267,14 @@ Single password protects the entire site. Flow:
 
 ---
 
-## LiteLLM Models (25+ models, 8 tiers, 6 free providers)
+## LiteLLM Models (45+ deployments, 8 tiers, 6 free providers)
 
 | Tier | Models | Cost |
 |------|--------|------|
 | FREE | qwen3.5:9b, qwen3:14b, qwen3-coder:30b (Ollama, Oracle ARM, zero rate limits) | $0 |
-| FREE | groq-llama-3.3-70b, groq-qwen3-32b (Groq, 4 accounts, 100K-500K TPD) | $0 |
-| FREE | cerebras-llama-3.3-70b, cerebras-llama-4-scout, cerebras-gpt-oss-120b, cerebras-zai-glm (Cerebras, 1M TPD) | $0 |
-| FREE | gemini-flash, gemini-flash-lite, gemini-pro (Google Gemini, 250-1000 RPD) | $0 |
+| FREE | groq-llama-3.3-70b, groq-qwen3-32b, groq-gpt-oss-120b, groq-gpt-oss-20b (Groq, 4 accounts, load-balanced) | $0 |
+| FREE | cerebras-gpt-oss-120b, cerebras-llama-3.1-8b, cerebras-qwen3-235b, cerebras-zai-glm (Cerebras, 1M TPD) | $0 |
+| FREE | gemini-flash, gemini-flash-lite, gemini-pro, gemini-embedding (Google Gemini, 3 accounts, 250-1000 RPD) | $0 |
 | FREE | mistral-large, codestral, mistral-small, mistral-nemo (Mistral, 2 RPM, 1B tokens/month) | $0 |
 | CHEAP | deepseek-chat, deepseek-coder, gpt-4o-mini | $0.15–0.28/1M |
 | MID | claude-haiku, minimax-m2.5 | $0.30–1.00/1M |
@@ -284,8 +292,8 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 - Trusted proxies: Docker bridge subnets (172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16)
 - Provider: custom "litellm" at http://litellm:4000/v1, openai wire format (chat/completions)
 - Provider allowlist: only "litellm" (prevents anthropic fallback)
-- Default model: `cerebras-llama-4-scout` (object format `{ primary: '...' }`, free 1M TPD)
-- 27+ models exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
+- Default model: `cerebras-gpt-oss-120b` (object format `{ primary: '...' }`, free 1M TPD)
+- 45+ model deployments exposed across 6 free providers + paid, agent-to-agent messaging enabled, subagents enabled
 
 ### Agent Hierarchy — 2 Teams (seeded on first run, preserved after)
 
@@ -293,28 +301,28 @@ Entrypoint (`scripts/openclaw-entrypoint.sh`) patches `openclaw.json` on every c
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Lead | cerebras-llama-4-scout (free) | Orchestrator | CodeCraft, Scout, Scribe |
-| CodeCraft | cerebras-llama-4-scout (free) | Full-stack developer | Scout, Scribe |
-| Scout | groq-llama-3.3-70b (free) | Research specialist | Scribe |
+| Lead | cerebras-gpt-oss-120b (free) | Orchestrator | CodeCraft, Scout, Scribe |
+| CodeCraft | cerebras-gpt-oss-120b (free) | Full-stack developer | Scout, Scribe |
+| Scout | groq-gpt-oss-120b (free) | Research specialist | Scribe |
 | Scribe | gemini-flash-lite (free) | Documentation writer | (none) |
 
 **Platform Team** — Infrastructure, deployments, monitoring:
 
 | Agent | Model | Role | Delegates To |
 |-------|-------|------|--------------|
-| Ops Lead | cerebras-llama-4-scout (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
-| Builder | cerebras-llama-4-scout (free) | Infrastructure developer | Sentinel, Chronicler |
-| Sentinel | groq-llama-3.3-70b (free) | Security & monitoring | Chronicler |
+| Ops Lead | cerebras-gpt-oss-120b (free) | Platform orchestrator | Builder, Sentinel, Chronicler |
+| Builder | cerebras-gpt-oss-120b (free) | Infrastructure developer | Sentinel, Chronicler |
+| Sentinel | groq-gpt-oss-120b (free) | Security & monitoring | Chronicler |
 | Chronicler | gemini-flash-lite (free) | Platform documentation | (none) |
 
 **Model budget strategy (FREE-FIRST):**
 - **ALL 8 agents run on FREE models** — $0/month base cost
-- **Cerebras Llama 4 Scout (free, 1M TPD)** for leads + developers (Lead, CodeCraft, Ops Lead, Builder)
-- **Groq Llama 3.3 70B (free, 500K TPD)** for research + security (Scout, Sentinel)
+- **Cerebras GPT-OSS 120B (free, 1M TPD, ~3000 t/s)** for leads + developers (Lead, CodeCraft, Ops Lead, Builder)
+- **Groq GPT-OSS 120B (free, ~500 t/s)** for research + security (Scout, Sentinel)
 - **Gemini Flash-Lite (free, 1000 RPD)** for documentation writers (Scribe, Chronicler)
 - Subagents inherit their parent's model — prevents capability mismatches during parallel execution
 - **DeepSeek ($0.28/1M) is fallback-only** — only triggers when free providers return 429 rate limits
-- Fallback chain: cerebras → groq → gemini → ollama → deepseek-chat (paid, last resort)
+- Fallback chain: cerebras-gpt-oss → groq-gpt-oss → gemini → ollama → deepseek-chat (paid, last resort)
 - LiteLLM `allowed_fails: 2` + `cooldown_time: 60` — exhausted providers are temporarily removed from the pool
 
 **Tier storage (EC2 t3.small, 50GB gp3 volume):**
@@ -577,7 +585,7 @@ The owner manages this project from a phone. They should be able to open Mission
 
 This is not a chatbot. This is an autonomous agent system that happens to have a chat interface.
 
-### Implementation Status (verified 2026-03-08)
+### Implementation Status (verified 2026-04-10)
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
@@ -666,12 +674,14 @@ VPS/
 ├── .env                          ← Secrets (NOT in git)
 ├── .env.example                  ← Template
 ├── Caddyfile                     ← Reverse proxy config
-├── docker-compose.yml            ← 8 services + 1 optional
-├── litellm_config.yaml           ← 25+ models, 8 tiers
+├── docker-compose.yml            ← 12 services (+ ollama optional profile)
+├── litellm_config.yaml           ← 45+ model deployments, 8 tiers
 ├── scrapling/                    ← Web scraping sidecar
 │   ├── Dockerfile                ← Python 3.12 + Scrapling + FastAPI
 │   ├── api.py                    ← Scraping API endpoints
 │   └── requirements.txt          ← scrapling[fetchers], fastapi, uvicorn
+├── searxng/                      ← Meta-search engine for agents
+│   └── settings.yml              ← SearXNG config (Google, Bing, DuckDuckGo, Wikipedia)
 ├── webhook/                      ← External workflow trigger handler
 │   ├── Dockerfile                ← Node.js 20 Alpine + ws
 │   ├── handler.js                ← HTTP server: trigger, register, revoke, list
@@ -682,6 +692,7 @@ VPS/
 │   ├── auth.html                 ← Site login page
 │   ├── openclaw-auth.html        ← OpenClaw login page
 │   ├── prompts.html              ← Prompt library (starter prompts + archive)
+│   ├── deployment-guide.html     ← Deployment guide (mobile-friendly)
 │   ├── manifest.json             ← PWA manifest
 │   ├── css/styles.css            ← Custom styles
 │   ├── js/
@@ -703,10 +714,18 @@ VPS/
     ├── patch-openclaw-config.js  ← Patches openclaw.json (gateway, models, tools, cron)
     ├── seed-agent-workspaces.js  ← Seeds 7 workspace files per agent (SOUL, TOOLS, etc.)
     ├── auto-kickoff.js           ← Sends bootstrap directive to leads on restart
+    ├── seed-via-rpc.js           ← Pushes workspace files via RPC (operator-managed)
     ├── generate-reference-docs.sh ← Generates split reference docs for agents
+    ├── generate-openclaw-reference.sh ← Generates OpenClaw-specific reference
     ├── caddy-entrypoint.sh       ← Auth token generation
     ├── setup-webhook-archive.sh  ← Oracle ARM archive server setup
     ├── setup-paperclip.js        ← Registers agents in Paperclip on startup
+    ├── agent-test-harness.js     ← Agent testing framework
+    ├── evolve-prompts.js         ← Prompt evolution/optimization
+    ├── oracle-bridge.sh          ← Oracle Cloud bridge utilities
+    ├── provision-oracle-arm.sh   ← Oracle ARM provisioning
+    ├── provision-oracle-arm-2.sh ← Oracle ARM provisioning (alt)
+    ├── provision-oracle-ollama.sh ← Oracle Ollama provisioning
     └── test-api-keys.sh          ← API key validation
 ```
 
@@ -869,6 +888,20 @@ exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'
 
 ---
 
+## SearXNG — Meta-Search Engine for Agents (added 2026-04)
+
+**Purpose:** Privacy-respecting meta-search engine aggregating Google, Bing, DuckDuckGo, and Wikipedia. Provides JSON API for agent web searches without requiring external API keys.
+
+**Internal only** — no external ports, only accessible on Docker network at `http://searxng:8080`.
+
+**Agent usage:** `exec wget -qO- 'http://searxng:8080/search?q=your+query&format=json'`
+
+**Docker:** `searxng` service, 256M memory, healthcheck via `/healthz`.
+
+**Files:** `searxng/settings.yml`
+
+---
+
 ## Paperclip — Agent Orchestration Layer (added 2026-03-16)
 
 **Purpose:** Replaces custom governance, workflow, and orchestration code with Paperclip as the management layer. OpenClaw remains the agent runtime, Paperclip manages the org chart, budgets, goals, task queues, and audit trails.
@@ -932,9 +965,9 @@ Owner → Paperclip (orchestration, goals, budgets) → OpenClaw (agent runtime,
 
 ---
 
-## OpenClaw V3 Compatibility (verified 2026-03-03)
+## OpenClaw V3 Compatibility (verified 2026-04-10, pinned to v2026.4.1)
 
-**Key changes in v2026.3.1 / v2026.3.2 and how we handle them:**
+**Key changes in v2026.3.1 / v2026.3.2 and how we handle them (protections still active in v2026.4.1):**
 
 | Change | Risk | Our Protection |
 |--------|------|----------------|
@@ -948,7 +981,7 @@ Owner → Paperclip (orchestration, goals, budgets) → OpenClaw (agent runtime,
 **Watch for:**
 - If agents exhibit compaction loops (every 2-3 min), the `softThresholdTokens` fix is in the entrypoint
 - If WebSocket connections fail after image update, check `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` is set
-- Consider pinning OpenClaw image to a known-good digest instead of floating on `:main`
+- OpenClaw is now pinned to `v2026.4.1` (no longer floating on `:main`). Watchtower auto-updates daily at 4 AM UTC (label-filtered to OpenClaw only).
 
 ---
 
@@ -999,8 +1032,8 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 
 ## OpenClaw Deep Reference (researched 2026-03-02)
 
-### Version Warning
-**Do NOT update the OpenClaw Docker image to v2026.2.26 until [PR #30227](https://github.com/openclaw/openclaw/pull/30227) is merged.** Issue [#30092](https://github.com/openclaw/openclaw/issues/30092): `dangerouslyDisableDeviceAuth=true` fails with `device-required` behind HTTPS reverse proxy on v2026.2.26. We run behind Caddy (HTTPS). Current `ghcr.io/openclaw/openclaw:main` tag may auto-update — consider pinning to a known-good version if this becomes an issue.
+### Version Info
+OpenClaw is pinned to `v2026.4.1` in docker-compose.yml. LiteLLM is pinned to `v1.82.3-stable.patch.2`. Watchtower monitors for OpenClaw updates daily at 4 AM UTC (label-filtered). The v2026.2.26 `device-required` issue ([#30092](https://github.com/openclaw/openclaw/issues/30092)) is resolved in v2026.4.1 — our `allowInsecureAuth` + `dangerouslyDisableDeviceAuth` protections remain active.
 
 ### Entrypoint Config Additions (2026-03-03)
 - `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
