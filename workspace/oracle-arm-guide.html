@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle Cloud ARM Setup Guide — in-fused.org</title>
+<style>
+  @media print {
+    body { font-size: 11pt; }
+    .no-print { display: none !important; }
+    .page-break { page-break-before: always; }
+    pre { white-space: pre-wrap; word-wrap: break-word; font-size: 9pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 15pt; page-break-after: avoid; }
+    h3 { font-size: 12pt; page-break-after: avoid; }
+    a { color: #000; text-decoration: underline; }
+    .step { page-break-inside: avoid; }
+    .screenshot-placeholder { border: 2px dashed #999; }
+  }
+
+  :root {
+    --gold: #f0b429;
+    --dark: #0a0e1a;
+    --darker: #060910;
+    --card: #111827;
+    --border: #1f2937;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --orange: #f97316;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    color: var(--gold);
+    font-size: 2rem;
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    color: var(--gold);
+    font-size: 1.4rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    color: #d1d5db;
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p { margin-bottom: 0.8rem; }
+
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .step-num {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--dark);
+    font-weight: 700;
+    width: 28px;
+    height: 28px;
+    text-align: center;
+    line-height: 28px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .step-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #f3f4f6;
+  }
+
+  pre {
+    background: var(--darker);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 0.8rem 0;
+    color: #d1d5db;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--darker);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--gold);
+  }
+
+  .label {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+  }
+
+  .label-ios { background: #1e3a5f; color: #60a5fa; }
+  .label-desktop { background: #1a3a2a; color: #4ade80; }
+  .label-oracle { background: #3a1a1a; color: #f97316; }
+  .label-ec2 { background: #1a2a3a; color: #60a5fa; }
+  .label-free { background: #064e3b; color: #34d399; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--darker);
+    color: var(--gold);
+    text-align: left;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--border);
+    font-weight: 600;
+  }
+
+  td {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+  ul, ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  li { margin-bottom: 0.3rem; }
+
+  .warn-box {
+    background: #1a1500;
+    border: 1px solid #854d0e;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    color: #fde68a;
+  }
+
+  .info-box {
+    background: #001a2e;
+    border: 1px solid #1e3a5f;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    color: #93c5fd;
+  }
+
+  .success-box {
+    background: #001a0e;
+    border: 1px solid #064e3b;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    color: #6ee7b7;
+  }
+
+  .checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .checklist li {
+    padding: 0.15rem 0;
+  }
+
+  .checklist li::before {
+    content: "\2610  ";
+    color: var(--muted);
+    font-size: 1.1em;
+  }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .toc h3 { margin-top: 0; color: var(--gold); }
+  .toc ol { margin-bottom: 0; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--gold); }
+
+  .save-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 100;
+  }
+  .save-btn:hover { opacity: 0.9; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .cost-highlight {
+    display: inline-block;
+    background: #064e3b;
+    color: #34d399;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.9em;
+  }
+
+  .duo-cmd {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin: 0.5rem 0;
+  }
+
+  @media (max-width: 700px) {
+    .duo-cmd { grid-template-columns: 1fr; }
+    body { padding: 1rem; }
+  }
+
+  .duo-cmd > div {
+    background: var(--darker);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem;
+  }
+
+  .duo-cmd pre {
+    margin: 0.3rem 0 0 0;
+    border: none;
+    padding: 0.5rem;
+    background: transparent;
+  }
+
+  .phase-banner {
+    background: linear-gradient(90deg, var(--gold) 0%, var(--orange) 100%);
+    color: var(--dark);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  details {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.5rem 0;
+  }
+
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--gold);
+  }
+
+  details[open] summary {
+    margin-bottom: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<button class="save-btn no-print" onclick="window.print()">Save as PDF</button>
+
+<h1>Oracle Cloud ARM Server</h1>
+<p class="subtitle">
+  Free Tier Setup Guide for in-fused.org Agent Elite Partition<br>
+  4 OCPU &bull; 24 GB RAM &bull; 200 GB Storage &bull; <span class="cost-highlight">$0/month forever</span>
+</p>
+
+<div class="info-box">
+  <strong>What this gives you:</strong> A dedicated ARM server running Ollama with local LLM models.
+  Your EC2 hub routes to it automatically. Agents that earn Elite tier get access to this partition
+  for 24/7 autonomous work with persistent storage and background jobs. Zero additional cost.
+</div>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#overview">What You're Building</a></li>
+    <li><a href="#account">Phase 1: Oracle Cloud Account (10 min)</a></li>
+    <li><a href="#instance">Phase 2: Create the ARM Instance (15 min)</a></li>
+    <li><a href="#capacity">Dealing with "Out of Capacity" Error</a></li>
+    <li><a href="#network">Phase 3: Network Security Rules (5 min)</a></li>
+    <li><a href="#ssh">Phase 4: First SSH & Setup Script (20 min)</a></li>
+    <li><a href="#connect">Phase 5: Connect to EC2 Hub (5 min)</a></li>
+    <li><a href="#verify">Phase 6: Verify Everything Works (5 min)</a></li>
+    <li><a href="#models">Managing Models</a></li>
+    <li><a href="#elite">Elite Agent Onboarding</a></li>
+    <li><a href="#maintenance">Maintenance & Troubleshooting</a></li>
+    <li><a href="#reference">Quick Reference</a></li>
+  </ol>
+</nav>
+
+<!-- ================================================================== -->
+<h2 id="overview">1. What You're Building</h2>
+
+<pre style="font-size: 0.8rem; line-height: 1.4;">
+  Your Phone
+      |
+      v
+  EC2 t3.small (in-fused.org)
+  +-----------------------------------------+
+  |  Caddy --> LiteLLM --> [Cloud LLM APIs] |
+  |              |                          |
+  |              +-------> Oracle ARM       |
+  |              |         (Ollama)         |
+  |  OpenClaw ---+         - qwen3.5:9b    |
+  |  (agents)              - qwen3:14b     |
+  |                        - qwen3-coder   |
+  +-----------------------------------------+
+</pre>
+
+<table>
+  <tr><th>Component</th><th>Where</th><th>Cost</th><th>Purpose</th></tr>
+  <tr><td>EC2 t3.small</td><td>AWS</td><td>~$25/mo</td><td>Main hub: Caddy, LiteLLM, OpenClaw, Scrapling</td></tr>
+  <tr><td>Oracle ARM A1.Flex</td><td>Oracle Cloud</td><td>$0 (free tier)</td><td>Local LLM inference via Ollama</td></tr>
+</table>
+
+<p><strong>Why Oracle ARM?</strong></p>
+<ul>
+  <li>24 GB RAM runs 9B-14B dense models and 30B MoE models comfortably</li>
+  <li>ARM A1.Flex is free forever (not a trial)</li>
+  <li>Ollama on native ARM outperforms Docker on x86</li>
+  <li>Private link from EC2: only your EC2 IP can reach the Ollama port</li>
+  <li>Zero egress charges on Oracle Cloud free tier</li>
+</ul>
+
+<!-- ================================================================== -->
+<h2 id="account" class="page-break">2. Phase 1: Oracle Cloud Account</h2>
+
+<div class="phase-banner">PHASE 1 &mdash; Account Setup (10 minutes)</div>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Sign Up for Oracle Cloud Free Tier</span>
+  <ol>
+    <li>Go to <strong>cloud.oracle.com/sign-up</strong></li>
+    <li>Use a real name and email &mdash; Oracle validates identity</li>
+    <li>Select your <strong>Home Region</strong> carefully (cannot be changed later!)</li>
+  </ol>
+
+  <div class="warn-box">
+    <strong>Region matters!</strong> Pick a region with ARM capacity. Recommended order:
+    <ol>
+      <li><strong>Frankfurt (eu-frankfurt-1)</strong> &mdash; best availability historically</li>
+      <li><strong>Ashburn (us-ashburn-1)</strong> &mdash; large region, decent availability</li>
+      <li><strong>Phoenix (us-phoenix-1)</strong> &mdash; usually has capacity</li>
+    </ol>
+    Avoid: London, Tokyo, Seoul (frequently at capacity).
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Verify Your Account</span>
+  <ul>
+    <li>You need a credit card for verification (won't be charged for free tier resources)</li>
+    <li>Wait for the verification email (can take 5-30 minutes)</li>
+    <li>Once verified, log in to the Oracle Cloud Console</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Free Tier Limits (What You Get)</span>
+  <table>
+    <tr><th>Resource</th><th>Free Tier Limit</th><th>We Use</th></tr>
+    <tr><td>ARM Compute (A1.Flex)</td><td>4 OCPU, 24 GB RAM total</td><td>All of it (1 instance)</td></tr>
+    <tr><td>Boot Volume</td><td>200 GB total</td><td>200 GB (1 instance)</td></tr>
+    <tr><td>Network Egress</td><td>10 TB/month</td><td>Minimal (EC2-only traffic)</td></tr>
+    <tr><td>Object Storage</td><td>20 GB</td><td>Not used</td></tr>
+  </table>
+
+  <div class="info-box">
+    The "Always Free" tier never expires. It's not a 30-day trial. As long as you don't upgrade to paid,
+    you won't be charged. Oracle also gives a $300 credit for 30 days if you want to try paid shapes.
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="instance" class="page-break">3. Phase 2: Create the ARM Instance</h2>
+
+<div class="phase-banner">PHASE 2 &mdash; Instance Creation (15 minutes + capacity wait)</div>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Navigate to Compute</span>
+  <p>In Oracle Cloud Console: hamburger menu (top-left) &rarr; <strong>Compute</strong> &rarr; <strong>Instances</strong> &rarr; <strong>Create Instance</strong></p>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Configure the Instance</span>
+
+  <h3>Name & Compartment</h3>
+  <ul>
+    <li><strong>Name:</strong> <code>ollama-arm</code> (or whatever you like)</li>
+    <li><strong>Compartment:</strong> Leave as default (root compartment)</li>
+  </ul>
+
+  <h3>Placement</h3>
+  <ul>
+    <li><strong>Availability Domain:</strong> Try AD-1 first. If "Out of capacity", try AD-2 or AD-3.</li>
+  </ul>
+
+  <h3>Image and Shape</h3>
+  <ul>
+    <li>Click <strong>Change Image</strong></li>
+    <li>Select <strong>Canonical Ubuntu 22.04</strong> (or 24.04)</li>
+    <li>Make sure it says <strong>aarch64</strong> (ARM)</li>
+  </ul>
+  <ul>
+    <li>Click <strong>Change Shape</strong></li>
+    <li>Select shape series: <strong>Ampere</strong></li>
+    <li>Select shape: <strong>VM.Standard.A1.Flex</strong></li>
+    <li>Set <strong>Number of OCPUs: 4</strong></li>
+    <li>Set <strong>Amount of memory (GB): 24</strong></li>
+  </ul>
+
+  <div class="info-box">
+    This maxes out the free tier allocation. You can split it (e.g., 2 instances with 2 OCPU / 12 GB each)
+    but one big instance is better for running larger models.
+  </div>
+
+  <h3>Networking</h3>
+  <ul>
+    <li>Select or create a <strong>VCN</strong> (Virtual Cloud Network)</li>
+    <li>Use a <strong>public subnet</strong></li>
+    <li>Check <strong>Assign a public IPv4 address</strong></li>
+  </ul>
+
+  <h3>SSH Keys</h3>
+  <ul>
+    <li>Select <strong>Generate a key pair for me</strong></li>
+    <li><strong>Download BOTH the private key (.key) and public key (.pub)</strong></li>
+    <li>Save them somewhere safe &mdash; you can't download again!</li>
+  </ul>
+  <div class="warn-box">
+    <strong>On iPhone:</strong> Download the keys to Files app. You'll reference the private key path when SSHing.
+    Alternatively, paste your existing EC2 SSH public key to reuse the same key.
+  </div>
+
+  <h3>Boot Volume</h3>
+  <ul>
+    <li>Expand <strong>Boot volume</strong> section</li>
+    <li>Check <strong>Specify a custom boot volume size</strong></li>
+    <li>Set to <strong>200 GB</strong> (free tier allows up to 200 GB total)</li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Click "Create"</span>
+  <p>If successful, the instance will start provisioning. Note the <strong>Public IP Address</strong> once it appears &mdash; you'll need it.</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="capacity">Dealing with "Out of Capacity" Error</h2>
+
+<div class="warn-box">
+  <strong>This is the most common issue.</strong> Oracle's ARM instances are very popular because they're free.
+  If you see "Out of capacity for shape VM.Standard.A1.Flex", don't panic &mdash; there are workarounds.
+</div>
+
+<div class="step">
+  <span class="step-title">Strategy 1: Try Different Availability Domains</span>
+  <p>Each region has 1-3 Availability Domains (AD-1, AD-2, AD-3). Capacity varies per AD. Try each one.</p>
+</div>
+
+<div class="step">
+  <span class="step-title">Strategy 2: Try a Smaller Config First</span>
+  <p>Start with <strong>2 OCPU / 12 GB RAM</strong> &mdash; smaller shapes have better availability.
+  You can resize later (scale up to 4/24 when capacity opens).</p>
+</div>
+
+<div class="step">
+  <span class="step-title">Strategy 3: Try Off-Peak Hours</span>
+  <p>Best times to try (in UTC): <strong>03:00-07:00</strong> (early morning Americas) or <strong>14:00-17:00</strong> (early morning Asia-Pacific).</p>
+</div>
+
+<div class="step">
+  <span class="step-title">Strategy 4: Automated Retry Script (Recommended)</span>
+  <p>Use the community retry tool that automatically retries instance creation until capacity opens:</p>
+
+  <ol>
+    <li>Go to <strong>github.com/hitrov/oci-arm-host-capacity</strong></li>
+    <li>Follow the setup instructions (needs OCI CLI config)</li>
+    <li>Run it and leave it retrying &mdash; usually succeeds within hours to a day</li>
+  </ol>
+
+  <details>
+    <summary>How to set up the retry script</summary>
+    <p>On your EC2 instance (or any machine with Python):</p>
+    <pre># Install OCI CLI
+pip3 install oci-cli
+
+# Configure OCI CLI with your Oracle Cloud credentials
+oci setup config
+# It will ask for:
+#   - User OCID (Profile > User Settings > OCID)
+#   - Tenancy OCID (Administration > Tenancy Details > OCID)
+#   - Region (e.g., eu-frankfurt-1)
+#   - Generate new API key? Yes
+#   - Upload the public key to Oracle Cloud Console
+#     (Identity > Users > Your User > API Keys > Add API Key)
+
+# Clone the retry script
+git clone https://github.com/hitrov/oci-arm-host-capacity.git
+cd oci-arm-host-capacity
+
+# Edit .env with your instance details:
+#   OCI_SHAPE=VM.Standard.A1.Flex
+#   OCI_OCPUS=4
+#   OCI_MEMORY_IN_GBS=24
+#   OCI_SUBNET_ID=ocid1.subnet...
+#   OCI_IMAGE_ID=ocid1.image...
+#   OCI_AVAILABILITY_DOMAIN=xxxx:EU-FRANKFURT-1-AD-1
+
+# Run it
+python3 oci_arm.py</pre>
+    <p>It retries every 60 seconds. Let it run until it succeeds.</p>
+  </details>
+</div>
+
+<div class="step">
+  <span class="step-title">Strategy 5: Change Home Region (Last Resort)</span>
+  <p>If you just created your account (within a few hours), you might be able to contact Oracle support
+  to change your home region. After that window closes, you'd need a new account. Try Frankfurt first.</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="network" class="page-break">4. Phase 3: Network Security Rules</h2>
+
+<div class="phase-banner">PHASE 3 &mdash; Firewall / Network (5 minutes)</div>
+
+<p>Oracle Cloud has TWO layers of firewall: <strong>Security Lists</strong> (cloud-level) and <strong>iptables/UFW</strong> (OS-level).
+Both must allow traffic. The setup script handles OS-level. You configure cloud-level here.</p>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Find Your Instance's Subnet</span>
+  <ol>
+    <li>Go to your instance details page</li>
+    <li>Under <strong>Primary VNIC</strong>, click the <strong>Subnet</strong> link</li>
+    <li>Click the <strong>Security List</strong> that's attached (usually "Default Security List")</li>
+  </ol>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Add Ingress Rules</span>
+  <p>Click <strong>Add Ingress Rules</strong> and add these two rules:</p>
+
+  <table>
+    <tr><th>Rule</th><th>Source CIDR</th><th>Protocol</th><th>Port</th><th>Description</th></tr>
+    <tr>
+      <td>SSH</td>
+      <td><code>0.0.0.0/0</code></td>
+      <td>TCP</td>
+      <td>2222</td>
+      <td>SSH on custom port</td>
+    </tr>
+    <tr>
+      <td>Ollama</td>
+      <td><code>YOUR_EC2_ELASTIC_IP/32</code></td>
+      <td>TCP</td>
+      <td>11434</td>
+      <td>Ollama API (EC2 only)</td>
+    </tr>
+  </table>
+
+  <div class="warn-box">
+    <strong>Replace <code>YOUR_EC2_ELASTIC_IP</code></strong> with your actual EC2 Elastic IP.
+    The <code>/32</code> means "only this one IP". This ensures only your EC2 can reach Ollama.
+    <br><br>
+    <strong>Find your EC2 IP:</strong> In AWS Console &rarr; EC2 &rarr; Elastic IPs, or from the EC2 instance run:
+    <code>curl -s http://checkip.amazonaws.com</code>
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Verify Default Egress Rule</span>
+  <p>The default egress rule should already allow all outbound traffic (<code>0.0.0.0/0</code>, All Protocols).
+  If it's missing, add it &mdash; Ollama needs outbound access to download models.</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="ssh" class="page-break">5. Phase 4: First SSH & Setup Script</h2>
+
+<div class="phase-banner">PHASE 4 &mdash; Server Setup (20 minutes, mostly waiting for model downloads)</div>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">SSH Into the Oracle Instance</span>
+  <p>The default user on Oracle Ubuntu is <code>ubuntu</code>:</p>
+
+  <p><span class="label label-desktop">Desktop</span></p>
+  <pre>chmod 400 ~/path/to/oracle-key.key
+ssh -i ~/path/to/oracle-key.key ubuntu@ORACLE_PUBLIC_IP</pre>
+
+  <p><span class="label label-ios">iPhone (Termius/Prompt app)</span></p>
+  <ul>
+    <li>Import the .key file into your SSH app</li>
+    <li>Connect to <code>ORACLE_PUBLIC_IP</code> port 22 as user <code>ubuntu</code></li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Clone the Repo</span>
+  <pre>sudo apt-get update && sudo apt-get install -y git
+sudo git clone https://github.com/in-fused/VPS.git /home/VPS
+cd /home/VPS</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Run the Oracle Setup Script</span>
+  <p>Replace <code>EC2_ELASTIC_IP</code> with your actual EC2 Elastic IP:</p>
+  <pre>sudo bash scripts/setup-ollama-server.sh EC2_ELASTIC_IP</pre>
+  <p>For example:</p>
+  <pre>sudo bash scripts/setup-ollama-server.sh 54.123.45.67</pre>
+
+  <p>The script will:</p>
+  <ol>
+    <li>Update system packages</li>
+    <li>Create <code>deploy</code> user with sudo + SSH keys</li>
+    <li>Harden SSH (port 2222, key-only, no root)</li>
+    <li>Configure UFW (SSH + Ollama from EC2 IP only)</li>
+    <li>Set up Fail2Ban</li>
+    <li>Create 4 GB swap</li>
+    <li>Install Ollama natively (not Docker &mdash; better ARM performance)</li>
+    <li>Configure Ollama for remote access (<code>0.0.0.0:11434</code>)</li>
+    <li>Pull 3 recommended models:</li>
+  </ol>
+
+  <table>
+    <tr><th>Model</th><th>Size</th><th>Purpose</th><th>Download Time</th></tr>
+    <tr><td>qwen3.5:9b</td><td>~6 GB</td><td>General purpose + agent tasks (beats GPT-OSS-120B)</td><td>~3 min</td></tr>
+    <tr><td>qwen3:14b</td><td>~9 GB</td><td>Reasoning + general purpose (dense)</td><td>~5 min</td></tr>
+    <tr><td>qwen3-coder:30b-a3b</td><td>~18 GB</td><td>Coding (MoE, 3.3B active &mdash; best open-source)</td><td>~10 min</td></tr>
+  </table>
+</div>
+
+<div class="warn-box">
+  <strong>Don't close the SSH session during model downloads!</strong> If your session drops, reconnect and
+  check status with <code>ollama list</code>. You can re-pull any model that didn't finish:
+  <code>ollama pull qwen3-coder:30b-a3b</code>
+</div>
+
+<div class="step">
+  <span class="step-num">4</span>
+  <span class="step-title">Verify Ollama is Running</span>
+  <pre># Check service status
+sudo systemctl status ollama
+
+# List downloaded models
+ollama list
+
+# Quick test
+ollama run qwen3.5:9b "Say hello in one sentence" --verbose</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">5</span>
+  <span class="step-title">Note the SSH Change</span>
+  <p>SSH port is now <strong>2222</strong>. Reconnect with:</p>
+  <pre>ssh -i ~/path/to/oracle-key.key -p 2222 deploy@ORACLE_PUBLIC_IP</pre>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="connect" class="page-break">6. Phase 5: Connect to EC2 Hub</h2>
+
+<div class="phase-banner">PHASE 5 &mdash; Wire It Up (5 minutes)</div>
+
+<p>Now connect your EC2 hub to the Oracle Ollama server so LiteLLM can route requests to local models.</p>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Update .env on EC2</span>
+
+  <p><span class="label label-ios">iOS/SSM</span></p>
+  <pre>cd /home/VPS && sudo sed -i 's|^OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://ORACLE_PUBLIC_IP:11434|' .env && grep OLLAMA .env</pre>
+
+  <p><span class="label label-desktop">Desktop/SSH to EC2</span></p>
+  <pre>cd /home/VPS
+nano .env
+# Set: OLLAMA_BASE_URL=http://ORACLE_PUBLIC_IP:11434</pre>
+
+  <div class="warn-box">
+    Replace <code>ORACLE_PUBLIC_IP</code> with your actual Oracle instance's public IP address.
+  </div>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Restart the Stack on EC2</span>
+
+  <p><span class="label label-ios">iOS/SSM</span></p>
+  <pre>cd /home/VPS && sudo docker compose down && sudo docker compose up -d && sleep 15 && sudo docker compose ps</pre>
+
+  <p><span class="label label-desktop">Desktop/SSH</span></p>
+  <pre>cd /home/VPS
+sudo docker compose down
+sudo docker compose up -d
+sleep 15
+sudo docker compose ps</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Verify LiteLLM Sees Ollama Models</span>
+
+  <pre>sudo docker compose exec litellm curl -s http://localhost:4000/v1/models \
+  -H "Authorization: Bearer $(grep LITELLM_MASTER_KEY .env | cut -d= -f2)" \
+  | python3 -c "import sys,json; [print(m['id']) for m in json.load(sys.stdin)['data']]" \
+  | grep -i 'llama\|qwen\|deepseek'</pre>
+
+  <p>You should see the Ollama models listed (e.g., <code>qwen3.5:9b</code>, <code>qwen3:14b</code>, <code>qwen3-coder:30b</code>).</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="verify">7. Phase 6: Verify Everything Works</h2>
+
+<div class="phase-banner">PHASE 6 &mdash; End-to-End Test (5 minutes)</div>
+
+<div class="step">
+  <span class="step-num">1</span>
+  <span class="step-title">Test from EC2 (Direct)</span>
+  <pre># Test Ollama connectivity from EC2
+curl -s http://ORACLE_PUBLIC_IP:11434/api/tags | python3 -m json.tool</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span>
+  <span class="step-title">Test via LiteLLM (Through the Stack)</span>
+  <pre>MASTER_KEY=$(grep LITELLM_MASTER_KEY /home/VPS/.env | cut -d= -f2)
+curl -s https://in-fused.org/api/litellm/v1/chat/completions \
+  -H "Authorization: Bearer $MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3.5:9b","messages":[{"role":"user","content":"Write a hello world in Python"}],"max_tokens":50}'</pre>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span>
+  <span class="step-title">Test from Mission Control</span>
+  <ol>
+    <li>Open <code>https://in-fused.org/workspace/</code></li>
+    <li>Start a new chat with any agent</li>
+    <li>The agent should be able to use Ollama models as fallbacks</li>
+    <li>Or go to the landing page (<code>https://in-fused.org/</code>) and use Quick Chat with a local model</li>
+  </ol>
+</div>
+
+<div class="success-box">
+  <strong>If all tests pass:</strong> Your Oracle ARM server is live and connected. LiteLLM will automatically
+  route requests to Ollama models when selected, and use them as part of the fallback chain.
+  The models run 24/7 with no API costs.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="models" class="page-break">8. Managing Models</h2>
+
+<p>SSH into the Oracle instance to manage models:</p>
+<pre>ssh -i key.pem -p 2222 deploy@ORACLE_PUBLIC_IP</pre>
+
+<h3>Installed Models (24 GB RAM)</h3>
+<table>
+  <tr><th>Model</th><th>Size (Q4)</th><th>RAM Needed</th><th>Good For</th><th>Speed (est.)</th></tr>
+  <tr><td>qwen3.5:9b</td><td>~6 GB</td><td>~8 GB</td><td>General + agent tasks, tool calling</td><td>~8 t/s</td></tr>
+  <tr><td>qwen3:14b</td><td>~9 GB</td><td>~12 GB</td><td>Reasoning, general purpose (dense)</td><td>~5 t/s</td></tr>
+  <tr><td>qwen3-coder:30b-a3b</td><td>~18 GB</td><td>~20 GB</td><td>Coding (MoE, 3.3B active per token)</td><td>~3 t/s</td></tr>
+</table>
+
+<h3>Optional Models (can be pulled manually)</h3>
+<table>
+  <tr><th>Model</th><th>Size</th><th>RAM Needed</th><th>Good For</th></tr>
+  <tr><td>qwen3:8b</td><td>~5 GB</td><td>~7 GB</td><td>Lighter alternative to 14B</td></tr>
+  <tr><td>qwen3.5:4b</td><td>~3 GB</td><td>~4 GB</td><td>Ultra-fast, simple tasks</td></tr>
+  <tr><td>qwen3-coder-next</td><td>~46 GB</td><td>~48 GB</td><td>Best coding model (won't fit in 24GB)</td></tr>
+</table>
+
+<div class="info-box">
+  <strong>Memory rule of thumb:</strong> Model file size &times; 1.3 = approximate RAM needed while running.
+  Ollama loads one model at a time by default (<code>OLLAMA_MAX_LOADED_MODELS=1</code>).
+  Only the active model uses RAM &mdash; inactive models stay on disk (200 GB).
+  The MoE coder model (30B) only activates 3.3B params per token, so despite its large file size it runs
+  with reasonable efficiency on ARM CPU.
+</div>
+
+<h3>Model Management Commands</h3>
+<pre># List installed models
+ollama list
+
+# Pull a new model
+ollama pull codestral:22b
+
+# Remove a model (to free disk space)
+ollama rm model-name
+
+# Test a model interactively
+ollama run qwen3.5:9b "Explain Docker networking"
+
+# Check disk usage
+df -h /
+
+# Check model storage size
+du -sh /usr/share/ollama/.ollama/models/</pre>
+
+<h3>After Adding/Removing Models</h3>
+<p>LiteLLM auto-discovers Ollama models. If you add a new model to Ollama, you may need to add a matching entry in <code>litellm_config.yaml</code> on EC2 and restart LiteLLM:</p>
+
+<p><span class="label label-ios">iOS/SSM (on EC2)</span></p>
+<pre>cd /home/VPS && sudo docker compose restart litellm && sleep 10 && sudo docker compose logs --tail=20 litellm</pre>
+
+<!-- ================================================================== -->
+<h2 id="elite" class="page-break">9. Elite Agent Onboarding</h2>
+
+<p>When an agent earns Elite tier through the governance system (weekly champion), they gain access to the Oracle partition.</p>
+
+<h3>What Elite Agents Get</h3>
+<ul>
+  <li>Access to local models (no API costs, no rate limits)</li>
+  <li>Persistent storage on the Oracle server</li>
+  <li>Background job capability via cron</li>
+  <li>Can bring team members onto Oracle alongside them</li>
+  <li>Can request new specialist agents</li>
+</ul>
+
+<h3>How It Works</h3>
+<ol>
+  <li>Governance system tracks agent performance (success rate, quality, efficiency, streaks)</li>
+  <li>Weekly champion earns Elite tier automatically</li>
+  <li>Elite agent's model assignment can be switched to an Ollama model for cost-free operation</li>
+  <li>Owner can manually promote sustained Elite performers to <strong>Manager</strong> (above both teams)</li>
+</ol>
+
+<div class="info-box">
+  <strong>Current implementation:</strong> Elite tier Oracle access is managed manually by the owner.
+  The governance system identifies the champion; the owner updates the agent's model assignment
+  in Mission Control or the OpenClaw config to use Ollama models.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="maintenance" class="page-break">10. Maintenance & Troubleshooting</h2>
+
+<h3>Routine Checks</h3>
+<pre># On Oracle instance:
+sudo systemctl status ollama     # Service status
+ollama list                      # Installed models
+df -h /                          # Disk usage
+free -h                          # Memory usage
+htop                             # Live resource monitor</pre>
+
+<h3>Common Issues</h3>
+
+<div class="step">
+  <span class="step-title">EC2 can't reach Ollama</span>
+  <ol>
+    <li>Check Oracle Security List has ingress rule for EC2 IP on port 11434</li>
+    <li>Check UFW on Oracle: <code>sudo ufw status</code> (should show 11434 from EC2 IP)</li>
+    <li>Check Ollama is listening: <code>sudo ss -tlnp | grep 11434</code></li>
+    <li>Test locally on Oracle: <code>curl http://localhost:11434/api/tags</code></li>
+  </ol>
+</div>
+
+<div class="step">
+  <span class="step-title">Ollama is slow / models take long to respond</span>
+  <ul>
+    <li>Check if model is still loading: first request after idle takes longer (cold start)</li>
+    <li>Check memory pressure: <code>free -h</code> (swap usage > 2 GB = too many models loaded)</li>
+    <li>Reduce to 1 loaded model: <code>OLLAMA_MAX_LOADED_MODELS=1</code> (already set by script)</li>
+    <li>Use smaller quantization: <code>ollama pull qwen3:14b-q4_K_M</code></li>
+  </ul>
+</div>
+
+<div class="step">
+  <span class="step-title">Ollama crashed / not responding</span>
+  <pre>sudo systemctl restart ollama
+sudo journalctl -u ollama --since "5 min ago"</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">Disk full on Oracle</span>
+  <pre># Check what's using space
+du -sh /usr/share/ollama/.ollama/models/blobs/* | sort -rh | head -10
+
+# Remove unused models
+ollama rm model-name
+
+# Clean apt cache
+sudo apt-get clean</pre>
+</div>
+
+<div class="step">
+  <span class="step-title">EC2 IP Changed (Elastic IP released)</span>
+  <p>If your EC2 Elastic IP changes, update both:</p>
+  <ol>
+    <li><strong>Oracle Security List:</strong> Edit the Ollama ingress rule with new EC2 IP</li>
+    <li><strong>Oracle UFW:</strong> SSH in and update the firewall rule:</li>
+  </ol>
+  <pre>sudo ufw delete allow from OLD_EC2_IP to any port 11434
+sudo ufw allow from NEW_EC2_IP to any port 11434 proto tcp comment "Ollama from EC2"</pre>
+</div>
+
+<h3>Updating Ollama</h3>
+<pre># On Oracle instance:
+curl -fsSL https://ollama.com/install.sh | sh
+sudo systemctl restart ollama
+ollama --version</pre>
+
+<!-- ================================================================== -->
+<h2 id="reference" class="page-break">11. Quick Reference</h2>
+
+<table>
+  <tr><th>Action</th><th>Command (on Oracle)</th></tr>
+  <tr><td>SSH in</td><td><code>ssh -i key.pem -p 2222 deploy@ORACLE_IP</code></td></tr>
+  <tr><td>Ollama status</td><td><code>sudo systemctl status ollama</code></td></tr>
+  <tr><td>List models</td><td><code>ollama list</code></td></tr>
+  <tr><td>Pull model</td><td><code>ollama pull model:tag</code></td></tr>
+  <tr><td>Remove model</td><td><code>ollama rm model:tag</code></td></tr>
+  <tr><td>Test model</td><td><code>ollama run model "prompt"</code></td></tr>
+  <tr><td>Restart Ollama</td><td><code>sudo systemctl restart ollama</code></td></tr>
+  <tr><td>View logs</td><td><code>sudo journalctl -u ollama -f</code></td></tr>
+  <tr><td>Disk usage</td><td><code>df -h / && du -sh /usr/share/ollama/.ollama/models/</code></td></tr>
+  <tr><td>Memory</td><td><code>free -h</code></td></tr>
+  <tr><td>Firewall</td><td><code>sudo ufw status</code></td></tr>
+  <tr><td>Update Ollama</td><td><code>curl -fsSL https://ollama.com/install.sh | sh</code></td></tr>
+</table>
+
+<h3>Key Addresses</h3>
+<table>
+  <tr><th>What</th><th>Value</th></tr>
+  <tr><td>Oracle SSH</td><td><code>ORACLE_IP:2222</code> (user: deploy)</td></tr>
+  <tr><td>Ollama API</td><td><code>http://ORACLE_IP:11434</code> (EC2 only)</td></tr>
+  <tr><td>EC2 .env setting</td><td><code>OLLAMA_BASE_URL=http://ORACLE_IP:11434</code></td></tr>
+  <tr><td>LiteLLM model aliases</td><td><code>qwen3.5:9b</code>, <code>qwen3:14b</code>, <code>qwen3-coder:30b</code></td></tr>
+</table>
+
+<h3>Checklist Summary</h3>
+<ul class="checklist">
+  <li>Oracle Cloud account created (free tier)</li>
+  <li>ARM A1.Flex instance created (4 OCPU / 24 GB)</li>
+  <li>Security List: SSH (2222) + Ollama (11434 from EC2 IP)</li>
+  <li>setup-ollama-server.sh completed</li>
+  <li>Models downloaded (qwen3.5:9b, qwen3:14b, qwen3-coder:30b-a3b)</li>
+  <li>EC2 .env updated with OLLAMA_BASE_URL</li>
+  <li>EC2 stack restarted</li>
+  <li>LiteLLM shows Ollama models</li>
+  <li>Test chat via Mission Control works with local model</li>
+</ul>
+
+<hr>
+
+<p style="text-align: center; color: var(--muted); margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+  in-fused.org &mdash; Oracle Cloud ARM Setup Guide &mdash; March 2026<br>
+  <small>Use the "Save as PDF" button (bottom-right) for an offline copy. Or print from your browser.</small>
+</p>
+
+</body>
+</html>

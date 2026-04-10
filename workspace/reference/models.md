@@ -1,3 +1,9 @@
+# Models & Routing Reference
+> Auto-generated. Source: litellm_config.yaml
+> Read this when you need to understand model tiers, rate limits,
+> fallback chains, or provider configuration.
+
+```yaml
 ###############################################################################
 # LiteLLM Proxy Configuration — Cost-Tiered Model Routing
 ###############################################################################
@@ -48,73 +54,8 @@ model_list:
   # ===========================================================================
   # TIER 2: FREE — Groq API (free tier, load-balanced across 4 accounts)
   # ===========================================================================
-  # Production models: llama-3.3-70b, gpt-oss-120b, gpt-oss-20b.
-  # Preview (may be discontinued): qwen3-32b, llama-4-scout.
-  # Load-balanced across 4 Groq accounts.
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq. Production. 500 t/s. Strong reasoning."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 2)."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 3)."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 4)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq. Production. 1000 t/s. Fast + capable."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 2)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 3)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 4)."
+  # Fast cloud inference at no cost. llama-3.3-70b: 1K RPD, 100K TPD.
+  # qwen3-32b: 1K RPD, 500K TPD. Load-balanced across 4 Groq accounts.
 
   - model_name: "groq-llama-3.3-70b"
     litellm_params:
@@ -154,7 +95,7 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Qwen 3 32B on Groq. Preview (may be discontinued). Dual-mode reasoning."
+      description: "FREE — Qwen 3 32B. Dual-mode reasoning + tool use. 131K context."
 
   - model_name: "groq-qwen3-32b"
     litellm_params:
@@ -184,17 +125,25 @@ model_list:
   # TIER 3: FREE — Cerebras (1M tokens/day, fastest inference)
   # ===========================================================================
   # 2.4x faster than Groq. 1M TPD free. No credit card required.
-  # Production models: llama3.1-8b, gpt-oss-120b. Preview: qwen3-235b, zai-glm.
-  # cerebras-llama-4-scout REMOVED — Cerebras dropped it (April 2026).
-  # cerebras-llama-3.3-70b REMOVED — no longer in Cerebras model list.
 
-  - model_name: "cerebras-gpt-oss-120b"
+  - model_name: "cerebras-llama-3.3-70b"
     litellm_params:
-      model: "cerebras/gpt-oss-120b"
+      model: "cerebras/llama-3.3-70b"
       api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — GPT-OSS 120B on Cerebras. Production. 3000 t/s. Primary agent model."
+      description: "FREE — Llama 3.3 70B on Cerebras. 1M TPD. Fastest inference."
+
+  # cerebras-qwen3-32b REMOVED — Cerebras dropped qwen3-32b (404 as of 2026-03-05).
+  # Use groq-qwen3-32b instead (load-balanced across 4 accounts).
+
+  - model_name: "cerebras-llama-4-scout"
+    litellm_params:
+      model: "cerebras/llama-4-scout-17b-16e-instruct"
+      api_key: "os.environ/CEREBRAS_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — Llama 4 Scout 17B on Cerebras. 1M TPD."
 
   - model_name: "cerebras-llama-3.1-8b"
     litellm_params:
@@ -202,7 +151,7 @@ model_list:
       api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Llama 3.1 8B on Cerebras. Production. 2267 t/s. Fastest model."
+      description: "FREE — Llama 3.1 8B on Cerebras. 2267 t/s. Fastest model."
 
   - model_name: "cerebras-qwen3-235b"
     litellm_params:
@@ -210,7 +159,7 @@ model_list:
       api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Qwen 3 235B on Cerebras. Preview. Reduced free-tier limits."
+      description: "FREE — Qwen 3 235B on Cerebras. Reduced free-tier limits."
 
   - model_name: "cerebras-zai-glm"
     litellm_params:
@@ -218,7 +167,15 @@ model_list:
       api_key: "os.environ/CEREBRAS_API_KEY"
       stream: true
     model_info:
-      description: "FREE — ZAI GLM-4.7 on Cerebras. Preview. Reasoning model. 128K context."
+      description: "FREE — ZAI GLM-4.7 on Cerebras. Reasoning model. 128K context."
+
+  - model_name: "cerebras-gpt-oss-120b"
+    litellm_params:
+      model: "cerebras/gpt-oss-120b"
+      api_key: "os.environ/CEREBRAS_API_KEY"
+      stream: true
+    model_info:
+      description: "FREE — GPT-OSS 120B on Cerebras. Reasoning model. 2096 t/s."
 
   # ===========================================================================
   # TIER 4: FREE — Google Gemini (load-balanced across 3 API keys)
@@ -472,9 +429,6 @@ litellm_settings:
   request_timeout: 120
   # Number of retries on failure
   num_retries: 2
-  # Log every request to PostgreSQL for spend tracking (Monitor view in Mission Control)
-  success_callback: ["db"]
-  failure_callback: ["db"]
 
 router_settings:
   # When a free-tier model hits rate limits (429), fall back through the chain.
@@ -482,30 +436,26 @@ router_settings:
   # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
   fallbacks:
     # Free-first strategy: exhaust ALL free cloud providers → free Ollama → paid last resort.
-    # Production models: groq-gpt-oss-120b, cerebras-gpt-oss-120b, groq-llama-3.3-70b.
     # Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) have ZERO rate limits.
     # Cloud free tiers
-    - gemini-flash: ["gemini-flash-lite", "groq-gpt-oss-120b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
-    - gemini-flash-lite: ["gemini-flash", "groq-gpt-oss-20b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
-    - gemini-pro: ["gemini-flash", "groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "qwen3:14b", "deepseek-chat"]
-    - groq-gpt-oss-120b: ["cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
-    - groq-gpt-oss-20b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
-    - groq-llama-3.3-70b: ["groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
-    - groq-qwen3-32b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
-    - cerebras-gpt-oss-120b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
-    - cerebras-qwen3-235b: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
-    - cerebras-zai-glm: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
-    - cerebras-llama-3.1-8b: ["groq-gpt-oss-20b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
-    - mistral-large: ["mistral-small", "gemini-flash", "groq-gpt-oss-120b", "deepseek-chat"]
-    - mistral-small: ["mistral-large", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
-    - mistral-nemo: ["mistral-small", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
+    - gemini-flash: ["gemini-flash-lite", "mistral-small", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - gemini-flash-lite: ["gemini-flash", "mistral-small", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - gemini-pro: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - groq-llama-3.3-70b: ["gemini-flash", "cerebras-llama-3.3-70b", "groq-qwen3-32b", "qwen3.5:9b", "deepseek-chat"]
+    - groq-qwen3-32b: ["gemini-flash", "groq-llama-3.3-70b", "mistral-small", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-llama-3.3-70b: ["gemini-flash", "groq-llama-3.3-70b", "qwen3:14b", "deepseek-chat"]
+    - cerebras-llama-4-scout: ["gemini-flash-lite", "groq-llama-3.3-70b", "cerebras-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-qwen3-235b: ["gemini-pro", "groq-qwen3-32b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - cerebras-zai-glm: ["gemini-pro", "cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "qwen3:14b", "deepseek-chat"]
+    - cerebras-gpt-oss-120b: ["gemini-flash", "groq-llama-3.3-70b", "cerebras-zai-glm", "qwen3:14b", "deepseek-chat"]
+    - cerebras-llama-3.1-8b: ["gemini-flash-lite", "cerebras-llama-4-scout", "qwen3.5:9b", "deepseek-chat"]
+    - mistral-large: ["mistral-small", "gemini-flash", "qwen3:14b", "deepseek-chat"]
+    - mistral-small: ["mistral-large", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
+    - mistral-nemo: ["mistral-small", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
     - codestral: ["mistral-small", "gemini-flash", "qwen3-coder:30b", "deepseek-coder"]
-    # DeepSeek — fallback to free providers if down
-    - deepseek-chat: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-flash", "qwen3:14b"]
-    - deepseek-coder: ["deepseek-chat", "codestral", "groq-gpt-oss-120b", "qwen3-coder:30b"]
     # Ollama models fall back to each other, then cloud free, then paid
-    - "qwen3.5:9b": ["qwen3:14b", "groq-gpt-oss-20b", "gemini-flash-lite", "deepseek-chat"]
-    - "qwen3:14b": ["qwen3.5:9b", "groq-gpt-oss-120b", "gemini-flash", "deepseek-chat"]
+    - "qwen3.5:9b": ["qwen3:14b", "gemini-flash-lite", "groq-llama-3.3-70b", "deepseek-chat"]
+    - "qwen3:14b": ["qwen3.5:9b", "gemini-flash", "cerebras-llama-3.3-70b", "deepseek-chat"]
     - "qwen3-coder:30b": ["qwen3:14b", "codestral", "gemini-flash", "deepseek-coder"]
   # Allow 1 retry per deployment, then cascade to fallback chain.
   # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
@@ -520,3 +470,4 @@ router_settings:
   retry_policy:
     RateLimitErrorRetries: 2
     ContentPolicyViolationErrorRetries: 0
+```

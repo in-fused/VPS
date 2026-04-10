@@ -1,0 +1,20 @@
+{
+  "appId": "org.infused.missioncontrol",
+  "appName": "Mission Control",
+  "webDir": "dist",
+  "server": {
+    "url": "https://in-fused.org/workspace/",
+    "cleartext": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#0a0e17",
+    "preferredContentMode": "mobile",
+    "allowsLinkPreview": false
+  }
+}

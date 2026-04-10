@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>in-fused.org — Project Overview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --gold: #d4a54a;
+    --gold-light: #f0d078;
+    --gold-dim: rgba(212, 165, 74, 0.12);
+    --cyber-blue: #22d3ee;
+    --cyber-blue-dim: rgba(34, 211, 238, 0.1);
+    --deep-navy: #0a0e1a;
+    --surface: #111827;
+    --surface-2: #1a2235;
+    --border: rgba(212, 165, 74, 0.15);
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --emerald: #34d399;
+    --violet: #a78bfa;
+    --amber: #fbbf24;
+    --red: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--deep-navy);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ── Page structure ── */
+  .page { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+
+  /* ── Hero Section ── */
+  .hero {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 32px;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--deep-navy) 50%, var(--surface) 100%);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 20%, rgba(212, 165, 74, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.04) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gold-dim);
+    border: 1px solid rgba(212, 165, 74, 0.25);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 24px;
+  }
+  .hero-badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+  }
+  .hero h1 {
+    font-size: clamp(32px, 6vw, 48px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .hero h1 .gold { color: var(--gold); }
+  .hero h1 .blue { color: var(--cyber-blue); }
+  .hero .tagline {
+    font-size: clamp(14px, 2.5vw, 18px);
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-bottom: 32px;
+  }
+  .hero-stats {
+    display: flex;
+    gap: 24px;
+    position: relative;
+    flex-wrap: wrap;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(20px, 3.5vw, 28px);
+    font-weight: 700;
+    color: var(--gold-light);
+  }
+  .hero-stat .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .compass {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 180px;
+    height: 180px;
+    opacity: 0.06;
+  }
+  .compass svg { width: 100%; height: 100%; }
+
+  /* ── Section Cards ── */
+  .section {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-header .icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .section-header .icon.gold { background: var(--gold-dim); }
+  .section-header .icon.blue { background: var(--cyber-blue-dim); }
+  .section-header .icon.emerald { background: rgba(52, 211, 153, 0.1); }
+  .section-header .icon.violet { background: rgba(167, 139, 250, 0.1); }
+  .section-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .section-header .sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  .section-body { padding: 20px; }
+
+  /* ── Architecture Diagram ── */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 16px 0;
+    flex-wrap: wrap;
+  }
+  .arch-node {
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: center;
+    min-width: 90px;
+    position: relative;
+  }
+  .arch-node .name { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+  .arch-node .detail { font-size: 9px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+  .arch-node.gold-node { background: var(--gold-dim); border: 1px solid rgba(212, 165, 74, 0.3); color: var(--gold-light); }
+  .arch-node.blue-node { background: var(--cyber-blue-dim); border: 1px solid rgba(34, 211, 238, 0.3); color: var(--cyber-blue); }
+  .arch-node.emerald-node { background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.25); color: var(--emerald); }
+  .arch-arrow { font-size: 18px; color: var(--gold); padding: 0 6px; opacity: 0.5; flex-shrink: 0; }
+
+  /* ── Grid layouts ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+  /* ── Feature Cards ── */
+  .feat-card {
+    background: var(--surface-2);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .feat-card .feat-icon { font-size: 22px; margin-bottom: 8px; }
+  .feat-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .feat-card p { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+  /* ── Agent Grid ── */
+  .agent-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    margin-bottom: 8px;
+  }
+  .agent-avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .agent-info { flex: 1; min-width: 0; }
+  .agent-info .name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .agent-info .role { font-size: 10px; color: var(--text-muted); }
+  .agent-model {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .agent-model.paid { color: var(--amber); background: rgba(251, 191, 36, 0.08); }
+  .agent-model.free { color: var(--emerald); background: rgba(52, 211, 153, 0.08); }
+  .team-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 8px 0 8px 4px;
+    margin-top: 8px;
+  }
+  .team-label.core { color: var(--cyber-blue); }
+  .team-label.platform { color: var(--gold); }
+
+  /* ── Model Tier Table ── */
+  .tier-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .tier-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+    min-width: 56px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .tier-badge.free { background: rgba(52, 211, 153, 0.12); color: var(--emerald); }
+  .tier-badge.cheap { background: rgba(34, 211, 238, 0.1); color: var(--cyber-blue); }
+  .tier-badge.mid { background: rgba(251, 191, 36, 0.1); color: var(--amber); }
+  .tier-badge.premium { background: rgba(248, 113, 113, 0.1); color: var(--red); }
+  .tier-models { font-size: 11px; color: var(--text); flex: 1; min-width: 0; }
+  .tier-cost {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── Status Pills ── */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 600; padding: 4px 12px;
+    border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .status-pill.complete { background: rgba(52, 211, 153, 0.1); color: var(--emerald); border: 1px solid rgba(52, 211, 153, 0.2); }
+  .status-pill .pip { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* ── Commit Log ── */
+  .commit-line { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: 11px; }
+  .commit-hash { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--gold); min-width: 60px; flex-shrink: 0; }
+  .commit-msg { color: var(--text-muted); }
+
+  /* ── Deploy Block ── */
+  .deploy-block {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+  }
+  .deploy-block .deploy-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--gold); margin-bottom: 8px;
+  }
+  .deploy-block code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--cyber-blue); line-height: 1.6;
+    display: block; word-break: break-all;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; padding: 32px 0 20px;
+    font-size: 10px; color: var(--text-muted);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .footer .anchor { color: var(--gold); font-weight: 700; font-size: 20px; display: block; margin-bottom: 8px; }
+
+  /* ── Decorative ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .wave-line { text-align: center; font-size: 14px; letter-spacing: 8px; color: rgba(212, 165, 74, 0.15); margin: 8px 0; }
+
+  /* ── Workflow Pipeline ── */
+  .pipeline { display: flex; align-items: center; justify-content: center; gap: 0; padding: 16px 0; flex-wrap: wrap; }
+  .pipeline-node {
+    background: var(--surface-2); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 10px 14px; text-align: center; min-width: 80px;
+  }
+  .pipeline-node .p-icon { font-size: 16px; margin-bottom: 4px; }
+  .pipeline-node .p-name { font-size: 10px; font-weight: 600; color: var(--text); }
+  .pipeline-arrow { color: var(--cyber-blue); opacity: 0.4; padding: 0 4px; font-size: 14px; }
+
+  /* ── Capabilities Checklist ── */
+  .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .check-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--text); padding: 6px 8px;
+    border-radius: 6px; background: var(--surface-2);
+  }
+  .check-item .ck { color: var(--emerald); font-size: 13px; }
+
+  /* ── Save button ── */
+  .print-btn {
+    position: fixed; bottom: 20px; right: 20px;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: #0a0e1a; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 13px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 4px 20px rgba(212,165,74,0.3);
+    z-index: 100; letter-spacing: 0.03em;
+    transition: all 0.2s;
+  }
+  .print-btn:hover { box-shadow: 0 6px 28px rgba(212,165,74,0.4); }
+  .print-btn:disabled { opacity: 0.7; cursor: wait; }
+
+  /* ── Export overlay ── */
+  .export-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(10, 14, 26, 0.92);
+    z-index: 200; justify-content: center; align-items: center;
+    flex-direction: column; gap: 16px;
+  }
+  .export-overlay.active { display: flex; }
+  .export-spinner {
+    width: 48px; height: 48px; border: 3px solid var(--gold-dim);
+    border-top-color: var(--gold); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .export-status { color: var(--gold); font-size: 14px; font-weight: 600; }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 768px) {
+    .page { padding: 16px 12px; }
+    .hero { padding: 28px 20px; border-radius: 14px; }
+    .hero-stats { gap: 16px; }
+    .compass { display: none; }
+    .section-header { padding: 14px 16px; flex-wrap: wrap; }
+    .section-header h2 { font-size: 14px; }
+    .section-body { padding: 16px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .arch-flow { gap: 4px; }
+    .arch-node { min-width: 70px; padding: 8px 10px; }
+    .arch-node .name { font-size: 10px; }
+    .arch-arrow { font-size: 14px; padding: 0 3px; }
+    .tier-row { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+    .tier-cost { min-width: auto; text-align: left; }
+    .agent-row { flex-wrap: wrap; gap: 8px; }
+    .agent-model { font-size: 8px; }
+    .check-grid { grid-template-columns: 1fr; }
+    .commit-line { font-size: 10px; }
+    .deploy-block code { font-size: 10px; }
+    .feat-card { padding: 12px; }
+    .pipeline-node { min-width: 60px; padding: 8px 10px; }
+    .pipeline-node .p-name { font-size: 9px; }
+  }
+
+  @media (max-width: 480px) {
+    .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .hero-stats { gap: 12px; justify-content: center; }
+  }
+
+  /* ── Hide button when printing (fallback) ── */
+  @media print { .print-btn, .export-overlay { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════════ HERO ═══════════════════ -->
+  <div class="hero">
+    <div class="compass">
+      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="100" cy="100" r="90" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+        <circle cx="100" cy="100" r="60" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+        <line x1="100" y1="10" x2="100" y2="190" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+        <line x1="10" y1="100" x2="190" y2="100" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+        <polygon points="100,15 108,45 100,35 92,45" fill="currentColor" opacity="0.6"/>
+        <polygon points="100,185 108,155 100,165 92,155" fill="currentColor" opacity="0.3"/>
+        <polygon points="15,100 45,92 35,100 45,108" fill="currentColor" opacity="0.3"/>
+        <polygon points="185,100 155,92 165,100 155,108" fill="currentColor" opacity="0.3"/>
+        <text x="100" y="8" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor" opacity="0.5">N</text>
+        <text x="100" y="198" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.3">S</text>
+        <text x="5" y="104" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.3">W</text>
+        <text x="196" y="104" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.3">E</text>
+      </svg>
+    </div>
+
+    <div class="hero-badge"><span class="dot"></span> Production &mdash; Fully Operational</div>
+    <h1><span class="gold">in-fused</span><span class="blue">.org</span></h1>
+    <div class="tagline">Self-hosted multi-agent AI hub &mdash; 8 autonomous agents on DeepSeek V3.2, 25+ models across 6 free providers, running 24/7</div>
+
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num">145+</div><div class="label">Commits</div></div>
+      <div class="hero-stat"><div class="num">8</div><div class="label">Agents</div></div>
+      <div class="hero-stat"><div class="num">25+</div><div class="label">Models</div></div>
+      <div class="hero-stat"><div class="num">6</div><div class="label">Free Providers</div></div>
+      <div class="hero-stat"><div class="num">24/7</div><div class="label">Uptime</div></div>
+      <div class="hero-stat"><div class="num">~$75</div><div class="label">/month total</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ARCHITECTURE ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon gold">&#9875;</div>
+      <div>
+        <h2>Architecture &mdash; The Fleet</h2>
+        <div class="sub">Request flow from helm to harbor</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="arch-flow">
+        <div class="arch-node gold-node">
+          <div class="name">Internet</div>
+          <div class="detail">HTTPS</div>
+        </div>
+        <div class="arch-arrow">&xrarr;</div>
+        <div class="arch-node gold-node">
+          <div class="name">Caddy</div>
+          <div class="detail">auto-TLS + auth</div>
+        </div>
+        <div class="arch-arrow">&xrarr;</div>
+        <div class="arch-node blue-node">
+          <div class="name">Mission Control</div>
+          <div class="detail">Alpine.js SPA</div>
+        </div>
+        <div class="arch-arrow">&xrarr;</div>
+        <div class="arch-node blue-node">
+          <div class="name">OpenClaw</div>
+          <div class="detail">Agent Runtime</div>
+        </div>
+        <div class="arch-arrow">&xrarr;</div>
+        <div class="arch-node emerald-node">
+          <div class="name">LiteLLM</div>
+          <div class="detail">Model Gateway</div>
+        </div>
+        <div class="arch-arrow">&xrarr;</div>
+        <div class="arch-node emerald-node">
+          <div class="name">6 Providers</div>
+          <div class="detail">multi-tier</div>
+        </div>
+      </div>
+
+      <div class="wave-line">~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~</div>
+
+      <div class="grid-3" style="margin-top: 16px;">
+        <div class="feat-card">
+          <div class="feat-icon">&#128737;</div>
+          <h3>Caddy Reverse Proxy</h3>
+          <p>Auto-HTTPS, cookie auth, SSE streaming, WebSocket upgrade, flush_interval&nbsp;-1</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">&#128752;</div>
+          <h3>OpenClaw Runtime</h3>
+          <p>24/7 agent execution, WS RPC, cron jobs, tool orchestration, 1.5GB mem</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">&#128640;</div>
+          <h3>LiteLLM Gateway</h3>
+          <p>25+ models, latency-based routing, automatic rate-limit fallback chains</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">&#128225;</div>
+          <h3>SearXNG Search</h3>
+          <p>Self-hosted meta search, unlimited, no API key. Google, Bing, DuckDuckGo aggregation</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">&#128375;</div>
+          <h3>Scrapling Sidecar</h3>
+          <p>Web scraping API for agents. TLS fingerprint spoofing, internal-only network</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">&#9729;&#65039;</div>
+          <h3>Oracle ARM (Ollama)</h3>
+          <p>4 OCPU / 24GB free tier. 3 local models, zero rate limits, shared by all agents</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MISSION CONTROL ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon blue">&#128752;</div>
+      <div>
+        <h2>Mission Control &mdash; The Bridge</h2>
+        <div class="sub">Mobile-first command center &bull; Alpine.js + Tailwind &bull; PWA</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="grid-4">
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#128200;</div>
+          <h3>Dashboard</h3>
+          <p>Autonomy grid, staging queue, cron stats, batch approve</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#128172;</div>
+          <h3>Chat</h3>
+          <p>3-tier fallback: OpenClaw WS &rarr; LiteLLM SSE &rarr; Demo</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#9881;</div>
+          <h3>Workflows</h3>
+          <p>LiteGraph visual builder, 8 node types, loop iteration</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#129302;</div>
+          <h3>Agents</h3>
+          <p>CRUD, cron popover, governance badges, tool restrictions</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#127942;</div>
+          <h3>Teams</h3>
+          <p>Dual-team scoring, leaderboard, auto-lead promotion</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#128230;</div>
+          <h3>Staging</h3>
+          <p>Agent content review, approve/reject from phone</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#128336;</div>
+          <h3>Cron Jobs</h3>
+          <p>Dedicated view with stats, run/remove, auto-fetch</p>
+        </div>
+        <div class="feat-card" style="text-align:center;">
+          <div class="feat-icon">&#128225;</div>
+          <h3>Activity</h3>
+          <p>Live agent event feed, &ldquo;While You Were Away&rdquo; report</p>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div style="font-size: 11px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;">Capabilities &mdash; Fully Operational</div>
+        <div class="check-grid">
+          <div class="check-item"><span class="ck">&#10003;</span> Grouped sidebar: OBSERVE / MANAGE / AUTOMATE</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Mobile bottom nav (4 priority buttons)</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Header: agent pills, session pills, clock</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Prompt Library with evolution system</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Dedicated Cron Jobs view with stats</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Settings toggle for all sidebar items</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ AGENT FLEET ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon emerald">&#9875;</div>
+      <div>
+        <h2>The Agent Fleet &mdash; 2 Crews, 8 Sailors</h2>
+        <div class="sub">Autonomous 24/7 &bull; DeepSeek V3.2 primary &bull; Inbox-check every 5min</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div>
+          <div class="team-label core">&#9965; Core Team &mdash; Features &amp; Tasks</div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: var(--cyber-blue-dim); color: var(--cyber-blue);">&#128081;</div>
+            <div class="agent-info"><div class="name">Lead</div><div class="role">Orchestrator &mdash; delegates to specialists</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(167,139,250,0.1); color: var(--violet);">&#128187;</div>
+            <div class="agent-info"><div class="name">CodeCraft</div><div class="role">Full-stack developer</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(52,211,153,0.1); color: var(--emerald);">&#128270;</div>
+            <div class="agent-info"><div class="name">Scout</div><div class="role">Research specialist</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(251,191,36,0.1); color: var(--amber);">&#128221;</div>
+            <div class="agent-info"><div class="name">Scribe</div><div class="role">Documentation writer</div></div>
+            <div class="agent-model free">gemini-flash-lite</div>
+          </div>
+        </div>
+        <div>
+          <div class="team-label platform">&#9875; Platform Team &mdash; Infrastructure</div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: var(--gold-dim); color: var(--gold);">&#128081;</div>
+            <div class="agent-info"><div class="name">Ops Lead</div><div class="role">Platform orchestrator</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(167,139,250,0.1); color: var(--violet);">&#128295;</div>
+            <div class="agent-info"><div class="name">Builder</div><div class="role">Infrastructure developer</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(248,113,113,0.1); color: var(--red);">&#128737;</div>
+            <div class="agent-info"><div class="name">Sentinel</div><div class="role">Security &amp; monitoring</div></div>
+            <div class="agent-model paid">deepseek-chat</div>
+          </div>
+          <div class="agent-row">
+            <div class="agent-avatar" style="background: rgba(52,211,153,0.1); color: var(--emerald);">&#128214;</div>
+            <div class="agent-info"><div class="name">Chronicler</div><div class="role">Platform documentation</div></div>
+            <div class="agent-model free">gemini-flash-lite</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; padding: 12px 16px; background: var(--surface-2); border-radius: 10px; font-size: 11px; color: var(--text-muted);">
+        <strong style="color: var(--gold);">Model strategy:</strong> 6 working agents on DeepSeek V3.2 ($0.28/1M in) &mdash; high quality at low cost. 2 doc writers on Gemini Flash-Lite (free). Subagents inherit parent model. Fallback chain: deepseek &rarr; cerebras &rarr; groq &rarr; gemini &rarr; ollama.
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ WORKFLOW ENGINE ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon violet">&#9881;</div>
+      <div>
+        <h2>Workflow Engine &mdash; Navigation Charts</h2>
+        <div class="sub">Visual node editor &bull; 8 node types &bull; Real tool execution</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="pipeline">
+        <div class="pipeline-node"><div class="p-icon">&#9889;</div><div class="p-name">Trigger</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#129302;</div><div class="p-name">Agent</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#128736;</div><div class="p-name">Tool</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#10697;</div><div class="p-name">Condition</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#128257;</div><div class="p-name">Loop</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#128279;</div><div class="p-name">Merge</div></div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node"><div class="p-icon">&#128190;</div><div class="p-name">Output</div></div>
+      </div>
+      <div class="grid-2" style="margin-top: 12px;">
+        <div class="check-grid" style="grid-template-columns: 1fr;">
+          <div class="check-item"><span class="ck">&#10003;</span> Auto-save every 5s to localStorage</div>
+          <div class="check-item"><span class="ck">&#10003;</span> 8 real tools: Search, Scrape, Exec, Read, Write, Shell, API, Browser</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Agent-to-workflow bridge (bidirectional file-based sync)</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Background execution via team leads</div>
+        </div>
+        <div class="check-grid" style="grid-template-columns: 1fr;">
+          <div class="check-item"><span class="ck">&#10003;</span> Loop iteration with result accumulation</div>
+          <div class="check-item"><span class="ck">&#10003;</span> AI merge modes (Pick Best, Summary via LiteLLM)</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Branch gating &mdash; skips inactive condition paths</div>
+          <div class="check-item"><span class="ck">&#10003;</span> Governance tracking during workflow runs</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MODEL FLEET ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon gold">&#127758;</div>
+      <div>
+        <h2>Model Fleet &mdash; 25+ Sails Across 6 Winds</h2>
+        <div class="sub">DeepSeek V3.2 primary &bull; 6 free fallback providers &bull; Latency-based routing</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="tier-row" style="border-bottom: 1px solid rgba(251,191,36,0.15); background: rgba(251,191,36,0.03); border-radius: 8px; margin-bottom: 8px;">
+        <div class="tier-badge" style="background: rgba(251,191,36,0.15); color: var(--amber);">PRIMARY</div>
+        <div class="tier-models"><strong>DeepSeek V3.2</strong> &mdash; assigned to 6 working agents</div>
+        <div class="tier-cost">$0.28/M in</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge free">FREE</div>
+        <div class="tier-models">Ollama: qwen3.5:9b, qwen3:14b, qwen3-coder:30b <span style="color:var(--text-muted)">(Oracle ARM, zero limits)</span></div>
+        <div class="tier-cost">$0.00</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge free">FREE</div>
+        <div class="tier-models">Groq: llama-3.3-70b, qwen3-32b <span style="color:var(--text-muted)">(4 accounts, 500K TPD)</span></div>
+        <div class="tier-cost">$0.00</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge free">FREE</div>
+        <div class="tier-models">Cerebras: llama-3.3-70b, llama-4-scout, gpt-oss-120b, zai-glm <span style="color:var(--text-muted)">(1M TPD)</span></div>
+        <div class="tier-cost">$0.00</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge free">FREE</div>
+        <div class="tier-models">Gemini: flash, flash-lite, pro <span style="color:var(--text-muted)">(3 keys, 1M context)</span></div>
+        <div class="tier-cost">$0.00</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge free">FREE</div>
+        <div class="tier-models">Mistral: large, codestral, small, nemo <span style="color:var(--text-muted)">(1B tokens/month)</span></div>
+        <div class="tier-cost">$0.00</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge cheap">CHEAP</div>
+        <div class="tier-models">DeepSeek coder, GPT-4o-mini</div>
+        <div class="tier-cost">$0.15&ndash;0.28/M</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge mid">MID</div>
+        <div class="tier-models">Claude Haiku, MiniMax M2.5</div>
+        <div class="tier-cost">$0.30&ndash;1.00/M</div>
+      </div>
+      <div class="tier-row">
+        <div class="tier-badge premium">PREMIUM</div>
+        <div class="tier-models">Claude Sonnet/Opus, GPT-4o, o1</div>
+        <div class="tier-cost">$2.50&ndash;15/M</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ AUTONOMY CHAIN ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon emerald">&#9875;</div>
+      <div>
+        <h2>Autonomy Chain &mdash; From Deploy to Self-Sailing</h2>
+        <div class="sub">6-layer startup &bull; Fully idempotent &bull; Redeploy = full re-init</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="pipeline" style="flex-wrap: wrap; gap: 4px;">
+        <div class="pipeline-node" style="border-color: rgba(212,165,74,0.25);">
+          <div class="p-icon">&#128268;</div>
+          <div class="p-name">deploy.sh</div>
+        </div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node" style="border-color: rgba(212,165,74,0.25);">
+          <div class="p-icon">&#128736;</div>
+          <div class="p-name">Patch Config</div>
+        </div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node" style="border-color: rgba(34,211,238,0.25);">
+          <div class="p-icon">&#128196;</div>
+          <div class="p-name">Seed Files</div>
+        </div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node" style="border-color: rgba(34,211,238,0.25);">
+          <div class="p-icon">&#128752;</div>
+          <div class="p-name">OpenClaw Up</div>
+        </div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node" style="border-color: rgba(52,211,153,0.25);">
+          <div class="p-icon">&#128227;</div>
+          <div class="p-name">Auto-Kickoff</div>
+        </div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-node" style="border-color: rgba(52,211,153,0.25);">
+          <div class="p-icon">&#9854;</div>
+          <div class="p-name">24/7 Autonomy</div>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-top: 16px; font-size: 11px;">
+        <div class="feat-card">
+          <h3 style="color: var(--gold);">+5s</h3>
+          <p>Config patched, workspace files seeded for all 8 agents (7 files each)</p>
+        </div>
+        <div class="feat-card">
+          <h3 style="color: var(--cyber-blue);">+60s</h3>
+          <p>OpenClaw healthy, RPC seed + kickoff directive sent to both team leads</p>
+        </div>
+        <div class="feat-card">
+          <h3 style="color: var(--emerald);">+5min</h3>
+          <p>Agents bootstrapped, inbox-check cron running, first tasks delegated</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ FEATURE STATUS ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon gold">&#127937;</div>
+      <div>
+        <h2>Feature Status &mdash; Ship's Log</h2>
+        <div class="sub">All major systems operational</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div>
+          <div class="check-grid" style="grid-template-columns: 1fr;">
+            <div class="check-item"><span class="ck">&#10003;</span> Reliable Chat Pipeline (3-tier fallback)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Workflow Persistence (auto-save 5s)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> End-to-End Workflow Execution</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Agent&harr;Workflow Bridge (CRUD)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Real Tool Execution (8 tools)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Loop Node Iteration</div>
+            <div class="check-item"><span class="ck">&#10003;</span> DeepSeek V3.2 Primary Model</div>
+          </div>
+        </div>
+        <div>
+          <div class="check-grid" style="grid-template-columns: 1fr;">
+            <div class="check-item"><span class="ck">&#10003;</span> Background Autonomy (24/7)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Auto-Kickoff System</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Inbox-Check Cron (0 */2 * * *)</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Cross-Team Collaboration Protocol</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Prompt Evolution System</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Dashboard + Cron View + Settings</div>
+            <div class="check-item"><span class="ck">&#10003;</span> Self-Hosted SearXNG Search</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ TECH STACK ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon blue">&#128736;</div>
+      <div>
+        <h2>Tech Stack &mdash; Below Deck</h2>
+        <div class="sub">AWS EC2 t3.small &bull; Docker Compose &bull; ~2.8GB RAM</div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="grid-4" style="font-size: 11px;">
+        <div class="feat-card" style="text-align: center; padding: 14px;">
+          <div style="font-size: 18px; margin-bottom: 6px;">&#128218;</div>
+          <h3>Frontend</h3>
+          <p>Alpine.js 3.14<br>Tailwind CSS<br>LiteGraph.js 0.7</p>
+        </div>
+        <div class="feat-card" style="text-align: center; padding: 14px;">
+          <div style="font-size: 18px; margin-bottom: 6px;">&#128752;</div>
+          <h3>Runtime</h3>
+          <p>OpenClaw (Node.js)<br>LiteLLM (Python)<br>Scrapling (FastAPI)</p>
+        </div>
+        <div class="feat-card" style="text-align: center; padding: 14px;">
+          <div style="font-size: 18px; margin-bottom: 6px;">&#128737;</div>
+          <h3>Infra</h3>
+          <p>Caddy (auto-HTTPS)<br>PostgreSQL 16<br>Docker Compose</p>
+        </div>
+        <div class="feat-card" style="text-align: center; padding: 14px;">
+          <div style="font-size: 18px; margin-bottom: 6px;">&#128241;</div>
+          <h3>Mobile</h3>
+          <p>PWA + manifest<br>AWS SSM access<br>Touch-optimized</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ DEPLOY ═══════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon gold">&#9875;</div>
+      <div>
+        <h2>Deploy &amp; Rollback &mdash; Safe Harbor</h2>
+        <div class="sub">Branch: <span style="font-family: 'JetBrains Mono', monospace; color: var(--gold);">claude/webhook-trigger-support-LaTkg</span></div>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="deploy-block">
+        <div class="deploy-label">&#128241; iOS / SSM &mdash; Deploy Latest</div>
+        <code>cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git pull origin claude/webhook-trigger-support-LaTkg && sudo bash scripts/deploy.sh</code>
+      </div>
+      <div class="deploy-block">
+        <div class="deploy-label">&#128737; Known-Good Production Baseline (commit 98dee2d)</div>
+        <code>cd /home/VPS && sudo git config --global --add safe.directory /home/VPS && sudo git fetch origin claude/post-deployment-multi-agent-A8VKl && sudo git reset --hard 98dee2d && sudo bash scripts/deploy.sh</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <div class="footer">
+    <div class="anchor">&#9875;</div>
+    in-fused.org &bull; self-hosted multi-agent AI hub &bull; march 2026
+    <div style="margin-top: 6px; color: rgba(212,165,74,0.3);">~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~</div>
+  </div>
+
+</div>
+
+<button class="print-btn" onclick="savePoster()">&#128438; Save as Image</button>
+
+<div class="export-overlay" id="exportOverlay">
+  <div class="export-spinner"></div>
+  <div class="export-status" id="exportStatus">Rendering poster...</div>
+</div>
+
+<!-- html2canvas — self-hosted to avoid ad-blocker/shield blocking -->
+<script src="/workspace/js/html2canvas.min.js"></script>
+<script>
+async function savePoster() {
+  const btn = document.querySelector('.print-btn');
+  const overlay = document.getElementById('exportOverlay');
+  const status = document.getElementById('exportStatus');
+
+  btn.disabled = true;
+  overlay.classList.add('active');
+  status.textContent = 'Rendering poster...';
+
+  await new Promise(r => setTimeout(r, 100));
+
+  if (typeof html2canvas === 'undefined') {
+    status.textContent = 'Library blocked — disable shields and retry';
+    setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 3000);
+    return;
+  }
+
+  try {
+    const page = document.querySelector('.page');
+
+    const canvas = await html2canvas(page, {
+      backgroundColor: '#0a0e1a',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: 1060,
+      windowHeight: page.scrollHeight,
+      width: 1060,
+      onclone: (doc) => {
+        // Hide UI chrome
+        const clonedBtn = doc.querySelector('.print-btn');
+        const clonedOverlay = doc.getElementById('exportOverlay');
+        if (clonedBtn) clonedBtn.style.display = 'none';
+        if (clonedOverlay) clonedOverlay.style.display = 'none';
+
+        // Inject desktop overrides that defeat all mobile @media queries
+        // This forces the cloned DOM to render at full desktop layout
+        const style = doc.createElement('style');
+        style.textContent = `
+          /* Force desktop layout for poster capture */
+          .page { max-width: 1000px !important; padding: 40px 20px !important; margin: 0 auto !important; }
+          .hero { padding: 48px 32px !important; border-radius: 20px !important; }
+          .hero-stats { gap: 32px !important; }
+          .compass { display: block !important; }
+          .section-header { padding: 16px 20px !important; flex-wrap: nowrap !important; }
+          .section-header h2 { font-size: 16px !important; }
+          .section-body { padding: 20px !important; }
+          .grid-2 { grid-template-columns: 1fr 1fr !important; }
+          .grid-3 { grid-template-columns: 1fr 1fr 1fr !important; }
+          .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr !important; }
+          .arch-flow { gap: 8px !important; }
+          .arch-node { min-width: 100px !important; padding: 12px 16px !important; }
+          .arch-node .name { font-size: 12px !important; }
+          .arch-arrow { font-size: 18px !important; padding: 0 6px !important; }
+          .tier-row { flex-wrap: nowrap !important; gap: 12px !important; padding: 12px 16px !important; }
+          .tier-cost { min-width: 80px !important; text-align: right !important; }
+          .agent-row { flex-wrap: nowrap !important; gap: 12px !important; }
+          .agent-model { font-size: 10px !important; }
+          .check-grid { grid-template-columns: 1fr 1fr !important; }
+          .commit-line { font-size: 12px !important; }
+          .deploy-block code { font-size: 12px !important; }
+          .feat-card { padding: 16px !important; }
+          .pipeline-node { min-width: 80px !important; padding: 12px 16px !important; }
+          .pipeline-node .p-name { font-size: 11px !important; }
+        `;
+        doc.head.appendChild(style);
+      }
+    });
+
+    status.textContent = 'Preparing download...';
+
+    // On iOS: replace page with just the image for long-press save
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      status.textContent = 'Opening image — long-press to save...';
+      const dataUrl = canvas.toDataURL('image/png');
+      document.open();
+      document.write('<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>in-fused.org Poster</title><style>*{margin:0;padding:0}body{background:#000;min-height:100vh;display:flex;justify-content:center}img{width:100%;height:auto}</style></head><body><img src="' + dataUrl + '"></body></html>');
+      document.close();
+      return;
+    }
+
+    // Desktop: trigger download
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        status.textContent = 'Blob creation failed';
+        setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 2000);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'in-fused-project-overview.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      overlay.classList.remove('active');
+      btn.disabled = false;
+    }, 'image/png');
+
+  } catch (err) {
+    console.error('Poster export failed:', err);
+    status.textContent = 'Export failed: ' + (err.message || err);
+    setTimeout(() => { overlay.classList.remove('active'); btn.disabled = false; }, 3000);
+  }
+}
+</script>
+
+</body>
+</html>

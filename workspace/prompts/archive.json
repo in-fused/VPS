@@ -1,0 +1,64 @@
+{
+  "prompts": [
+    {
+      "id": "kickoff-lead-20260302",
+      "title": "First Session — Core Team Kickoff",
+      "target": "lead",
+      "category": "kickoff",
+      "text": "The system is live. All 8 agents deployed across two teams, LiteLLM routing 20 models, OpenClaw running 24/7. This is your first real session — everything starts now.\n\nIMMEDIATE TASKS — delegate these to your team:\n\n1. SELF-DISCOVERY (you): Run exec to explore your environment. Check what tools you have, read /workspace/ to see the shared volume structure, and verify you can reach CodeCraft, Scout, and Scribe via sessions_send. Report what you find.\n\n2. CODECRAFT: Have them audit the Mission Control codebase at /workspace/js/ — specifically app.js, workflow.js, and openclaw-client.js. Look for bugs, dead code, security issues, or quick performance wins. Write findings to /workspace/staging/ for my review.\n\n3. SCOUT: Research OpenClaw's cron tool capabilities and server-side agent workspace files (SOUL.md, AGENTS.md, IDENTITY.md, MEMORY.md). We currently inject system prompts client-side — I want to know if migrating to server-side workspace files would be better. Also research the OpenClaw provider docs at docs.openclaw.ai/providers/openai for any transport or compaction settings we should configure. Full report to /workspace/staging/.\n\n4. SCRIBE: Create a \"System Status\" document covering: what's deployed, what's working, what needs work (reference the WORKFLOW SYSTEM section from your instructions). Put it in /workspace/staging/.\n\n5. CRON SETUP: Create a daily cron job — check system health, summarize what happened in the last 24h, log to the activity log. This proves background autonomy works.\n\nRULES OF ENGAGEMENT:\n- I will close this browser and come back later. Keep working autonomously.\n- Log ALL significant events to the activity log.\n- Put ALL deliverables in /workspace/staging/ for my review.\n- Start building a team rhythm: daily health checks, proactive improvements, honest competition with Platform Team.\n- You're competing against Ops Lead's team. Governance scores are live. Prove Core Team delivers.\n\nConfirm you can reach your team and tools, then get to work.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1740873600000,
+      "archivedBy": "owner",
+      "tags": ["first-run", "delegation", "self-discovery", "cron"]
+    },
+    {
+      "id": "kickoff-opslead-20260302",
+      "title": "First Session — Platform Team Kickoff",
+      "target": "ops-lead",
+      "category": "kickoff",
+      "text": "The system is live. All 8 agents deployed, both teams competing on governance scores. You lead Platform Team. This is your first real session — establish your team's value from minute one.\n\nIMMEDIATE TASKS — delegate these to your team:\n\n1. SELF-DISCOVERY (you): Run exec to explore your environment. Verify tool access, read /workspace/, confirm you can reach Builder, Sentinel, and Chronicler via sessions_send. Report findings.\n\n2. SENTINEL: Full security and health audit. Check for exposed secrets in Docker logs, verify Caddy TLS config, review container memory usage vs limits (OpenClaw has OOM history at 1536M), scan for CVEs in our images, check API key exposure. Write a security report to /workspace/staging/.\n\n3. BUILDER: Audit docker-compose.yml, deploy.sh, and openclaw-entrypoint.sh. Check memory limits, restart policies, health check coverage, volume management. We just enabled OpenClaw auto-update (stable channel) — verify the config looks correct. Propose any infrastructure improvements to /workspace/staging/.\n\n4. CHRONICLER: Create a deployment runbook — exact commands for full deploy, single-service restart, volume reset, log checking. All commands must be single-line (owner uses iPhone + SSM). Put it in /workspace/staging/.\n\n5. CRON SETUP: Create a cron job that runs every 6 hours — health-check all services (LiteLLM /health/liveliness, OpenClaw gateway status, container memory), log results to the activity log. Flag anything above 80% memory usage as a warning.\n\nRULES OF ENGAGEMENT:\n- I will close the browser. You keep working.\n- Proactive monitoring is your team's reason to exist. Don't wait for me to notice problems — find and fix them.\n- ALL proposals go to /workspace/staging/ for my review. No direct changes without approval.\n- Log everything to the activity log. When I return, I want to see exactly what you did.\n- Core Team (Lead, CodeCraft, Scout, Scribe) is your competition. Governance scores are live. Outperform them.\n\nConfirm team connectivity and begin.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1740873600000,
+      "archivedBy": "owner",
+      "tags": ["first-run", "delegation", "self-discovery", "security-audit", "cron"]
+    },
+    {
+      "id": "research-prompt-marketplace-20260304",
+      "title": "Prompt Marketplace — Competitive Research",
+      "target": "scout",
+      "category": "research",
+      "text": "RESEARCH TASK — Prompt Marketplace Landscape\n\nI'm considering building a P2P marketplace for LLM prompts as our first creative project. Before committing resources, I need to know what already exists and where the gaps are.\n\nDELIVERABLES — write a full report to /workspace/staging/prompt-marketplace-research.html:\n\n1. EXISTING PLAYERS: Find and analyze every notable prompt marketplace, directory, or exchange platform. For each one document:\n   - Name, URL, launch date, business model (free/paid/commission)\n   - Is it centralized or decentralized? Curated or open?\n   - What do they sell? (raw prompts, prompt templates, fine-tuned chains, agent configs, workflows?)\n   - Pricing model (fixed price, auction, subscription, tips?)\n   - Community size if available (users, listings, revenue)\n   - Strengths and weaknesses\n\n   Known names to start: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.\n\n2. GAP ANALYSIS: What's missing from the current market?\n   - Is there a true P2P marketplace (no central curator, seller-to-buyer direct)?\n   - Is anyone doing prompt versioning, forking, or collaborative iteration?\n   - Is anyone handling prompt-to-agent-config (not just raw text but full agent system prompts)?\n   - Is anyone doing on-chain or decentralized prompt trading?\n   - What about prompt bundles, workflows, or multi-agent orchestration configs?\n\n3. FEASIBILITY ASSESSMENT: If we built a P2P prompt marketplace:\n   - What would differentiate us from PromptBase etc.?\n   - Could we use our agent system to build it (agents creating, testing, and listing prompts)?\n   - What's the minimum viable product look like?\n   - Technical requirements (hosting, payments, identity)\n\n4. RECOMMENDATION: Build from scratch, fork something, or skip it entirely?\n\nUse web_search and web_fetch extensively. I want current data, not training knowledge. Cite URLs.\n\nLog this task to the activity log when you start and when you finish.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1709553600000,
+      "archivedBy": "owner",
+      "tags": ["research", "prompt-marketplace", "competitive-analysis", "P2P"]
+    },
+    {
+      "id": "build-prompt-marketplace-20260304",
+      "title": "Prompt Marketplace — Build Plan",
+      "target": "lead",
+      "category": "creative-project",
+      "text": "CREATIVE PROJECT — P2P Prompt Marketplace\n\nScout has completed (or is working on) research into existing prompt marketplaces. Read their report at /workspace/staging/prompt-marketplace-research.html first.\n\nBased on Scout's findings, I want you to lead the team in planning a P2P prompt marketplace. This is our first real creative build — the agents building something from the ground up.\n\nDELEGATION PLAN:\n\n1. YOU (Lead): Read Scout's research, synthesize the opportunity. Decide the product direction — what makes ours different. Write a 1-page product brief to /workspace/staging/prompt-marketplace-brief.html.\n\n2. CODECRAFT: Based on the brief, architect the technical approach. Consider:\n   - Can it run as a static site served from our /workspace/ volume? (Zero hosting cost)\n   - Or does it need a backend service added to docker-compose?\n   - P2P options: could we use IPFS, Nostr, or just a git-based exchange?\n   - Payment: crypto, Stripe, or free/donation-based to start?\n   - Write a technical spec to /workspace/staging/prompt-marketplace-spec.html\n\n3. SCOUT: Continue monitoring the competitive landscape. Set up a weekly cron job to check the top 5 prompt marketplaces for new features, pricing changes, or shutdowns. Log findings to the activity log.\n\n4. SCRIBE: Create a landing page mockup for the marketplace. Put it in /workspace/staging/prompt-marketplace-landing.html. Mobile-first, matches our golden cyber theme.\n\nCONSTRAINTS:\n- This must be buildable by our agent team. Don't design something that needs a human dev team.\n- Start small — an MVP that proves the concept, not a full platform.\n- All deliverables to /workspace/staging/ for my review before any code gets committed.\n- Log all activity. I want to see the full build process when I check in.\n\nConfirm you've read Scout's research and get your team moving.",
+      "rating": null,
+      "result": null,
+      "archivedAt": 1709553600000,
+      "archivedBy": "owner",
+      "tags": ["creative-project", "prompt-marketplace", "delegation", "MVP"]
+    },
+    {
+      "id": "recovery-sweep-v1",
+      "title": "Recovery Sweep: Failed Writes",
+      "target": "lead",
+      "category": "operations",
+      "text": "@marketplace { id: \"recovery-sweep-v1\", compat: \"openclaw>=2026.1\", agents: \"2+\", tools: [\"sessions_list\",\"sessions_history\",\"sessions_send\",\"read\",\"write\"], license: \"MIT\" }\n\nRECOVERY SWEEP: Failed Writes\n\n## CONTEXT\nAgent file writes to shared directories failed (EACCES, permission denied, path not found, or similar). Permissions are now fixed. Your job: find what was lost and rebuild it.\n\n## SETUP — Read before executing\nThis prompt uses paths relative to your workspace root. Before running:\n1. Use `read` to check which writable directories exist (try: /workspace/, /app/, or your home dir)\n2. Identify your activity log (e.g., /workspace/agent-activity/log.json or equivalent)\n3. Identify your staging dir (e.g., /workspace/staging/ or equivalent)\n4. Identify your team agents via `sessions_list` or `agents_list`\n\n## PHASE 1: AUDIT\nFor each agent on your team (including yourself):\n- `sessions_list` to get all session keys\n- `sessions_history` on each key — scan for write errors: \"EACCES\", \"permission denied\", \"ENOENT\", \"read-only\", or any tool call with status \"error\" on write/edit\n- Log each finding: agent name, session key, what they tried to write, where, and the error\n\n## PHASE 2: RECOVER\nFor each failed write found in Phase 1:\n- Extract the intended content from the session transcript (the data the agent tried to write is usually in the tool call params)\n- Re-create the file/entry now using `write` or `edit`\n- If the content was a JSON append (e.g., adding to a log array), `read` the current file first, parse, append, write back\n- Preserve original timestamps from the transcript where visible\n\n## PHASE 3: REBUILD\nFor each agent that reported \"task complete given constraints\" but couldn't deliver:\n- Identify the deliverable they described but couldn't write\n- Re-execute ONLY the output step — don't redo research/analysis (it's in the transcript)\n- Delegate to the original agent via `sessions_send` if the deliverable requires their specialty\n\n## PHASE 4: REPORT\nWrite a recovery report to your staging directory:\n- File: recovery-sweep-report.html (or .md)\n- Contents: which agents were affected, what was recovered, what was unrecoverable and why\n- Update your staging index if one exists\n- Append a single \"task-complete\" event to your activity log\n\n## RULES\n- Verify each write succeeds before moving to the next. If a write fails, STOP and report the error — don't retry blindly.\n- Delegate to specialists as needed (code artifacts to your dev agent, docs to your writer).\n- Do not modify any agent's config or model assignments. This is a data recovery task only.",
+      "rating": null,
+      "result": "Marketplace-ready. Generic paths with self-discovery phase. Works on any OpenClaw instance with 2+ agents and file tools.",
+      "archivedAt": 1741219200000,
+      "archivedBy": "owner",
+      "tags": ["marketplace", "recovery", "operations", "failed-writes", "portable", "one-shot"]
+    }
+  ]
+}

@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Prompt Library — in-fused.org</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#06060e">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #06060e;
+      --surface: rgba(14,13,26,0.85);
+      --surface-hover: rgba(14,13,26,0.95);
+      --border: rgba(212,175,55,0.15);
+      --border-bright: rgba(212,175,55,0.35);
+      --gold: #d4af37;
+      --gold-light: #f0d060;
+      --gold-dim: rgba(212,175,55,0.10);
+      --green: #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --text: #eeedf5;
+      --text-sec: #b0adc0;
+      --text-muted: #5a5670;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Rajdhani', sans-serif; font-size: 16px; line-height: 1.5;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      min-height: 100vh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    /* Header */
+    .back-link {
+      display: inline-block; color: var(--gold); text-decoration: none;
+      margin-bottom: 16px; font-size: 0.95rem; min-height: 44px; line-height: 44px;
+    }
+    h1 { font-size: 1.5rem; color: var(--gold); margin-bottom: 4px; font-weight: 600; }
+    .subtitle { color: var(--text-sec); font-size: 0.95rem; margin-bottom: 20px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 0; margin-bottom: 20px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .tab {
+      flex: 1; padding: 12px 8px; text-align: center; font-size: 0.95rem;
+      font-weight: 600; cursor: pointer; min-height: 44px;
+      background: transparent; border: none; color: var(--text-sec);
+      font-family: 'Rajdhani', sans-serif; transition: all 0.2s;
+    }
+    .tab.active { background: var(--gold-dim); color: var(--gold-light); }
+    .tab:not(:last-child) { border-right: 1px solid var(--border); }
+
+    /* Section */
+    .section { display: none; }
+    .section.active { display: block; }
+    .section-desc { color: var(--text-sec); font-size: 0.9rem; margin-bottom: 16px; }
+
+    /* Info box */
+    .info-box {
+      background: var(--gold-dim); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; margin-bottom: 20px;
+    }
+    .info-box h2 { font-size: 1.05rem; color: var(--gold-light); margin-bottom: 6px; }
+    .info-box ol { padding-left: 20px; }
+    .info-box li { margin-bottom: 4px; color: var(--text-sec); font-size: 0.9rem; }
+    .info-box li strong { color: var(--text); }
+
+    /* Prompt card */
+    .prompt-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; margin-bottom: 20px; overflow: hidden;
+    }
+    .prompt-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .prompt-meta { flex: 1; min-width: 0; }
+    .prompt-title { font-size: 1.05rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .prompt-title .emoji { margin-right: 6px; }
+    .prompt-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .prompt-subtitle .tag {
+      display: inline-block; background: var(--gold-dim); color: var(--gold);
+      padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;
+    }
+    .copy-btn {
+      background: var(--gold); color: #000; border: none; border-radius: 8px;
+      padding: 10px 18px; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; min-height: 44px; min-width: 70px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .copy-btn:active { opacity: 0.7; }
+    .copy-btn.copied { background: var(--green); color: #fff; }
+    .prompt-body {
+      padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem; line-height: 1.55; color: var(--text-sec);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 300px; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .prompt-body.collapsed { max-height: 120px; overflow: hidden; position: relative; }
+    .prompt-body.collapsed::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50px;
+      background: linear-gradient(transparent, var(--surface));
+    }
+    .expand-btn {
+      display: block; width: 100%; padding: 10px; text-align: center;
+      color: var(--gold); background: transparent; border: none; border-top: 1px solid var(--border);
+      font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; cursor: pointer;
+      min-height: 44px; font-weight: 500;
+    }
+
+    /* Rating */
+    .prompt-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; border-top: 1px solid var(--border); gap: 8px;
+    }
+    .rating { display: flex; gap: 4px; }
+    .star {
+      font-size: 1.3rem; cursor: pointer; min-width: 32px; min-height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); transition: color 0.15s;
+    }
+    .star.filled { color: var(--gold); }
+    .star:hover { color: var(--gold-light); }
+    .result-note { font-size: 0.8rem; color: var(--text-muted); font-style: italic; text-align: right; flex: 1; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: var(--text-muted);
+    }
+    .empty-state p { margin-bottom: 8px; }
+
+    /* Note */
+    .note {
+      color: var(--text-sec); font-size: 0.85rem; padding: 12px 14px;
+      background: var(--gold-dim); border-radius: 8px; border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+    .note strong { color: var(--gold-light); }
+
+    /* Evolution tab */
+    .evo-status-banner {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    }
+    .evo-status-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+    }
+    .evo-status-indicator { display: flex; align-items: center; gap: 8px; }
+    .evo-pulse {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--text-muted); display: inline-block;
+    }
+    .evo-pulse.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: evoPulse 2s infinite; }
+    .evo-pulse.warning { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    @keyframes evoPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .evo-status-label { font-weight: 600; font-size: 1rem; }
+    .evo-status-meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted); }
+    .evo-status-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .evo-stat {
+      text-align: center; padding: 8px 4px;
+      background: var(--gold-dim); border-radius: 8px;
+    }
+    .evo-stat-val { display: block; font-size: 1.2rem; font-weight: 700; color: var(--gold-light); }
+    .evo-stat-lbl { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Perf grid */
+    .evo-perf-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+    .evo-perf-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .evo-perf-row .emoji { font-size: 1.1rem; flex-shrink: 0; }
+    .evo-perf-info { flex: 1; min-width: 0; }
+    .evo-perf-title { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .evo-perf-meta { font-size: 0.75rem; color: var(--text-muted); }
+    .evo-perf-bar-wrap { width: 80px; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+    .evo-perf-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .evo-perf-score { font-size: 0.85rem; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0; }
+
+    /* Experiment cards */
+    .evo-exp-card {
+      background: var(--surface); border: 1px solid var(--border-bright);
+      border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .evo-exp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .evo-exp-title { font-weight: 600; font-size: 0.95rem; }
+    .evo-exp-badge {
+      font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;
+      text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;
+    }
+    .evo-exp-badge.running { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+    .evo-exp-badge.pending { background: var(--gold-dim); color: var(--gold); }
+    .evo-exp-badge.complete { background: var(--green-dim); color: var(--green); }
+    .evo-exp-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .evo-exp-side {
+      padding: 8px 10px; border-radius: 6px; font-size: 0.78rem;
+      font-family: 'JetBrains Mono', monospace; line-height: 1.4;
+    }
+    .evo-exp-side.original { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+    .evo-exp-side.evolved { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); }
+    .evo-exp-side-label { font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; }
+    .evo-exp-side.original .evo-exp-side-label { color: #ef4444; }
+    .evo-exp-side.evolved .evo-exp-side-label { color: #22c55e; }
+    .evo-exp-metrics { display: flex; gap: 12px; margin-top: 8px; font-size: 0.8rem; color: var(--text-sec); }
+
+    /* Validation items */
+    .evo-val-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
+    }
+    .evo-val-header { display: flex; justify-content: space-between; align-items: center; }
+    .evo-val-checks { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .evo-val-check {
+      font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;
+      display: flex; align-items: center; gap: 3px;
+    }
+    .evo-val-check.pass { background: var(--green-dim); color: var(--green); }
+    .evo-val-check.fail { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .evo-val-check.warn { background: rgba(245,158,11,0.1); color: #f59e0b; }
+
+    /* Log */
+    .evo-log-container { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .evo-log-entry {
+      display: flex; gap: 8px; padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.8rem;
+    }
+    .evo-log-time { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; white-space: nowrap; flex-shrink: 0; }
+    .evo-log-type {
+      font-size: 0.68rem; padding: 1px 5px; border-radius: 3px;
+      text-transform: uppercase; font-weight: 600; flex-shrink: 0;
+    }
+    .evo-log-type.mutate { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+    .evo-log-type.validate { background: rgba(34,197,94,0.12); color: #22c55e; }
+    .evo-log-type.promote { background: var(--gold-dim); color: var(--gold); }
+    .evo-log-type.reject { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .evo-log-type.test { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .evo-log-msg { color: var(--text-sec); }
+
+    /* Config */
+    .evo-config {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+    }
+    .evo-config-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .evo-config-row:last-of-type { border-bottom: none; }
+    .evo-config-row label { font-size: 0.88rem; color: var(--text-sec); }
+    .evo-config-row select {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border-bright);
+      border-radius: 6px; padding: 6px 10px; font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem; min-height: 36px; max-width: 55%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/workspace/" class="back-link">&larr; Mission Control</a>
+    <h1>Prompt Library</h1>
+    <p class="subtitle">Curated prompts for agent tasking. Copy, paste, iterate.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('starter')">Starter</button>
+      <button class="tab" onclick="switchTab('archive')">Archive <span id="archive-count"></span></button>
+      <button class="tab" onclick="switchTab('evolution')">Evolution</button>
+      <button class="tab" onclick="switchTab('about')">How It Works</button>
+    </div>
+
+    <!-- STARTER TAB -->
+    <div id="tab-starter" class="section active">
+      <p class="section-desc">Prompts are ordered by priority. Phase 0 warms up tools, Phase 1 is the real kickoff.</p>
+
+      <div class="info-box">
+        <h2>Quick Start</h2>
+        <ol>
+          <li><strong>Chat</strong> &rarr; <strong>New Conversation</strong> &rarr; pick <strong>Lead</strong></li>
+          <li>Tap <strong>Copy</strong> on Phase 0 Core &rarr; paste &rarr; Send &rarr; wait for "Tools verified" reply</li>
+          <li><strong>New Conversation</strong> &rarr; pick <strong>Ops Lead</strong></li>
+          <li>Tap <strong>Copy</strong> on Phase 0 Platform &rarr; paste &rarr; Send &rarr; wait for confirmation</li>
+          <li>Then send Phase 1 to each (or let auto-kickoff handle it)</li>
+          <li>Close the browser. Agents work 24/7. Come back later.</li>
+        </ol>
+      </div>
+
+      <div class="note" style="margin-bottom: 20px;">
+        <strong>Auto-kickoff is ON by default.</strong> Agents self-start Phase 0 + Phase 1 on every container restart — no manual prompts needed. Set <code>OPENCLAW_AUTO_KICKOFF=0</code> in .env to disable.
+      </div>
+
+      <!-- PHASE 0 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #8b5cf6; color: #8b5cf6; font-weight: 700; font-size: 0.95rem;">PHASE 0 — Tool Warmup (send first, wait for confirmation)</div>
+
+      <div class="prompt-card" style="border-color: rgba(139,92,246,0.35);">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — Warmup</div>
+            <div class="prompt-subtitle"><span class="tag" style="background:rgba(139,92,246,0.12);color:#8b5cf6;">Phase 0</span> <span class="tag">Lead</span> verify tools work</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p0-lead', this)">Copy</button>
+        </div>
+        <div class="prompt-body" id="p0-lead">Read your SOUL.md and TOOLS.md. Write a single entry to /workspace/agent-activity/log.json confirming you're online. Send one test message to each team member (CodeCraft, Scout, Scribe) via sessions_send. Reply with: your team roster, which tools work, and current status. Keep it short.</div>
+      </div>
+
+      <div class="prompt-card" style="border-color: rgba(139,92,246,0.35);">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Warmup</div>
+            <div class="prompt-subtitle"><span class="tag" style="background:rgba(139,92,246,0.12);color:#8b5cf6;">Phase 0</span> <span class="tag">Ops Lead</span> verify tools work</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p0-ops', this)">Copy</button>
+        </div>
+        <div class="prompt-body" id="p0-ops">Read your SOUL.md and TOOLS.md. Write a single entry to /workspace/agent-activity/log.json confirming you're online. Send one test message to each team member (Builder, Sentinel, Chronicler) via sessions_send. Reply with: your team roster, which tools work, and current status. Keep it short.</div>
+      </div>
+
+      <!-- PHASE 1 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #ef4444; color: #ef4444; font-weight: 700; font-size: 0.95rem;">PHASE 1 — Operational Readiness &amp; Security Lockdown</div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — Go Live</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> verify + fix + monitor</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p1-lead', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p1-lead">PRIORITY 1: Site must be fully operational before anything else.
+
+Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to CodeCraft, Scout, Scribe). Then execute:
+
+1. YOU: Read SOUL.md, TOOLS.md, MEMORY.md — confirm you have full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. If any prior agent work exists, summarize it.
+
+2. CODECRAFT: Functional audit of Mission Control.
+   - Load and test /workspace/js/app.js, openclaw-client.js
+   - Verify: chat sends/receives, agent list populates, session persistence works, WS reconnect works
+   - File any bugs found as items in /workspace/staging/ with clear reproduction steps
+   - Fix anything you can fix in-place (JS only, no server changes)
+
+3. SCOUT: External connectivity verification.
+   - Test 5 free APIs from TOOLS.md via exec wget (crypto, weather, HN, geocoding, NASA)
+   - Test Scrapling: exec wget -qO- 'http://scrapling:8000/health' then scrape a real URL
+   - Test agent-to-agent: send a test message to Ops Lead's team via sessions_send
+   - Report which APIs work, which fail, and any rate-limit headers observed
+
+4. SCRIBE: Write a concise system status page to /workspace/staging/system-status.html
+   - What services are running, what's verified working, what's untested
+   - Use TOOLS.md staging template — golden cyber theme, mobile-first
+   - Include a "last updated" timestamp and agent attribution
+
+5. CRON: Create a daily health-check job (runs every 24h) that:
+   - Hits the Scrapling health endpoint
+   - Checks /workspace/staging/index.json exists and is valid JSON
+   - Appends result to /workspace/agent-activity/log.json
+
+RULES: Every task logs to activity log. Every deliverable goes to staging with index.json updated. No log = no credit. I check from my phone. Work autonomously after I close the browser.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Security Lockdown</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> audit + harden + monitor</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p1-ops', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p1-ops">PRIORITY 1: Lock down the site. Nothing else until security is verified.
+
+Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (sessions_send to Builder, Sentinel, Chronicler). Then execute:
+
+1. YOU: Read SOUL.md, TOOLS.md, MEMORY.md — confirm full context. Read /workspace/staging/index.json and /workspace/agent-activity/log.json — report current state. Coordinate with Lead's team if they're already working.
+
+2. SENTINEL: Security audit — write findings to /workspace/staging/security-audit.html.
+   - Check: are any secrets (API keys, passwords) exposed in non-.env files?
+   - Check: is the auth cookie (mc_oc) secure? HttpOnly? SameSite?
+   - Check: CORS headers, CSP headers, X-Frame-Options in Caddy responses
+   - Check: are Docker containers running as root? Any unnecessary capabilities?
+   - Check: is the OpenClaw WS auth handshake rejecting bad credentials?
+   - Severity-rank all findings: CRITICAL / HIGH / MEDIUM / LOW
+
+3. BUILDER: Infrastructure audit — write findings to /workspace/staging/infra-audit.html.
+   - Memory: what's each container using vs its limit? (use exec to check if possible)
+   - Restart policies: are all services set to restart on failure?
+   - Health checks: which services have them, which don't?
+   - Volumes: are permissions correct on all mounted volumes?
+   - Network: is anything exposed that shouldn't be? (Scrapling should be internal-only)
+
+4. CHRONICLER: Write a deployment runbook to /workspace/staging/deploy-runbook.html.
+   - Every command must be single-line (owner uses iPhone + SSM)
+   - Cover: full deploy, single-service update, rollback, logs, restart, volume reset
+   - Use TOOLS.md staging template — golden cyber theme, mobile-optimized
+   - Include copy buttons for each command block
+
+5. CRON: Create a 6-hour monitoring job that:
+   - Checks all service health endpoints
+   - Logs results to /workspace/agent-activity/log.json
+   - Flags anything above 80% memory or any unhealthy service
+
+RULES: Every task logs to activity log. Every deliverable goes to staging with index.json updated. No log = no credit. I check from my phone. Work autonomously after I close the browser.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <!-- PHASE 2 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 0.95rem;">PHASE 2 — UI Upgrade Sprint</div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Core Team — UI Polish</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> Mission Control visual + UX upgrade</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p2-lead', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p2-lead">PHASE 2: Site is operational. Now make Mission Control look and feel polished.
+
+Read Phase 1 deliverables first: check /workspace/staging/ for the system-status, security-audit, and infra-audit reports. Address any CRITICAL findings before starting UI work.
+
+DELEGATION:
+
+1. YOU: Review current Mission Control UI on mobile dimensions. Identify the top 5 UX pain points. Prioritize by impact. Write your assessment to /workspace/staging/ui-audit.html.
+
+2. CODECRAFT: Implement the top-priority UI fixes from Lead's assessment. Focus areas:
+   - Chat view: message rendering, code block formatting, scroll behavior
+   - Sidebar navigation: touch targets, active state visibility, collapse behavior on mobile
+   - Agent cards: status indicators, model display, governance score badges
+   - Loading states: skeleton screens or spinners where content loads async
+   - Write all changes to /workspace/staging/ as standalone HTML demos first — don't modify production files
+
+3. SCOUT: Research current best practices for mobile-first dashboards.
+   - Find 3-5 examples of well-designed mobile admin panels or chat interfaces
+   - Screenshot or describe key patterns (navigation, data density, touch interactions)
+   - Write research to /workspace/staging/ui-research.html
+
+4. SCRIBE: Create a visual style guide page — /workspace/staging/style-guide.html.
+   - Document our color palette (--gold, --surface, etc.), typography (Rajdhani, JetBrains Mono)
+   - Show all reusable UI components: buttons, cards, badges, inputs, modals
+   - Show dark theme patterns, glow effects, border treatments
+   - Use the actual CSS variables from styles.css — this is a living reference
+
+RULES: All deliverables to staging as HTML. Use TOOLS.md staging template. Log everything. Mobile-first is non-negotiable — test at 375px width minimum.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🎯</span>Platform Team — Monitoring Dashboard</div>
+            <div class="prompt-subtitle"><span class="tag">Ops Lead</span> build health + status UI</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p2-ops', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p2-ops">PHASE 2: Build a monitoring dashboard the owner can check from their phone.
+
+Read Phase 1 deliverables: /workspace/staging/security-audit.html and /workspace/staging/infra-audit.html. Address any unresolved CRITICAL issues first.
+
+DELEGATION:
+
+1. YOU: Design the dashboard layout. It should show at a glance: service health (up/down), memory usage, last deploy time, recent agent activity, and any alerts. Sketch this as a wireframe in /workspace/staging/dashboard-wireframe.html.
+
+2. BUILDER: Build the dashboard — /workspace/staging/monitoring-dashboard.html.
+   - Use TOOLS.md staging template (Alpine.js + Tailwind CDN + golden cyber theme)
+   - Real-time data: fetch /workspace/agent-activity/log.json and display recent events
+   - Service status cards: show each Docker service with health indicator
+   - Auto-refresh every 60s
+   - Mobile-first: single-column layout, large touch targets, readable at a glance
+
+3. SENTINEL: Add a security status section to the dashboard.
+   - Show auth status (cookie age, last login attempt if trackable)
+   - Show TLS cert expiry (fetch from Caddy or display static info)
+   - Flag any security audit items still unresolved from Phase 1
+
+4. CHRONICLER: Write user documentation for the dashboard — /workspace/staging/dashboard-docs.html.
+   - How to read each metric
+   - What each alert means and what action to take
+   - Quick reference for common iPhone/SSM commands related to each metric
+
+RULES: All deliverables to staging. Use TOOLS.md staging template. Log everything. Dashboard must work perfectly on mobile — this is the primary use case.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <!-- PHASE 3 HEADER -->
+      <div style="margin: 24px 0 12px; padding: 8px 12px; border-left: 3px solid #22c55e; color: #22c55e; font-weight: 700; font-size: 0.95rem;">PHASE 3 — Creative Projects</div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🔍</span>Prompt Marketplace — Research</div>
+            <div class="prompt-subtitle"><span class="tag">Scout</span> competitive landscape + feasibility</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p3-research', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p3-research">RESEARCH TASK — Prompt Marketplace Landscape
+
+First creative project for both teams. Before building, I need to know what exists and where the gaps are.
+
+Write a full report to /workspace/staging/prompt-marketplace-research.html:
+
+1. EXISTING PLAYERS: Analyze every notable prompt marketplace. For each:
+   - Name, URL, business model (free/paid/commission %)
+   - Centralized or decentralized? Curated or open?
+   - What they sell (raw prompts, templates, agent configs, workflows?)
+   - Community size if findable (users, listings, revenue)
+   - Strengths and weaknesses
+   Start with: PromptBase, FlowGPT, AIPRM, PromptHero, Promptrr. Find others.
+
+2. GAP ANALYSIS: What's missing?
+   - True P2P (no central curator)?
+   - Prompt versioning, forking, collaborative iteration?
+   - Full agent system prompts (not just raw text)?
+   - On-chain or decentralized trading?
+   - Multi-agent workflow configs?
+
+3. FEASIBILITY: If we built one:
+   - What differentiates us?
+   - Can our agents build it themselves?
+   - MVP scope? Technical requirements?
+
+4. RECOMMENDATION: Build, fork, or skip?
+
+Use web_fetch for URLs, SearXNG for search (exec wget -qO- 'http://searxng:8080/search?q=...&format=json'), and Scrapling for scraping. Current data only, not training knowledge. Cite URLs.
+
+MANDATORY: Log start + finish to activity log. Write to staging with index.json updated. I check from my phone.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+      <div class="prompt-card">
+        <div class="prompt-header">
+          <div class="prompt-meta">
+            <div class="prompt-title"><span class="emoji">🧠</span>Prompt Marketplace — Build Plan</div>
+            <div class="prompt-subtitle"><span class="tag">Lead</span> cross-team build after Scout research</div>
+          </div>
+          <button class="copy-btn" onclick="copyPrompt('p3-build', this)">Copy</button>
+        </div>
+        <div class="prompt-body collapsed" id="p3-build">CREATIVE PROJECT — P2P Prompt Marketplace (Both Teams)
+
+Read Scout's research at /workspace/staging/prompt-marketplace-research.html first.
+
+This is the first cross-team build. Core Team handles product + frontend. Platform Team handles infra + security.
+
+CORE TEAM DELEGATION:
+1. YOU (Lead): Synthesize Scout's research. Write a 1-page product brief — what makes ours different, target user, MVP scope. Stage to /workspace/staging/prompt-marketplace-brief.html.
+2. CODECRAFT: Architect the tech approach based on the brief:
+   - Can it run as static HTML from /workspace/? (zero hosting cost)
+   - P2P options: IPFS, Nostr, git-based, or simple JSON store?
+   - Payment: crypto, Stripe, donations, or free v1?
+   - Stage spec to /workspace/staging/prompt-marketplace-spec.html
+3. SCOUT: Set up a weekly cron to monitor top 5 competitors for changes. Log to activity log.
+4. SCRIBE: Build a landing page mockup — /workspace/staging/prompt-marketplace-landing.html. Mobile-first, golden cyber theme, use TOOLS.md staging template.
+
+PLATFORM TEAM (coordinate via sessions_send to Ops Lead):
+- Builder: Review CodeCraft's spec for infra feasibility. Can we host it without adding services?
+- Sentinel: Review for security implications (user uploads, XSS in prompts, auth)
+
+CONSTRAINTS:
+- Must be buildable by agents. No human dev team dependency.
+- MVP first — prove the concept, iterate later.
+- All deliverables to /workspace/staging/ with index.json updated.
+
+Log everything. No logs = no credit.</div>
+        <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+      </div>
+
+    </div>
+
+    <!-- ARCHIVE TAB -->
+    <div id="tab-archive" class="section">
+      <p class="section-desc">Prompts that produced results worth saving. Rate them to build a quality signal over time.</p>
+      <div id="archive-list"></div>
+      <div class="note">
+        <strong>How prompts get archived:</strong> Tell an agent "archive that prompt" with a title, or agents can write directly to <code>/workspace/prompts/archive.json</code>. Rate archived prompts here — ratings persist and help identify one-shot patterns.
+      </div>
+    </div>
+
+    <!-- EVOLUTION TAB -->
+    <div id="tab-evolution" class="section">
+      <p class="section-desc">Autonomous prompt refinement powered by multi-agent performance data.</p>
+
+      <!-- Optimizer Status Banner -->
+      <div class="evo-status-banner" id="evo-status-banner">
+        <div class="evo-status-row">
+          <div class="evo-status-indicator">
+            <span class="evo-pulse" id="evo-pulse"></span>
+            <span class="evo-status-label" id="evo-status-label">Idle</span>
+          </div>
+          <div class="evo-status-meta">
+            <span id="evo-last-run">Last run: never</span>
+            <span id="evo-next-run">Next: —</span>
+          </div>
+        </div>
+        <div class="evo-status-stats">
+          <div class="evo-stat"><span class="evo-stat-val" id="evo-generations">0</span><span class="evo-stat-lbl">Generations</span></div>
+          <div class="evo-stat"><span class="evo-stat-val" id="evo-tested">0</span><span class="evo-stat-lbl">Tested</span></div>
+          <div class="evo-stat"><span class="evo-stat-val" id="evo-promoted">0</span><span class="evo-stat-lbl">Promoted</span></div>
+          <div class="evo-stat"><span class="evo-stat-val" id="evo-rejected">0</span><span class="evo-stat-lbl">Rejected</span></div>
+        </div>
+      </div>
+
+      <!-- How It Works (brief) -->
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>How Prompt Evolution Works</h2>
+        <ol>
+          <li><strong>Analyze</strong> — Optimizer reads governance metrics, staging approval rates, and activity logs to identify underperforming prompts</li>
+          <li><strong>Mutate</strong> — Generates improved variants using free-tier models (Cerebras/Groq on EC2, or Ollama on ARM)</li>
+          <li><strong>Validate</strong> — Checks syntax, structure, required sections, and tool references before any agent sees the prompt</li>
+          <li><strong>A/B Test</strong> — Runs original vs evolved version across matching agent tasks, tracks success delta</li>
+          <li><strong>Promote or Reject</strong> — Winners replace originals in the archive; losers are logged with failure reasons</li>
+        </ol>
+      </div>
+
+      <!-- Performance Heatmap -->
+      <div style="margin: 20px 0 12px; padding: 8px 12px; border-left: 3px solid #8b5cf6; color: #8b5cf6; font-weight: 700; font-size: 0.95rem;">Prompt Performance</div>
+      <div class="evo-perf-grid" id="evo-perf-grid">
+        <div class="empty-state"><p>Loading performance data...</p></div>
+      </div>
+
+      <!-- Active Experiments -->
+      <div style="margin: 20px 0 12px; padding: 8px 12px; border-left: 3px solid var(--gold); color: var(--gold); font-weight: 700; font-size: 0.95rem;">Active Experiments</div>
+      <div id="evo-experiments">
+        <div class="empty-state"><p>No active A/B tests.</p><p style="font-size:0.85rem;">Experiments start when the optimizer identifies a prompt with &lt;70% success rate.</p></div>
+      </div>
+
+      <!-- Validation Queue -->
+      <div style="margin: 20px 0 12px; padding: 8px 12px; border-left: 3px solid #22c55e; color: #22c55e; font-weight: 700; font-size: 0.95rem;">Validation Queue</div>
+      <div id="evo-validation">
+        <div class="empty-state"><p>No prompts pending validation.</p></div>
+      </div>
+
+      <!-- Evolution Log -->
+      <div style="margin: 20px 0 12px; padding: 8px 12px; border-left: 3px solid var(--text-sec); color: var(--text-sec); font-weight: 700; font-size: 0.95rem;">Evolution Log</div>
+      <div id="evo-log" class="evo-log-container">
+        <div class="empty-state"><p>No evolution events yet.</p></div>
+      </div>
+
+      <!-- Optimizer Config -->
+      <div style="margin: 20px 0 12px; padding: 8px 12px; border-left: 3px solid #ef4444; color: #ef4444; font-weight: 700; font-size: 0.95rem;">Optimizer Settings</div>
+      <div class="evo-config">
+        <div class="evo-config-row">
+          <label>Run on</label>
+          <select id="evo-cfg-target" onchange="evoUpdateConfig()">
+            <option value="ec2">EC2 (Cerebras/Groq free tier)</option>
+            <option value="arm">ARM (Ollama — zero rate limits)</option>
+          </select>
+        </div>
+        <div class="evo-config-row">
+          <label>Model</label>
+          <select id="evo-cfg-model" onchange="evoUpdateConfig()">
+            <option value="groq-llama-3.3-70b">Groq Llama 3.3 70B (free)</option>
+            <option value="groq-gpt-oss-120b">Groq GPT-OSS 120B (free)</option>
+            <option value="groq-qwen3-32b">Groq Qwen3 32B (free)</option>
+            <option value="qwen3-coder:30b">Ollama Qwen3 Coder 30B (ARM)</option>
+            <option value="qwen3:14b">Ollama Qwen3 14B (ARM)</option>
+          </select>
+        </div>
+        <div class="evo-config-row">
+          <label>Schedule</label>
+          <select id="evo-cfg-schedule" onchange="evoUpdateConfig()">
+            <option value="manual">Manual only</option>
+            <option value="daily">Daily (midnight UTC)</option>
+            <option value="weekly">Weekly (Sunday midnight)</option>
+            <option value="on-review">After weekly review</option>
+          </select>
+        </div>
+        <div class="evo-config-row">
+          <label>Min success rate to skip</label>
+          <select id="evo-cfg-threshold" onchange="evoUpdateConfig()">
+            <option value="90">90% (aggressive — evolve most prompts)</option>
+            <option value="80">80% (balanced)</option>
+            <option value="70" selected>70% (conservative — only weak prompts)</option>
+            <option value="60">60% (minimal — only failing prompts)</option>
+          </select>
+        </div>
+        <div class="evo-config-row">
+          <label>Auto-promote winners</label>
+          <select id="evo-cfg-auto" onchange="evoUpdateConfig()">
+            <option value="false" selected>No — require owner approval</option>
+            <option value="true">Yes — hot-reload automatically</option>
+          </select>
+        </div>
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <button class="copy-btn" style="flex:1;" onclick="evoRunNow()">Run Optimizer Now</button>
+          <button class="copy-btn" style="flex:1; background: transparent; color: var(--gold); border: 1px solid var(--border-bright);" onclick="evoExportConfig()">Export Config</button>
+        </div>
+      </div>
+
+      <div class="note" style="margin-top: 16px;">
+        <strong>ARM offloading:</strong> When set to ARM, the optimizer sends mutation requests to Ollama on Oracle Cloud (150.136.153.194:11434) via LiteLLM routing. Zero rate limits, zero cost. EC2 mode uses Cerebras/Groq free tiers with automatic fallback.
+      </div>
+    </div>
+
+    <!-- ABOUT TAB -->
+    <div id="tab-about" class="section">
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>Prompt Library</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem;">
+          This page serves as the single source for agent prompts. It loads archived prompts from
+          <code>/workspace/prompts/archive.json</code> on every visit.
+        </p>
+      </div>
+
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>Archive Format</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; line-height: 1.4;">{
+  "prompts": [{
+    "id": "unique-id",
+    "title": "Short descriptive title",
+    "target": "lead|ops-lead|codecraft|...",
+    "category": "kickoff|research|audit|...",
+    "text": "The full prompt text...",
+    "rating": null or 1-5,
+    "result": "Brief note on what happened",
+    "archivedAt": unix_ms,
+    "archivedBy": "owner|lead|ops-lead|...",
+    "tags": ["tag1", "tag2"]
+  }]
+}</p>
+      </div>
+
+      <div class="info-box" style="margin-bottom: 16px;">
+        <h2>How to Archive a Prompt</h2>
+        <ol>
+          <li>Send a prompt to an agent and get great results</li>
+          <li>Tell the agent: <em>"Archive that prompt to /workspace/prompts/archive.json with title 'X'"</em></li>
+          <li>Or: agents proactively archive prompts that achieved one-shot success</li>
+          <li>Rate archived prompts on this page — ratings are saved back to the JSON</li>
+          <li>Over time, high-rated prompts become templates for future tasks</li>
+        </ol>
+      </div>
+
+      <div class="info-box">
+        <h2>The Vision</h2>
+        <p style="color: var(--text-sec); margin-top: 8px; font-size: 0.9rem;">
+          As agents improve, the best prompts converge toward one-shot execution — give a single prompt,
+          get a complete result. The archive captures what works so the system gets sharper over time.
+          High-rated prompts are the DNA of effective agent tasking.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const AGENT_EMOJI = {
+      'lead': '🧠', 'codecraft': '⚡', 'scout': '🔍', 'scribe': '📝',
+      'ops-lead': '🎯', 'builder': '🔨', 'sentinel': '🛡️', 'chronicler': '📋'
+    };
+
+    let archiveData = { prompts: [] };
+
+    // Tab switching
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      // Find the tab button that matches (handles clicks on child elements like span)
+      const btn = event.target.closest('.tab') || event.target;
+      btn.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+      // Trigger evolution render when switching to that tab
+      if (name === 'evolution') evoRender();
+    }
+
+    // Copy prompt text
+    function copyPrompt(id, btn) {
+      const el = document.getElementById(id);
+      const text = el ? el.textContent : '';
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        btn.textContent = 'Selected!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    // Copy archived prompt by index
+    function copyArchived(idx, btn) {
+      const p = archiveData.prompts[idx];
+      if (!p) return;
+      navigator.clipboard.writeText(p.text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => {
+        btn.textContent = 'Failed';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    // Expand/collapse prompt body
+    function toggleExpand(btn) {
+      const body = btn.previousElementSibling;
+      if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        btn.textContent = 'Collapse';
+      } else {
+        body.classList.add('collapsed');
+        btn.textContent = 'Show full prompt';
+      }
+    }
+
+    // Rate an archived prompt
+    function ratePrompt(idx, stars) {
+      archiveData.prompts[idx].rating = stars;
+      renderArchive();
+      saveArchive();
+    }
+
+    // Save archive back to JSON
+    async function saveArchive() {
+      try {
+        // Write via fetch to a simple endpoint, or use localStorage as cache
+        // For now, persist ratings to localStorage — agents read the JSON, owner rates on page
+        localStorage.setItem('mc-prompt-ratings', JSON.stringify(
+          archiveData.prompts.reduce((acc, p) => { if (p.rating) acc[p.id] = p.rating; return acc; }, {})
+        ));
+      } catch (e) {
+        console.warn('Failed to save ratings:', e);
+      }
+    }
+
+    // Load ratings from localStorage and merge with archive
+    function mergeLocalRatings() {
+      try {
+        const ratings = JSON.parse(localStorage.getItem('mc-prompt-ratings') || '{}');
+        archiveData.prompts.forEach(p => {
+          if (ratings[p.id] && !p.rating) p.rating = ratings[p.id];
+        });
+      } catch (e) {}
+    }
+
+    // Render the archive tab
+    function renderArchive() {
+      const list = document.getElementById('archive-list');
+      const count = document.getElementById('archive-count');
+      const prompts = archiveData.prompts;
+
+      count.textContent = prompts.length > 0 ? `(${prompts.length})` : '';
+
+      if (prompts.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>No archived prompts yet.</p><p style="font-size:0.85rem;">Tell an agent to archive a prompt, or they\'ll save one-shot winners automatically.</p></div>';
+        return;
+      }
+
+      // Sort: highest rated first, then newest
+      const sorted = [...prompts].map((p, i) => ({ ...p, _idx: i }))
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.archivedAt || 0) - (a.archivedAt || 0));
+
+      list.innerHTML = sorted.map(p => {
+        const emoji = AGENT_EMOJI[p.target] || '🤖';
+        const date = p.archivedAt ? new Date(p.archivedAt).toLocaleDateString() : '';
+        const tags = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+        const stars = [1,2,3,4,5].map(n =>
+          `<span class="star ${(p.rating || 0) >= n ? 'filled' : ''}" onclick="ratePrompt(${p._idx}, ${n})">★</span>`
+        ).join('');
+        const resultNote = p.result ? `<span class="result-note">${p.result}</span>` : '';
+        // Truncate display text
+        const displayText = p.text.length > 500 ? p.text.slice(0, 500) + '…' : p.text;
+
+        return `<div class="prompt-card">
+          <div class="prompt-header">
+            <div class="prompt-meta">
+              <div class="prompt-title">${emoji} ${p.title || 'Untitled'}</div>
+              <div class="prompt-subtitle"><span class="tag">${p.target || '?'}</span>${tags} ${date}</div>
+            </div>
+            <button class="copy-btn" onclick="copyArchived(${p._idx}, this)">Copy</button>
+          </div>
+          <div class="prompt-body collapsed" style="font-size:0.76rem;">${p.text}</div>
+          <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
+          <div class="prompt-footer">
+            <div class="rating">${stars}</div>
+            ${resultNote}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Load archive from server
+    async function loadArchive() {
+      try {
+        const resp = await fetch('/workspace/prompts/archive.json', { cache: 'no-store' });
+        if (resp.ok) {
+          archiveData = await resp.json();
+          mergeLocalRatings();
+          renderArchive();
+          // Re-render evolution performance grid now that archive is loaded
+          if (typeof evoRenderPerf === 'function') evoRenderPerf();
+        }
+      } catch (e) {
+        console.warn('Failed to load archive:', e);
+        renderArchive();
+      }
+    }
+
+    // ========== EVOLUTION SYSTEM ==========
+
+    const EVO_STORAGE_KEY = 'mc-prompt-evolution';
+    const EVO_STATE_PATH = '/workspace/prompts/evolution-state.json';
+    const GOVERNANCE_PATH = '/workspace/mc-state/governance.json';
+    const ACTIVITY_PATH = '/workspace/agent-activity/log.json';
+
+    // Default evolution state
+    let evoState = {
+      config: {
+        target: 'ec2',       // ec2 or arm
+        model: 'groq-llama-3.3-70b',
+        schedule: 'manual',
+        threshold: 70,
+        autoPromote: false
+      },
+      stats: { generations: 0, tested: 0, promoted: 0, rejected: 0 },
+      lastRun: null,
+      nextRun: null,
+      experiments: [],    // active A/B tests
+      validationQueue: [],// prompts pending validation
+      log: []             // evolution event log
+    };
+
+    // Validation rules for prompt syntax/structure
+    const VALIDATION_RULES = [
+      {
+        id: 'non-empty',
+        label: 'Non-empty',
+        test: (text) => text && text.trim().length > 20
+      },
+      {
+        id: 'has-delegation',
+        label: 'Delegation',
+        test: (text) => /\b(delegate|CODECRAFT|SCOUT|SCRIBE|BUILDER|SENTINEL|CHRONICLER|sessions_send)\b/i.test(text),
+        applies: (target) => ['lead', 'ops-lead'].includes(target)
+      },
+      {
+        id: 'has-staging',
+        label: 'Staging output',
+        test: (text) => /\/workspace\/staging\//i.test(text)
+      },
+      {
+        id: 'has-logging',
+        label: 'Activity log',
+        test: (text) => /log|activity/i.test(text)
+      },
+      {
+        id: 'no-curl',
+        label: 'No curl (wget only)',
+        test: (text) => !/\bcurl\b/.test(text)
+      },
+      {
+        id: 'mobile-safe',
+        label: 'Mobile-safe',
+        test: (text) => text.length < 4000  // keep prompts paste-able on iOS
+      },
+      {
+        id: 'has-rules',
+        label: 'Has rules section',
+        test: (text) => /\bRULES?\b:?/i.test(text)
+      },
+      {
+        id: 'no-forbidden',
+        label: 'No forbidden phrases',
+        test: (text) => !/\b(I cannot|I'm unable|I don't have access|not possible)\b/i.test(text)
+      }
+    ];
+
+    // Load evolution state from localStorage + server
+    function evoLoadState() {
+      try {
+        const local = JSON.parse(localStorage.getItem(EVO_STORAGE_KEY) || 'null');
+        if (local) evoState = { ...evoState, ...local };
+      } catch (e) {}
+
+      // Restore config UI from state
+      const cfg = evoState.config;
+      const el = (id) => document.getElementById(id);
+      if (el('evo-cfg-target')) el('evo-cfg-target').value = cfg.target;
+      if (el('evo-cfg-model')) el('evo-cfg-model').value = cfg.model;
+      if (el('evo-cfg-schedule')) el('evo-cfg-schedule').value = cfg.schedule;
+      if (el('evo-cfg-threshold')) el('evo-cfg-threshold').value = cfg.threshold;
+      if (el('evo-cfg-auto')) el('evo-cfg-auto').value = String(cfg.autoPromote);
+
+      // Try loading server-side state
+      fetch(EVO_STATE_PATH, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(data => {
+        if (data) {
+          // Merge: server stats win if higher, keep local config
+          if (data.stats && data.stats.generations > evoState.stats.generations) {
+            evoState.stats = data.stats;
+          }
+          if (data.experiments) evoState.experiments = data.experiments;
+          if (data.validationQueue) evoState.validationQueue = data.validationQueue;
+          if (data.log && data.log.length > evoState.log.length) evoState.log = data.log;
+          if (data.lastRun) evoState.lastRun = data.lastRun;
+          evoRender();
+        }
+      }).catch(() => {});
+
+      evoRender();
+    }
+
+    // Persist state
+    function evoSaveState() {
+      try {
+        localStorage.setItem(EVO_STORAGE_KEY, JSON.stringify(evoState));
+      } catch (e) {}
+    }
+
+    // Update config from UI
+    function evoUpdateConfig() {
+      evoState.config = {
+        target: document.getElementById('evo-cfg-target').value,
+        model: document.getElementById('evo-cfg-model').value,
+        schedule: document.getElementById('evo-cfg-schedule').value,
+        threshold: parseInt(document.getElementById('evo-cfg-threshold').value),
+        autoPromote: document.getElementById('evo-cfg-auto').value === 'true'
+      };
+
+      // Update model dropdown options based on target
+      const modelSel = document.getElementById('evo-cfg-model');
+      const isArm = evoState.config.target === 'arm';
+      for (const opt of modelSel.options) {
+        const isOllama = opt.value.includes(':');
+        opt.disabled = isArm ? !isOllama : isOllama;
+      }
+      // Auto-select valid model if current is disabled
+      if (modelSel.options[modelSel.selectedIndex].disabled) {
+        for (const opt of modelSel.options) {
+          if (!opt.disabled) { modelSel.value = opt.value; break; }
+        }
+        evoState.config.model = modelSel.value;
+      }
+
+      evoSaveState();
+    }
+
+    // Load governance data for performance correlation
+    async function evoLoadGovernance() {
+      try {
+        // Try server-side governance file
+        const resp = await fetch(GOVERNANCE_PATH, { cache: 'no-store' });
+        if (resp.ok) return await resp.json();
+      } catch (e) {}
+
+      // Fallback to localStorage
+      try {
+        const data = JSON.parse(localStorage.getItem('mc-governance-metrics') || 'null');
+        if (data) return data;
+      } catch (e) {}
+
+      return null;
+    }
+
+    // Correlate prompts with agent performance
+    async function evoBuildPerfData() {
+      const govData = await evoLoadGovernance();
+      const prompts = archiveData.prompts || [];
+      const perfData = [];
+
+      // govData may be:
+      //   { agents: { [id]: { tasksCompleted, successRate, ... } } } (from governance init/sync)
+      //   { [id]: { tasksCompleted, ... } } (from localStorage raw metrics)
+      //   { agents: { [id]: <number> } } (from syncGovernance composite scores)
+      const agents = govData?.agents || govData || {};
+
+      for (const p of prompts) {
+        const agentId = p.target;
+        let successRate = null;
+        let tasksCompleted = 0;
+        let qualityScore = 50;
+
+        const m = agents[agentId];
+        if (m != null) {
+          if (typeof m === 'number') {
+            // Composite score only (from syncGovernance)
+            qualityScore = m;
+            successRate = m; // approximate
+          } else if (typeof m === 'object') {
+            successRate = m.successRate != null ? m.successRate : null;
+            tasksCompleted = m.tasksCompleted || 0;
+            qualityScore = m.qualityScore || 50;
+          }
+        }
+
+        perfData.push({
+          id: p.id,
+          title: p.title || 'Untitled',
+          target: agentId,
+          category: p.category,
+          rating: p.rating,
+          successRate: successRate,
+          tasksCompleted: tasksCompleted,
+          qualityScore: qualityScore,
+          // Composite score: prompt rating + agent perf
+          evoScore: Math.round(
+            ((p.rating || 3) / 5 * 40) +
+            ((successRate != null ? successRate : 70) * 0.4) +
+            (qualityScore * 0.2)
+          ),
+          needsEvolution: successRate != null && successRate < evoState.config.threshold
+        });
+      }
+
+      return perfData.sort((a, b) => a.evoScore - b.evoScore); // worst first
+    }
+
+    // Validate a prompt text
+    function evoValidatePrompt(text, target) {
+      return VALIDATION_RULES
+        .filter(r => !r.applies || r.applies(target))
+        .map(r => ({
+          id: r.id,
+          label: r.label,
+          passed: r.test(text)
+        }));
+    }
+
+    // Add log entry
+    function evoLog(type, message) {
+      evoState.log.unshift({
+        time: Date.now(),
+        type: type,  // mutate, validate, promote, reject, test
+        message: message
+      });
+      if (evoState.log.length > 100) evoState.log = evoState.log.slice(0, 100);
+      evoSaveState();
+      evoRenderLog();
+    }
+
+    // Run optimizer (generates mutation request for agent)
+    async function evoRunNow() {
+      const btn = event.target;
+      btn.textContent = 'Analyzing...';
+      btn.disabled = true;
+
+      try {
+        const perfData = await evoBuildPerfData();
+        const candidates = perfData.filter(p => p.needsEvolution);
+
+        if (candidates.length === 0) {
+          evoLog('validate', 'All prompts above threshold (' + evoState.config.threshold + '%). Nothing to evolve.');
+          btn.textContent = 'All prompts healthy';
+          setTimeout(() => { btn.textContent = 'Run Optimizer Now'; btn.disabled = false; }, 3000);
+          return;
+        }
+
+        // Build optimizer directive for the agent
+        const directive = evoGenerateDirective(candidates);
+
+        // Add to validation queue as pending
+        for (const c of candidates) {
+          if (!evoState.validationQueue.find(v => v.promptId === c.id)) {
+            evoState.validationQueue.push({
+              promptId: c.id,
+              title: c.title,
+              target: c.target,
+              currentScore: c.evoScore,
+              status: 'pending',  // pending, validating, ready, failed
+              queuedAt: Date.now()
+            });
+          }
+        }
+
+        evoState.stats.generations++;
+        evoState.lastRun = Date.now();
+        evoLog('mutate', `Identified ${candidates.length} prompt(s) for evolution. Generation #${evoState.stats.generations}.`);
+
+        // Copy directive to clipboard for sending to Lead/Ops Lead
+        try {
+          await navigator.clipboard.writeText(directive);
+          btn.textContent = 'Directive copied!';
+          evoLog('mutate', 'Optimizer directive copied to clipboard. Paste to Lead or Ops Lead to execute.');
+        } catch (e) {
+          // Fallback: show in a prompt card
+          evoShowDirective(directive);
+          btn.textContent = 'See directive below';
+        }
+
+        evoSaveState();
+        evoRender();
+      } catch (e) {
+        evoLog('reject', 'Optimizer error: ' + e.message);
+        btn.textContent = 'Error — see log';
+      }
+
+      setTimeout(() => { btn.textContent = 'Run Optimizer Now'; btn.disabled = false; }, 4000);
+    }
+
+    // Generate the optimizer directive prompt
+    function evoGenerateDirective(candidates) {
+      const lines = candidates.map(c =>
+        `- "${c.title}" (${c.target}) — score: ${c.evoScore}/100, success: ${c.successRate != null ? c.successRate + '%' : 'unknown'}, rating: ${c.rating || 'unrated'}`
+      ).join('\n');
+
+      return `PROMPT EVOLUTION — Generation #${evoState.stats.generations}
+Model: ${evoState.config.model} | Target: ${evoState.config.target === 'arm' ? 'ARM (Ollama)' : 'EC2 (free tier)'}
+
+Underperforming prompts identified:
+${lines}
+
+For EACH prompt above:
+
+1. READ the current prompt text from /workspace/prompts/archive.json (match by id)
+2. ANALYZE why it underperforms — check governance metrics, staging approval history, and activity logs for patterns
+3. GENERATE an improved version that:
+   - Preserves the core intent and target agent
+   - Adds clearer delegation structure (if lead/ops-lead prompt)
+   - Ensures staging output paths are explicit
+   - Adds activity logging rules
+   - Removes ambiguity that causes agents to ask questions instead of acting
+   - Keeps total length under 4000 chars (mobile paste-able)
+4. VALIDATE the new version:
+   - Must reference /workspace/staging/ for outputs
+   - Must mention activity logging
+   - Must NOT contain "curl" (agents only have wget)
+   - Must NOT contain forbidden phrases ("I cannot", "I'm unable", etc.)
+   - Lead/Ops Lead prompts must include delegation keywords
+5. WRITE the evolved version to /workspace/prompts/evolution-state.json as:
+   {
+     "experiments": [{
+       "promptId": "<id>",
+       "original": "<original text>",
+       "evolved": "<new text>",
+       "changes": ["list of what changed and why"],
+       "validationResults": [{"rule": "name", "passed": true/false}],
+       "status": "pending-review",
+       "createdAt": <unix_ms>
+     }],
+     "stats": { "generations": ${evoState.stats.generations}, "tested": ${evoState.stats.tested}, "promoted": ${evoState.stats.promoted}, "rejected": ${evoState.stats.rejected} },
+     "lastRun": ${Date.now()},
+     "log": [{"time": <unix_ms>, "type": "mutate", "message": "..."}]
+   }
+6. Log each evolution to /workspace/agent-activity/log.json
+
+RULES: Do NOT modify archive.json directly. Write evolved prompts to evolution-state.json only. Owner reviews and promotes from the Prompt Library UI. Execute all steps — no clarification needed.`;
+    }
+
+    // Show directive in a temporary card
+    function evoShowDirective(text) {
+      const container = document.getElementById('evo-experiments');
+      container.innerHTML = `
+        <div class="evo-exp-card" style="border-color: rgba(139,92,246,0.4);">
+          <div class="evo-exp-header">
+            <span class="evo-exp-title">Optimizer Directive (copy and send to Lead)</span>
+            <button class="copy-btn" style="font-size:0.8rem;padding:6px 12px;min-height:32px;" onclick="navigator.clipboard.writeText(this.parentElement.parentElement.querySelector('.evo-directive-text').textContent).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)})">Copy</button>
+          </div>
+          <div class="prompt-body collapsed evo-directive-text" style="font-size:0.72rem;">${text.replace(/</g, '&lt;')}</div>
+          <button class="expand-btn" onclick="toggleExpand(this)">Show full directive</button>
+        </div>`;
+    }
+
+    // Render all evolution UI
+    function evoRender() {
+      evoRenderStatus();
+      evoRenderPerf();
+      evoRenderExperiments();
+      evoRenderValidation();
+      evoRenderLog();
+    }
+
+    // Render status banner
+    function evoRenderStatus() {
+      const pulse = document.getElementById('evo-pulse');
+      const label = document.getElementById('evo-status-label');
+      const lastRun = document.getElementById('evo-last-run');
+      const nextRun = document.getElementById('evo-next-run');
+
+      const hasActive = evoState.experiments.some(e => e.status === 'running' || e.status === 'pending-review');
+      pulse.className = 'evo-pulse' + (hasActive ? ' active' : '');
+      label.textContent = hasActive ? 'Active' : (evoState.stats.generations > 0 ? 'Idle' : 'Not started');
+
+      lastRun.textContent = evoState.lastRun
+        ? 'Last: ' + new Date(evoState.lastRun).toLocaleDateString() + ' ' + new Date(evoState.lastRun).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+        : 'Last run: never';
+
+      const scheduleMap = { manual: '—', daily: 'midnight UTC', weekly: 'Sun midnight', 'on-review': 'after review' };
+      nextRun.textContent = 'Next: ' + (scheduleMap[evoState.config.schedule] || '—');
+
+      document.getElementById('evo-generations').textContent = evoState.stats.generations;
+      document.getElementById('evo-tested').textContent = evoState.stats.tested;
+      document.getElementById('evo-promoted').textContent = evoState.stats.promoted;
+      document.getElementById('evo-rejected').textContent = evoState.stats.rejected;
+    }
+
+    // Render performance grid
+    async function evoRenderPerf() {
+      const grid = document.getElementById('evo-perf-grid');
+      const perfData = await evoBuildPerfData();
+
+      if (perfData.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><p>No archived prompts to analyze.</p><p style="font-size:0.85rem;">Archive prompts first, then check back for performance data.</p></div>';
+        return;
+      }
+
+      grid.innerHTML = perfData.map(p => {
+        const emoji = AGENT_EMOJI[p.target] || '';
+        const barColor = p.evoScore >= 80 ? 'var(--green)' : p.evoScore >= 60 ? 'var(--gold)' : '#ef4444';
+        const scoreColor = p.evoScore >= 80 ? 'var(--green)' : p.evoScore >= 60 ? 'var(--gold-light)' : '#ef4444';
+        const meta = [
+          p.target,
+          p.successRate != null ? p.successRate + '% success' : null,
+          p.tasksCompleted + ' tasks',
+          p.rating ? p.rating + '/5 rated' : null
+        ].filter(Boolean).join(' · ');
+
+        return `<div class="evo-perf-row${p.needsEvolution ? ' style="border-color:rgba(239,68,68,0.3);"' : ''}">
+          <span class="emoji">${emoji}</span>
+          <div class="evo-perf-info">
+            <div class="evo-perf-title">${p.title}${p.needsEvolution ? ' <span style="color:#ef4444;font-size:0.7rem;">EVOLVE</span>' : ''}</div>
+            <div class="evo-perf-meta">${meta}</div>
+          </div>
+          <div class="evo-perf-bar-wrap"><div class="evo-perf-bar" style="width:${p.evoScore}%;background:${barColor};"></div></div>
+          <span class="evo-perf-score" style="color:${scoreColor};">${p.evoScore}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Render experiments
+    function evoRenderExperiments() {
+      const container = document.getElementById('evo-experiments');
+      const exps = evoState.experiments;
+
+      if (exps.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No active A/B tests.</p><p style="font-size:0.85rem;">Experiments start when the optimizer identifies a prompt with &lt;' + evoState.config.threshold + '% success rate.</p></div>';
+        return;
+      }
+
+      container.innerHTML = exps.map((exp, i) => {
+        const statusClass = exp.status === 'running' ? 'running' : exp.status === 'complete' ? 'complete' : 'pending';
+        const origSnippet = (exp.original || '').slice(0, 150) + ((exp.original || '').length > 150 ? '...' : '');
+        const evoSnippet = (exp.evolved || '').slice(0, 150) + ((exp.evolved || '').length > 150 ? '...' : '');
+        const changes = (exp.changes || []).map(c => '<li style="font-size:0.78rem;color:var(--text-sec);">' + c + '</li>').join('');
+
+        return `<div class="evo-exp-card">
+          <div class="evo-exp-header">
+            <span class="evo-exp-title">${AGENT_EMOJI[exp.target] || ''} ${exp.promptId || 'Unknown'}</span>
+            <span class="evo-exp-badge ${statusClass}">${exp.status}</span>
+          </div>
+          <div class="evo-exp-compare">
+            <div class="evo-exp-side original"><div class="evo-exp-side-label">Original</div>${origSnippet.replace(/</g, '&lt;')}</div>
+            <div class="evo-exp-side evolved"><div class="evo-exp-side-label">Evolved</div>${evoSnippet.replace(/</g, '&lt;')}</div>
+          </div>
+          ${changes ? '<ul style="margin:8px 0 0 16px;">' + changes + '</ul>' : ''}
+          ${exp.status === 'pending-review' ? `
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="copy-btn" style="flex:1;font-size:0.85rem;padding:8px;" onclick="evoPromote(${i})">Promote</button>
+              <button class="copy-btn" style="flex:1;font-size:0.85rem;padding:8px;background:transparent;color:#ef4444;border:1px solid rgba(239,68,68,0.3);" onclick="evoReject(${i})">Reject</button>
+            </div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Promote an evolved prompt (replace in archive)
+    function evoPromote(idx) {
+      const exp = evoState.experiments[idx];
+      if (!exp) return;
+
+      // Find and update in archive
+      const archiveIdx = archiveData.prompts.findIndex(p => p.id === exp.promptId);
+      if (archiveIdx >= 0) {
+        archiveData.prompts[archiveIdx].text = exp.evolved;
+        archiveData.prompts[archiveIdx].result = (archiveData.prompts[archiveIdx].result || '') + ' [Evolved gen#' + evoState.stats.generations + ']';
+        renderArchive();
+      }
+
+      exp.status = 'promoted';
+      evoState.stats.promoted++;
+      evoLog('promote', `Promoted evolved version of "${exp.promptId}" to archive.`);
+      evoState.experiments = evoState.experiments.filter(e => e.status !== 'promoted');
+      evoSaveState();
+      evoRender();
+    }
+
+    // Reject an evolved prompt
+    function evoReject(idx) {
+      const exp = evoState.experiments[idx];
+      if (!exp) return;
+
+      exp.status = 'rejected';
+      evoState.stats.rejected++;
+      evoLog('reject', `Rejected evolved version of "${exp.promptId}".`);
+      evoState.experiments = evoState.experiments.filter(e => e.status !== 'rejected');
+      evoSaveState();
+      evoRender();
+    }
+
+    // Render validation queue
+    function evoRenderValidation() {
+      const container = document.getElementById('evo-validation');
+      const queue = evoState.validationQueue;
+
+      if (queue.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No prompts pending validation.</p></div>';
+        return;
+      }
+
+      container.innerHTML = queue.map(v => {
+        // Run validation on archived prompt text
+        const prompt = archiveData.prompts.find(p => p.id === v.promptId);
+        const checks = prompt ? evoValidatePrompt(prompt.text, v.target) : [];
+
+        return `<div class="evo-val-item">
+          <div class="evo-val-header">
+            <span style="font-weight:600;font-size:0.9rem;">${AGENT_EMOJI[v.target] || ''} ${v.title}</span>
+            <span style="font-size:0.78rem;color:var(--text-muted);">Score: ${v.currentScore}/100</span>
+          </div>
+          <div class="evo-val-checks">
+            ${checks.map(c => `<span class="evo-val-check ${c.passed ? 'pass' : 'fail'}">${c.passed ? '✓' : '✗'} ${c.label}</span>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Render evolution log
+    function evoRenderLog() {
+      const container = document.getElementById('evo-log');
+      const log = evoState.log;
+
+      if (log.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No evolution events yet.</p></div>';
+        return;
+      }
+
+      container.innerHTML = log.slice(0, 50).map(entry => {
+        const time = new Date(entry.time);
+        const timeStr = time.toLocaleDateString([], {month:'short',day:'numeric'}) + ' ' + time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        return `<div class="evo-log-entry">
+          <span class="evo-log-time">${timeStr}</span>
+          <span class="evo-log-type ${entry.type}">${entry.type}</span>
+          <span class="evo-log-msg">${entry.message}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Export config as JSON (for agent consumption)
+    function evoExportConfig() {
+      const config = {
+        ...evoState.config,
+        validationRules: VALIDATION_RULES.map(r => ({ id: r.id, label: r.label })),
+        currentStats: evoState.stats,
+        lastRun: evoState.lastRun
+      };
+      const json = JSON.stringify(config, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        const btn = event.target;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Export Config'; }, 2000);
+      }).catch(() => {
+        // Fallback
+        const el = document.createElement('textarea');
+        el.value = json;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      });
+    }
+
+    // Init
+    loadArchive();
+    evoLoadState();
+  </script>
+</body>
+</html>

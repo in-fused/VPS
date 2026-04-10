@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "id": "status-dashboard-1",
+      "name": "Service Status Dashboard",
+      "path": "status-dashboard.html",
+      "type": "html",
+      "createdBy": "system",
+      "createdAt": 1741305600000,
+      "description": "Live service health monitor — checks Caddy, WebUI, LiteLLM, OpenClaw with latency. Auto-refreshes 30s. Mobile-optimized.",
+      "status": "pending"
+    }
+  ]
+}

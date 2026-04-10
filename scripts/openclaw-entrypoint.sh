@@ -2,68 +2,54 @@
 # =============================================================================
 # OpenClaw Gateway Entrypoint
 # =============================================================================
-# Ensures the gateway config has the correct basePath and bind settings
-# for running behind a Caddy reverse proxy at /openclaw/.
-# Merges into existing config (preserves onboarding wizard settings).
+# 1. Patches openclaw.json (separate JS file — avoids shell quoting issues)
+# 2. Seeds agent workspace files (SOUL.md, MEMORY.md, etc.)
+# 3. Starts the OpenClaw gateway
 # =============================================================================
 
-node -e "
-const fs = require('fs');
-const path = '/home/node/.openclaw/openclaw.json';
+# Step 0: Ensure SSH client is available for oracle-bridge.sh
+# OpenClaw image is Node.js-based and may not include ssh/scp.
+# Install silently in background to avoid delaying startup.
+if ! command -v ssh >/dev/null 2>&1; then
+  echo "[entrypoint] Installing SSH client for Oracle ARM bridge..."
+  (
+    if command -v apk >/dev/null 2>&1; then
+      apk add --no-cache openssh-client >/dev/null 2>&1
+    elif command -v apt-get >/dev/null 2>&1; then
+      apt-get update -qq && apt-get install -y -qq openssh-client >/dev/null 2>&1
+    fi
+    echo "[entrypoint] SSH client installed"
+  ) &
+fi
 
-let config = {};
-try { config = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
+# Step 1: Patch openclaw.json config
+node /opt/scripts/patch-openclaw-config.js
+if [ $? -ne 0 ]; then
+  echo "[entrypoint] ERROR: config patch failed, starting with existing config"
+fi
 
-// Ensure gateway settings for reverse proxy
-config.gateway = config.gateway || {};
-config.gateway.port = 18789;
-config.gateway.bind = 'lan';
+# Step 2: Seed server-side workspace files for each agent (filesystem).
+# This pre-seeds files before OpenClaw starts. Step 3 re-pushes them via RPC
+# after OpenClaw is running to ensure they aren't overwritten by defaults.
+node /opt/scripts/seed-agent-workspaces.js
 
-// Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
-config.gateway.auth = config.gateway.auth || {};
-config.gateway.auth.mode = 'password';
+# Step 3: RPC-based re-seed after OpenClaw starts.
+# The RPC seeder waits for OpenClaw to be healthy, then pushes all workspace
+# files via agents.files.set — the API treats these as operator-managed, so
+# OpenClaw won't overwrite them with its defaults. This replaces the old
+# filesystem-based delayed second seed (which had a race condition).
+# After RPC seed, auto-kickoff sends startup messages to both leads.
+# Sleep 45s first — OpenClaw takes ~50s to start (Doctor changes + config
+# overwrite + gateway bind). Without this delay, the health check retries
+# burn out before the gateway is even listening.
+(sleep 45 && node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
 
-// Control UI basePath for reverse proxy at /openclaw/
-config.gateway.controlUi = config.gateway.controlUi || {};
-config.gateway.controlUi.basePath = '/openclaw/';
-// Disable per-device pairing — password auth is sufficient for self-hosted.
-// Without this, each new browser requires manual CLI approval even after
-// entering the correct password (device pairing is a separate auth layer).
-config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+# Step 3b: Register agents in Paperclip (background, non-blocking).
+# Waits for Paperclip to be healthy, creates company + agents + goals.
+# Idempotent — skips existing resources. Non-fatal on failure.
+# Only runs if Paperclip is reachable (it's behind an optional Docker profile).
+(sleep 60 && wget -qO- http://paperclip:3100/api/health >/dev/null 2>&1 && node /opt/scripts/setup-paperclip.js || echo "[entrypoint] Paperclip not running — skipping agent registration") &
 
-// Remove any unknown keys that cause config validation errors
-delete config.gateway.trustProxy;
-
-// Trust Caddy reverse proxy — Docker bridge subnets
-// Without this, OpenClaw ignores X-Forwarded-For headers and rejects
-// all WebSocket connections as untrusted ('1008 pairing required').
-config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'];
-
-// LLM provider — define custom 'litellm' provider pointing at our LiteLLM proxy.
-// Uses openai-completions wire format. This prevents subagents from falling back
-// to the hardcoded DEFAULT_PROVIDER 'anthropic' (openclaw#3237).
-config.models = config.models || {};
-config.models.mode = 'merge';
-config.models.providers = config.models.providers || {};
-config.models.providers.litellm = {
-  baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
-  apiKey: process.env.OPENAI_API_KEY || '',
-  api: 'openai-completions',
-  models: [
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (via LiteLLM)', contextWindow: 128000, maxTokens: 16384 }
-  ]
-};
-
-// Default model — object format with primary key (flat strings break subagents)
-config.agents = config.agents || {};
-config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/gpt-4o-mini' };
-// Allowlist only the litellm provider to prevent anthropic fallback
-config.agents.defaults.models = { litellm: {} };
-
-fs.mkdirSync('/home/node/.openclaw', { recursive: true });
-fs.writeFileSync(path, JSON.stringify(config, null, 2));
-console.log('[entrypoint] OpenClaw config updated: auth=password, basePath=/openclaw/, bind=lan, model=litellm/gpt-4o-mini');
-"
-
-exec node --max-old-space-size=1024 --disable-warning=ExperimentalWarning openclaw.mjs gateway --allow-unconfigured
+# Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
+# validation for controlUi.allowedOrigins. Let openclaw.json handle it.
+exec node openclaw.mjs gateway --allow-unconfigured

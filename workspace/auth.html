@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>in-fused.org — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f0d060'/%3E%3Cstop offset='50%25' stop-color='%23d4af37'/%3E%3Cstop offset='100%25' stop-color='%23c49b2a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='32,4 56,18 56,46 32,60 8,46 8,18' fill='none' stroke='url(%23g)' stroke-width='3'/%3E%3Ccircle cx='32' cy='28' r='5' fill='%23d4af37'/%3E%3Ccircle cx='20' cy='40' r='3' fill='%23d4af37'/%3E%3Ccircle cx='44' cy='40' r='3' fill='%23d4af37'/%3E%3Ccircle cx='20' cy='20' r='3' fill='%23d4af37'/%3E%3Ccircle cx='44' cy='20' r='3' fill='%23d4af37'/%3E%3Cline x1='32' y1='28' x2='20' y2='40' stroke='%23d4af37' stroke-width='1.5' opacity='0.6'/%3E%3Cline x1='32' y1='28' x2='44' y2='40' stroke='%23d4af37' stroke-width='1.5' opacity='0.6'/%3E%3Cline x1='32' y1='28' x2='20' y2='20' stroke='%23d4af37' stroke-width='1.5' opacity='0.6'/%3E%3Cline x1='32' y1='28' x2='44' y2='20' stroke='%23d4af37' stroke-width='1.5' opacity='0.6'/%3E%3C/svg%3E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#06060e">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #06060e;
+      --surface: rgba(14,13,26,0.85);
+      --border: rgba(212,175,55,0.15);
+      --border-bright: rgba(212,175,55,0.35);
+      --gold: #d4af37;
+      --gold-light: #f0d060;
+      --gold-dim: rgba(212,175,55,0.10);
+      --gold-glow: rgba(212,175,55,0.30);
+      --gold-shimmer: rgba(240,208,96,0.6);
+      --danger: #ff4060;
+      --danger-dim: rgba(255,64,96,0.12);
+      --text: #eeedf5;
+      --text-sec: #b0adc0;
+      --text-muted: #5a5670;
+    }
+
+    body {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated background layers */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% -20%, rgba(212,175,55,0.08) 0%, transparent 55%),
+        radial-gradient(circle at 80% 80%, rgba(212,175,55,0.04) 0%, transparent 40%),
+        radial-gradient(circle at 10% 60%, rgba(100,80,200,0.03) 0%, transparent 40%);
+      z-index: 0;
+    }
+
+    /* Grid overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(212,175,55,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at 50% 50%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 20%, transparent 70%);
+      z-index: 0;
+    }
+
+    /* Floating particles */
+    .particles {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: var(--gold);
+      border-radius: 50%;
+      opacity: 0;
+      animation: float-up linear infinite;
+    }
+    @keyframes float-up {
+      0% { opacity: 0; transform: translateY(100vh) scale(0.5); }
+      10% { opacity: 0.8; }
+      90% { opacity: 0.3; }
+      100% { opacity: 0; transform: translateY(-10vh) scale(0); }
+    }
+
+    .auth-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 0 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Branding */
+    .branding { text-align: center; margin-bottom: 36px; }
+    .branding-icon {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .branding-icon::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent, var(--gold), transparent, var(--gold-light), transparent);
+      animation: icon-spin 6s linear infinite;
+      opacity: 0.5;
+    }
+    .branding-icon::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      background: var(--bg);
+    }
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+    .branding-icon svg {
+      position: relative;
+      z-index: 1;
+      width: 40px;
+      height: 40px;
+      filter: drop-shadow(0 0 16px var(--gold-glow));
+    }
+    .branding-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 40%, #c49b2a 60%, var(--gold-light) 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer-text 4s ease-in-out infinite;
+    }
+    @keyframes shimmer-text {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .branding-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+
+    /* Decorative line */
+    .divider {
+      width: 120px;
+      height: 1px;
+      margin: 0 auto 36px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      position: relative;
+    }
+    .divider::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 12px var(--gold-glow);
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(212,175,55,0.04), transparent);
+      animation: card-shimmer 5s ease-in-out infinite;
+    }
+    @keyframes card-shimmer {
+      0%, 100% { left: -100%; }
+      50% { left: 100%; }
+    }
+
+    /* Corner accents on card */
+    .card::after {
+      content: '';
+      position: absolute;
+      top: -1px;
+      right: -1px;
+      width: 40px;
+      height: 40px;
+      border-top: 2px solid var(--gold);
+      border-right: 2px solid var(--gold);
+      border-radius: 0 12px 0 0;
+      opacity: 0.5;
+    }
+    .card-corner {
+      position: absolute;
+      bottom: -1px;
+      left: -1px;
+      width: 40px;
+      height: 40px;
+      border-bottom: 2px solid var(--gold);
+      border-left: 2px solid var(--gold);
+      border-radius: 0 0 0 12px;
+      opacity: 0.5;
+    }
+
+    .card-header {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      text-align: center;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .error {
+      display: none;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      background: var(--danger-dim);
+      border: 1px solid rgba(255,64,96,0.2);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--danger);
+      text-align: center;
+      position: relative;
+    }
+    .error.show { display: block; }
+
+    .field { margin-bottom: 16px; position: relative; }
+    .field:last-of-type { margin-bottom: 28px; }
+    label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+      opacity: 0.7;
+    }
+    input {
+      width: 100%;
+      background: rgba(6,6,14,0.8);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-weight: 500;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+    }
+    input::placeholder { color: var(--text-muted); font-weight: 400; }
+    input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-dim), 0 0 20px rgba(212,175,55,0.08);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px 0;
+      background: linear-gradient(135deg, var(--gold) 0%, #c49b2a 50%, var(--gold-light) 100%);
+      background-size: 200% 100%;
+      color: #0a0a14;
+      border: none;
+      border-radius: 6px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: box-shadow 0.3s, transform 0.15s;
+      box-shadow: 0 4px 20px var(--gold-glow);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+      transition: none;
+    }
+    .btn:hover { box-shadow: 0 6px 30px var(--gold-glow); transform: translateY(-1px); }
+    .btn:hover::before { left: 120%; transition: left 0.6s ease; }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    @media (pointer: coarse) {
+      input { font-size: 16px; min-height: 44px; }
+      .btn { min-height: 44px; }
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.15em;
+      opacity: 0.4;
+    }
+
+    /* Scanline effect (subtle) */
+    .scanline {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+      opacity: 0.4;
+      animation: scan 4s linear infinite;
+      z-index: 2;
+      pointer-events: none;
+    }
+    @keyframes scan {
+      0% { top: -3px; }
+      100% { top: 100vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="scanline"></div>
+
+  <div class="particles" id="particles"></div>
+
+  <div class="auth-container">
+    <div class="branding">
+      <div class="branding-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="hex-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#f0d060"/>
+              <stop offset="50%" stop-color="#d4af37"/>
+              <stop offset="100%" stop-color="#c49b2a"/>
+            </linearGradient>
+          </defs>
+          <!-- Hexagonal frame -->
+          <polygon points="32,2 58,17 58,47 32,62 6,47 6,17" stroke="url(#hex-grad)" stroke-width="2.5" fill="none"/>
+          <!-- Central hub node -->
+          <circle cx="32" cy="30" r="5.5" fill="#d4af37"/>
+          <!-- Satellite nodes -->
+          <circle cx="18" cy="20" r="3" fill="#d4af37" opacity="0.85"/>
+          <circle cx="46" cy="20" r="3" fill="#d4af37" opacity="0.85"/>
+          <circle cx="18" cy="42" r="3" fill="#d4af37" opacity="0.85"/>
+          <circle cx="46" cy="42" r="3" fill="#d4af37" opacity="0.85"/>
+          <!-- Connection lines -->
+          <line x1="32" y1="30" x2="18" y2="20" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+          <line x1="32" y1="30" x2="46" y2="20" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+          <line x1="32" y1="30" x2="18" y2="42" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+          <line x1="32" y1="30" x2="46" y2="42" stroke="#d4af37" stroke-width="1.2" opacity="0.45"/>
+          <!-- Cross connections -->
+          <line x1="18" y1="20" x2="46" y2="20" stroke="#d4af37" stroke-width="0.8" opacity="0.25"/>
+          <line x1="18" y1="42" x2="46" y2="42" stroke="#d4af37" stroke-width="0.8" opacity="0.25"/>
+          <line x1="18" y1="20" x2="18" y2="42" stroke="#d4af37" stroke-width="0.8" opacity="0.25"/>
+          <line x1="46" y1="20" x2="46" y2="42" stroke="#d4af37" stroke-width="0.8" opacity="0.25"/>
+        </svg>
+      </div>
+      <div class="branding-title">IN-FUSED</div>
+      <div class="branding-sub">Multi-Agent AI Hub</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="card">
+      <div class="card-corner"></div>
+      <div class="card-header">Secure Access</div>
+      <div id="error" class="error"></div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Enter password" autocomplete="current-password">
+      </div>
+
+      <button class="btn" id="submit" onclick="doLogin()">Initialize</button>
+    </div>
+
+    <div class="footer">in-fused.org &middot; encrypted session &middot; 24h</div>
+  </div>
+
+  <script>
+    /* Spawn floating particles */
+    (function() {
+      var container = document.getElementById('particles');
+      for (var i = 0; i < 20; i++) {
+        var p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = (6 + Math.random() * 10) + 's';
+        p.style.animationDelay = (Math.random() * 8) + 's';
+        p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+        container.appendChild(p);
+      }
+    })();
+
+    async function sha256(str) {
+      var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+
+    document.getElementById('username').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+    document.getElementById('password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    /* Brute force protection — client-side lockout (defense-in-depth) */
+    var _bf = {
+      key: 'bf_attempts',
+      get: function() {
+        try {
+          var d = JSON.parse(sessionStorage.getItem(this.key) || '{}');
+          /* Reset if last attempt was over 10 minutes ago */
+          if (d.ts && Date.now() - d.ts > 600000) return { n: 0, ts: 0, lockUntil: 0 };
+          return { n: d.n || 0, ts: d.ts || 0, lockUntil: d.lockUntil || 0 };
+        } catch(e) { return { n: 0, ts: 0, lockUntil: 0 }; }
+      },
+      set: function(d) { try { sessionStorage.setItem(this.key, JSON.stringify(d)); } catch(e) {} },
+      record: function() {
+        var d = this.get();
+        d.n++;
+        d.ts = Date.now();
+        /* Escalating lockout: 3 fails=10s, 5=30s, 8+=120s */
+        if (d.n >= 8) d.lockUntil = Date.now() + 120000;
+        else if (d.n >= 5) d.lockUntil = Date.now() + 30000;
+        else if (d.n >= 3) d.lockUntil = Date.now() + 10000;
+        this.set(d);
+        return d;
+      },
+      clear: function() { try { sessionStorage.removeItem(this.key); } catch(e) {} },
+      isLocked: function() {
+        var d = this.get();
+        if (d.lockUntil && Date.now() < d.lockUntil) return d.lockUntil;
+        return false;
+      }
+    };
+
+    /* Show countdown timer during lockout */
+    var _lockTimer = null;
+    function showLockout(until) {
+      var errEl = document.getElementById('error');
+      var btn = document.getElementById('submit');
+      btn.disabled = true;
+      function tick() {
+        var left = Math.ceil((until - Date.now()) / 1000);
+        if (left <= 0) {
+          clearInterval(_lockTimer);
+          _lockTimer = null;
+          errEl.textContent = 'You may try again';
+          btn.disabled = false;
+          btn.textContent = 'INITIALIZE';
+          return;
+        }
+        errEl.textContent = 'Too many attempts — retry in ' + left + 's';
+        errEl.classList.add('show');
+        btn.textContent = 'LOCKED (' + left + 's)';
+      }
+      tick();
+      _lockTimer = setInterval(tick, 1000);
+    }
+
+    /* Check lockout on page load */
+    (function() {
+      var locked = _bf.isLocked();
+      if (locked) showLockout(locked);
+    })();
+
+    async function doLogin() {
+      var errEl = document.getElementById('error');
+      var user = document.getElementById('username').value.trim();
+      var pass = document.getElementById('password').value;
+      var btn = document.getElementById('submit');
+
+      errEl.classList.remove('show');
+
+      /* Check client-side lockout */
+      var locked = _bf.isLocked();
+      if (locked) { showLockout(locked); return; }
+
+      if (!user || !pass) {
+        errEl.textContent = 'Please enter username and password';
+        errEl.classList.add('show');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'VERIFYING...';
+
+      try {
+        var resp = await fetch('/auth/verify', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Basic ' + btoa(user + ':' + pass),
+          },
+        });
+
+        if (resp.ok) {
+          _bf.clear();
+          var hash = await sha256(pass);
+          var secure = location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = 'mc_oc=' + hash + '; path=/; SameSite=Lax; max-age=86400' + secure;
+          btn.textContent = 'ACCESS GRANTED';
+          setTimeout(function() { window.location.reload(); }, 300);
+          return;
+        }
+
+        /* 429 = server-side rate limit hit */
+        if (resp.status === 429) {
+          var d = _bf.record();
+          errEl.textContent = 'Rate limited — too many attempts';
+          errEl.classList.add('show');
+          document.getElementById('password').value = '';
+          btn.disabled = false;
+          btn.textContent = 'INITIALIZE';
+          var lockUntil = _bf.isLocked();
+          if (lockUntil) showLockout(lockUntil);
+          return;
+        }
+      } catch (e) {
+        // Network error
+      }
+
+      var d = _bf.record();
+      errEl.textContent = 'Access denied — invalid credentials (' + d.n + '/5)';
+      errEl.classList.add('show');
+      document.getElementById('password').value = '';
+      btn.disabled = false;
+      btn.textContent = 'INITIALIZE';
+
+      var lockUntil = _bf.isLocked();
+      if (lockUntil) showLockout(lockUntil);
+    }
+  </script>
+</body>
+</html>

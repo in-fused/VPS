@@ -1,0 +1,738 @@
+/* ==========================================================================
+   Mission Control — Custom Styles
+   in-fused.org
+
+   Tailwind handles utility classes. This file covers:
+   - CSS custom properties (theme tokens)
+   - Animations & keyframes
+   - Complex component styles Tailwind can't express
+   - LiteGraph.js dark theme overrides
+   - Scrollbar styling
+   ========================================================================== */
+
+/* ---- Theme Tokens ---- */
+:root {
+  --mc-bg: #0a0e17;
+  --mc-surface: #111827;
+  --mc-elevated: #1f2937;
+  --mc-border: #374151;
+  --mc-primary: #06b6d4;
+  --mc-primary-dim: rgba(6, 182, 212, 0.12);
+  --mc-secondary: #8b5cf6;
+  --mc-secondary-dim: rgba(139, 92, 246, 0.12);
+  --mc-success: #10b981;
+  --mc-success-dim: rgba(16, 185, 129, 0.12);
+  --mc-warning: #f59e0b;
+  --mc-warning-dim: rgba(245, 158, 11, 0.12);
+  --mc-danger: #ef4444;
+  --mc-danger-dim: rgba(239, 68, 68, 0.12);
+  --mc-text: #f9fafb;
+  --mc-text-sec: #9ca3af;
+  --mc-text-muted: #6b7280;
+}
+
+/* ---- Base Reset ---- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  height: 100dvh; /* iOS Safari: accounts for dynamic toolbar */
+  overflow: hidden;
+  background: var(--mc-bg);
+  color: var(--mc-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Safe area: handled per-element (sidebar, header), NOT on body.
+     Body padding + fixed-height children causes clipping on iOS. */
+}
+
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mc-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--mc-text-muted); }
+
+/* ---- Grid Background (immersive radar feel) ---- */
+.mc-grid-bg {
+  background-image:
+    linear-gradient(rgba(6, 182, 212, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ---- Status Indicator Dots ---- */
+.mc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mc-dot-running {
+  background: var(--mc-success);
+  box-shadow: 0 0 8px var(--mc-success);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.mc-dot-idle { background: var(--mc-text-muted); }
+.mc-dot-error {
+  background: var(--mc-danger);
+  box-shadow: 0 0 8px var(--mc-danger);
+}
+.mc-dot-connected {
+  background: var(--mc-success);
+  box-shadow: 0 0 6px var(--mc-success);
+}
+.mc-dot-disconnected { background: var(--mc-danger); }
+
+/* ---- Stat Card Top Border ---- */
+.mc-stat-border::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 12px 12px 0 0;
+}
+.mc-stat-border.cyan::before { background: var(--mc-primary); }
+.mc-stat-border.green::before { background: var(--mc-success); }
+.mc-stat-border.amber::before { background: var(--mc-warning); }
+.mc-stat-border.purple::before { background: var(--mc-secondary); }
+
+/* ---- Wizard Step Indicators ---- */
+.mc-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--mc-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mc-text-muted);
+  transition: all 200ms ease;
+  flex-shrink: 0;
+}
+.mc-step-dot.active {
+  background: var(--mc-primary);
+  border-color: var(--mc-primary);
+  color: var(--mc-bg);
+}
+.mc-step-dot.done {
+  background: var(--mc-success);
+  border-color: var(--mc-success);
+  color: var(--mc-bg);
+}
+.mc-step-line {
+  width: 40px;
+  height: 2px;
+  background: var(--mc-border);
+  flex-shrink: 0;
+}
+.mc-step-line.done { background: var(--mc-success); }
+
+/* ---- Model Tier Colors ---- */
+.tier-free { color: var(--mc-success); }
+.tier-cheap { color: var(--mc-primary); }
+.tier-mid { color: var(--mc-warning); }
+.tier-premium { color: var(--mc-secondary); }
+
+/* ---- Chat Bubbles ---- */
+.mc-bubble-user {
+  background: var(--mc-primary-dim);
+  border-bottom-right-radius: 4px;
+}
+.mc-bubble-agent {
+  background: var(--mc-elevated);
+  border-bottom-left-radius: 4px;
+}
+
+/* ---- Token Usage Bars ---- */
+.mc-usage-track {
+  height: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mc-usage-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Log Entry Hover ---- */
+.mc-log-row:hover { background: var(--mc-elevated); }
+
+/* ---- Keyframes ---- */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-right {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blink-cursor {
+  0%, 100% { border-color: var(--mc-primary); }
+  50% { border-color: transparent; }
+}
+
+@keyframes boot-text {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-fade-up { animation: fade-up 400ms ease forwards; }
+.animate-slide-right { animation: slide-right 300ms ease forwards; }
+
+/* ---- Boot Screen ---- */
+.mc-boot-text {
+  font-family: 'JetBrains Mono', monospace;
+  animation: blink-cursor 1s step-end infinite;
+  border-right: 2px solid var(--mc-primary);
+  padding-right: 4px;
+}
+
+.mc-boot-scanline {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--mc-primary), transparent);
+  opacity: 0.3;
+  animation: scan-line 3s linear infinite;
+}
+
+/* ---- Palette Nodes (Workflow Builder) ---- */
+.mc-palette-node {
+  cursor: grab;
+  user-select: none;
+  transition: all 150ms ease;
+}
+.mc-palette-node:hover, .mc-palette-node:active {
+  border-color: var(--mc-primary);
+  transform: translateX(2px);
+}
+.mc-palette-node:active { cursor: grabbing; }
+@media (pointer: coarse) {
+  .mc-palette-node { min-height: 44px; }
+}
+
+/* ---- Sidebar Tooltip (collapsed mode) ---- */
+.mc-sidebar-collapsed .mc-nav-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--mc-elevated);
+  color: var(--mc-text);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+  border: 1px solid var(--mc-border);
+  z-index: 100;
+}
+.mc-sidebar-collapsed .mc-nav-btn[data-tip]:hover::after { opacity: 1; }
+/* Hide CSS tooltips on touch — they cause ghost taps */
+@media (pointer: coarse) {
+  .mc-sidebar-collapsed .mc-nav-btn[data-tip]::after { display: none; }
+}
+
+/* ---- Input Focus Ring ---- */
+.mc-input-focus:focus {
+  border-color: var(--mc-primary);
+  box-shadow: 0 0 0 2px var(--mc-primary-dim);
+  outline: none;
+}
+
+/* ---- Card Hover/Active Glow ---- */
+.mc-card-glow:hover, .mc-card-glow:active {
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 24px rgba(6, 182, 212, 0.06);
+}
+
+/* ---- Emoji Picker ---- */
+.mc-emoji-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  background: none;
+  border: 2px solid transparent;
+  transition: all 150ms ease;
+}
+.mc-emoji-btn:hover, .mc-emoji-btn:active { background: var(--mc-elevated); }
+.mc-emoji-btn.selected {
+  border-color: var(--mc-primary);
+  background: var(--mc-primary-dim);
+}
+
+/* ---- Toggle Switch (Settings) ---- */
+.mc-toggle {
+  width: 40px;
+  height: 22px;
+  background: var(--mc-border);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 200ms ease;
+  flex-shrink: 0;
+  border: none;
+  padding: 0;
+}
+.mc-toggle.on {
+  background: var(--mc-primary);
+}
+.mc-toggle-knob {
+  width: 16px;
+  height: 16px;
+  background: var(--mc-text);
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 200ms ease;
+}
+.mc-toggle.on .mc-toggle-knob {
+  transform: translateX(18px);
+}
+
+/* ---- Range Slider (Audio Volume) ---- */
+input[type="range"].accent-amber-500 {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--mc-border, #333);
+  outline: none;
+}
+input[type="range"].accent-amber-500::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mc-primary, #d4a017);
+  cursor: pointer;
+  border: 2px solid var(--mc-bg, #0a0a0f);
+}
+input[type="range"].accent-amber-500::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mc-primary, #d4a017);
+  cursor: pointer;
+  border: 2px solid var(--mc-bg, #0a0a0f);
+}
+
+/* ---- LiteGraph.js Dark Theme Override ---- */
+.lgraphcanvas {
+  background-color: var(--mc-bg) !important;
+}
+
+/* ---- LiteGraph.js Touch Support (iOS / mobile) ---- */
+#workflow-canvas,
+.lgraphcanvas {
+  touch-action: none;      /* Prevent browser from hijacking touch for scroll/zoom */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* LiteGraph widget text dialogs: ensure scrollable on overflow */
+.litegraph .graphdialog,
+.litegraph .dialog {
+  max-height: 60vh !important;
+  max-height: 60dvh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.litegraph .graphdialog textarea,
+.litegraph .dialog textarea {
+  max-height: 40vh !important;
+  max-height: 40dvh !important;
+  overflow-y: auto !important;
+  resize: vertical !important;
+  -webkit-overflow-scrolling: touch;
+  font-size: 14px !important;
+}
+/* Make LiteGraph popup inputs touch-friendly */
+@media (pointer: coarse) {
+  .litegraph .graphdialog input,
+  .litegraph .graphdialog textarea,
+  .litegraph .graphdialog select {
+    min-height: 44px !important;
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
+  .litegraph .graphdialog button,
+  .litegraph .graphdialog .btn {
+    min-height: 44px !important;
+  }
+}
+
+.litegraph .litecontextmenu {
+  background: var(--mc-surface) !important;
+  border: 1px solid var(--mc-border) !important;
+  color: var(--mc-text) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  max-height: 70vh !important;
+  overflow-y: auto !important;
+}
+.litegraph .litecontextmenu .litemenu-entry {
+  color: var(--mc-text-sec) !important;
+}
+.litegraph .litecontextmenu .litemenu-entry:hover {
+  background: var(--mc-elevated) !important;
+  color: var(--mc-text) !important;
+}
+
+/* ---- Responsive: Mobile (< 768px) ---- */
+
+/* Mobile sidebar: fixed overlay */
+@media (max-width: 767px) {
+  .mc-sidebar-mobile {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 260px;
+    height: 100%;
+    height: 100dvh;
+    z-index: 50 !important; /* must beat Tailwind utilities & stay above backdrop (z-45) */
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.6);
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    -webkit-overflow-scrolling: touch; /* smooth scroll on older iOS */
+  }
+  .mc-sidebar-mobile.open {
+    transform: translateX(0);
+  }
+
+  /* Backdrop behind sidebar */
+  .mc-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+  }
+  .mc-sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Mobile chat panel: slide-in overlay from left */
+  .mc-chat-panel-mobile {
+    position: fixed;
+    left: 0;
+    top: 56px; /* header height */
+    bottom: 0;
+    width: 280px;
+    z-index: 35;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+  }
+  .mc-chat-panel-mobile.open {
+    transform: translateX(0);
+  }
+
+  /* Mobile workflow palette: bottom sheet */
+  .mc-workflow-panel-mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    max-height: 75vh;
+    max-height: 75dvh;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+    transform: translateY(100%);
+    transition: transform 250ms ease;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain; /* prevent scroll-chaining to canvas behind */
+  }
+  .mc-workflow-panel-mobile.open {
+    transform: translateY(0);
+  }
+
+  /* Mobile header: tighter padding */
+  .mc-header-mobile {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Mobile status bar: hide overflow items */
+  .mc-statusbar-extra {
+    display: none !important;
+  }
+}
+
+/* Desktop: always visible panels */
+@media (min-width: 768px) {
+  .mc-sidebar-backdrop {
+    display: none !important;
+  }
+
+  /* hamburger hidden on desktop */
+  .mc-hamburger {
+    display: none !important;
+  }
+
+  /* mobile panel toggle buttons hidden on desktop */
+  .mc-mobile-panel-toggle {
+    display: none !important;
+  }
+}
+
+/* ---- Chat message formatting ---- */
+.mc-chat-content {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.mc-chat-content strong { color: var(--mc-text); font-weight: 600; }
+.mc-chat-content em { font-style: italic; opacity: 0.85; }
+
+.mc-code-block {
+  margin: 8px 0;
+  border: 1px solid var(--mc-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+}
+.mc-code-block[open] { background: rgba(0, 0, 0, 0.4); }
+.mc-code-summary {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mc-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+.mc-code-summary::-webkit-details-marker { display: none; }
+.mc-code-summary::before {
+  content: '▶';
+  margin-right: 6px;
+  font-size: 9px;
+  transition: transform 0.15s;
+}
+.mc-code-block[open] > .mc-code-summary::before { transform: rotate(90deg); }
+
+.mc-code-pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mc-text-sec);
+  border-top: 1px solid var(--mc-border);
+  max-height: 300px;
+  overflow-y: auto;
+}
+.mc-code-pre code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+
+.mc-inline-code {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--mc-primary);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* ---- Tool output in chat ---- */
+
+/* Single tool output bubble — dimmer, compact */
+.mc-bubble-tool {
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid var(--mc-border);
+  border-radius: 8px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Collapsed tool output within a message (JSON, status) */
+.mc-tool-output {
+  margin: 4px 0;
+  border: 1px solid rgba(55, 65, 81, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+.mc-tool-summary {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mc-text-muted);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+.mc-tool-summary::-webkit-details-marker { display: none; }
+.mc-tool-summary::before {
+  content: '\25b6';
+  margin-right: 6px;
+  font-size: 8px;
+  transition: transform 0.15s;
+  opacity: 0.5;
+}
+.mc-tool-output[open] > .mc-tool-summary::before { transform: rotate(90deg); }
+
+/* Dim tool status line (e.g. "Successfully wrote 133 bytes...") */
+.mc-tool-status {
+  font-size: 11px;
+  color: var(--mc-text-muted);
+  padding: 2px 0;
+  opacity: 0.6;
+}
+
+/* Merged multi-tool group (collapsed by default) */
+.mc-tool-group {
+  border: 1px solid rgba(55, 65, 81, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(17, 24, 39, 0.5);
+}
+.mc-tool-group-summary {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mc-text-muted);
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+.mc-tool-group-summary::-webkit-details-marker { display: none; }
+.mc-tool-group-summary::before {
+  content: '\25b6';
+  margin-right: 6px;
+  font-size: 8px;
+  transition: transform 0.15s;
+  opacity: 0.5;
+}
+.mc-tool-group[open] > .mc-tool-group-summary::before { transform: rotate(90deg); }
+.mc-tool-group-body {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(55, 65, 81, 0.3);
+  font-size: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ---- Touch-friendly targets ---- */
+@media (pointer: coarse) {
+  .mc-log-filter-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px 12px;
+  }
+  .mc-emoji-btn {
+    width: 44px;
+    height: 44px;
+  }
+  /* Navigation buttons: ensure 44px minimum tap targets */
+  nav button, .mc-nav-btn {
+    min-height: 44px;
+  }
+  /* Toggle switches */
+  .mc-toggle {
+    width: 48px;
+    height: 28px;
+  }
+  /* Wizard step dots */
+  .mc-step-dot {
+    width: 36px;
+    height: 36px;
+  }
+  /* Status dots: enlarge tap area via padding (visual size stays small) */
+  .mc-dot {
+    padding: 10px;
+    margin: -10px;
+    position: relative;
+  }
+  /* General interactive elements */
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+  /* Buttons in forms */
+  button, [role="button"] {
+    min-height: 44px;
+  }
+}
+
+/* ---- Sidebar Section Headers ---- */
+.mc-nav-section-header {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mc-text-muted);
+  padding: 12px 12px 4px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Grouped nav: tighter spacing */
+.mc-nav-grouped > button {
+  margin-bottom: 1px;
+}
+
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
