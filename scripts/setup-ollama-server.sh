@@ -136,7 +136,9 @@ PermitEmptyPasswords no
 PermitRootLogin no
 MaxAuthTries 3
 MaxSessions 3
-KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
 ClientAliveInterval 300
 ClientAliveCountMax 2
 LogLevel VERBOSE
@@ -262,17 +264,17 @@ echo ""
 log_info "Pulling recommended models (this may take a while)..."
 echo ""
 
-# Qwen 3.5 9B — best small model, beats GPT-OSS-120B, excellent tool calling
-log_info "Pulling qwen3.5:9b (primary general-purpose + agent tasks)..."
-ollama pull qwen3.5:9b || log_warn "Failed to pull qwen3.5:9b — try manually later"
+# Llama 3.2 8B — fast general chat (smallest, pull first)
+log_info "Pulling llama3.2:8b (fast general chat)..."
+ollama pull llama3.2:latest || log_warn "Failed to pull llama3.2 — try manually later"
 
-# Qwen 3 14B — dense model, strong reasoning, reliable on ARM CPU
-log_info "Pulling qwen3:14b (reasoning + general purpose)..."
-ollama pull qwen3:14b || log_warn "Failed to pull qwen3:14b — try manually later"
+# Qwen 2.5 Coder 14B — coding workhorse
+log_info "Pulling qwen2.5-coder:14b (primary coding model)..."
+ollama pull qwen2.5-coder:14b || log_warn "Failed to pull qwen2.5-coder — try manually later"
 
-# Qwen 3 Coder 30B-A3B — MoE (3.3B active), best open-source coding model
-log_info "Pulling qwen3-coder:30b-a3b (MoE coding model, ~18GB Q4)..."
-ollama pull qwen3-coder:30b-a3b || log_warn "Failed to pull qwen3-coder:30b-a3b — try manually later"
+# DeepSeek Coder V2 16B — code + general
+log_info "Pulling deepseek-coder-v2:16b (code + general)..."
+ollama pull deepseek-coder-v2:16b || log_warn "Failed to pull deepseek-coder-v2 — try manually later"
 
 ###############################################################################
 # 10. Unattended Security Upgrades
@@ -285,35 +287,6 @@ APT::Periodic::AutocleanInterval "7";
 AUTOEOF
 systemctl enable unattended-upgrades
 log_ok "Unattended upgrades enabled"
-
-###############################################################################
-# 9. Agent Workspace — directories for autonomous agent builds
-###############################################################################
-log_info "Creating agent workspace directories..."
-AGENT_WS="/home/$DEPLOY_USER/agent-workspace"
-mkdir -p "$AGENT_WS"
-mkdir -p "$AGENT_WS/builds"
-mkdir -p "$AGENT_WS/services"
-mkdir -p "$AGENT_WS/logs"
-mkdir -p "$AGENT_WS/data"
-chown -R "$DEPLOY_USER:$DEPLOY_USER" "$AGENT_WS"
-
-# Install Node.js (LTS) for agent builds if not present
-if ! command -v node &>/dev/null; then
-    log_info "Installing Node.js LTS for agent builds..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null
-    apt-get install -y nodejs 2>/dev/null || log_warn "Node.js install failed — agents can install manually"
-fi
-if command -v node &>/dev/null; then
-    log_ok "Node.js $(node -v) available for agent builds"
-fi
-
-# Install Python3 pip if not present
-if ! command -v pip3 &>/dev/null; then
-    apt-get install -y python3-pip 2>/dev/null || log_warn "pip3 install failed"
-fi
-
-log_ok "Agent workspace ready: $AGENT_WS"
 
 ###############################################################################
 # Done!
@@ -349,6 +322,6 @@ echo ""
 echo "  Pull new model:    ollama pull <model-name>"
 echo "  List models:       ollama list"
 echo "  Remove model:      ollama rm <model-name>"
-echo "  Test model:        ollama run qwen3.5:9b 'Hello!'"
+echo "  Test model:        ollama run llama3.2 'Hello!'"
 echo ""
 echo "============================================================"

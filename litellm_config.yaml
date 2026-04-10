@@ -1,16 +1,14 @@
 ###############################################################################
 # LiteLLM Proxy Configuration — Cost-Tiered Model Routing
 ###############################################################################
-# Models organized by cost tier. Updated 2026-03-03.
+# Models are organized by cost tier. Open WebUI shows all available models.
+# Use the cheapest model that fits your task to maximize your API budget.
 #
 # Tier 1 (FREE):  Local Ollama models — daily coding & chat
-# Tier 2 (FREE):  Groq — fast cloud inference, 500K-100K TPD (free tier)
-# Tier 3 (FREE):  Cerebras — 1M tokens/day, fastest inference
-# Tier 4 (FREE):  Gemini — Flash-Lite 1000 RPD, Flash 250 RPD
-# Tier 5 (FREE):  Mistral — all models, 2 RPM, 1B tokens/month
-# Tier 6 (CHEAP): DeepSeek, GPT-4o-mini — $0.14-0.60/1M tokens
-# Tier 7 (MID):   Claude Haiku, MiniMax M2.5 — $0.80-1.20/1M
-# Tier 8 (PREM):  Claude Sonnet, GPT-4o — use sparingly
+# Tier 2 (FREE):  Groq API — fast cloud inference, 1K req/day
+# Tier 3 (CHEAP): DeepSeek V2, GPT-4o-mini — $0.14-0.60/1M tokens
+# Tier 4 (MID):   Claude Haiku, MiniMax M2.5 — $0.80-1.20/1M tokens
+# Tier 5 (PREM):  Claude Sonnet, GPT-4o — use sparingly
 ###############################################################################
 
 model_list:
@@ -21,350 +19,55 @@ model_list:
   # These cost $0. Use for daily coding, chat, and routine tasks.
   # Requires OLLAMA_BASE_URL to be set in .env
 
-  - model_name: "qwen3.5:9b"
+  - model_name: "qwen2.5-coder:14b"
     litellm_params:
-      model: "ollama/qwen3.5:9b"
+      model: "ollama/qwen2.5-coder:14b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Qwen 3.5 9B. Beats GPT-OSS-120B. Best small model for agents + tool calling."
+      description: "FREE — Best local coding model. Rivals GPT-4o for code."
 
-  - model_name: "qwen3:14b"
+  - model_name: "deepseek-coder-v2:16b"
     litellm_params:
-      model: "ollama/qwen3:14b"
+      model: "ollama/deepseek-coder-v2:16b"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Qwen3 14B dense. Strong reasoning, reliable on ARM CPU."
+      description: "FREE — Strong coder. 300+ languages. Great for debugging."
 
-  - model_name: "qwen3-coder:30b"
+  - model_name: "llama3.2:8b"
     litellm_params:
-      model: "ollama/qwen3-coder:30b-a3b"
+      model: "ollama/llama3.2:latest"
       api_base: "os.environ/OLLAMA_BASE_URL"
       stream: true
     model_info:
-      description: "FREE — Qwen3 Coder 30B MoE (3.3B active). Best open-source coding model."
+      description: "FREE — Fast general-purpose chat. Good all-rounder."
 
   # ===========================================================================
-  # TIER 2: FREE — Groq API (free tier, load-balanced across 4 accounts)
+  # TIER 2: FREE — Groq API (1,000 requests/day free)
   # ===========================================================================
-  # Production models: llama-3.3-70b, gpt-oss-120b, gpt-oss-20b.
-  # Preview (may be discontinued): qwen3-32b, llama-4-scout.
-  # Load-balanced across 4 Groq accounts.
+  # Fast cloud inference at no cost. Great when local models are slow.
 
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq. Production. 500 t/s. Strong reasoning."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 2)."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 3)."
-
-  - model_name: "groq-gpt-oss-120b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-120b"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Groq (account 4)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq. Production. 1000 t/s. Fast + capable."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 2)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 3)."
-
-  - model_name: "groq-gpt-oss-20b"
-    litellm_params:
-      model: "groq/openai/gpt-oss-20b"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 20B on Groq (account 4)."
-
-  - model_name: "groq-llama-3.3-70b"
+  - model_name: "groq/llama-3.3-70b"
     litellm_params:
       model: "groq/llama-3.3-70b-versatile"
       api_key: "os.environ/GROQ_API_KEY"
       stream: true
     model_info:
-      description: "FREE — 70B model on Groq. Very fast. 1K RPD, 100K TPD."
+      description: "FREE (1K/day) — 70B model on Groq. Very fast."
 
-  - model_name: "groq-llama-3.3-70b"
+  - model_name: "groq/mixtral-8x7b"
     litellm_params:
-      model: "groq/llama-3.3-70b-versatile"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — 70B model on Groq (account 2)."
-
-  - model_name: "groq-llama-3.3-70b"
-    litellm_params:
-      model: "groq/llama-3.3-70b-versatile"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — 70B model on Groq (account 3)."
-
-  - model_name: "groq-llama-3.3-70b"
-    litellm_params:
-      model: "groq/llama-3.3-70b-versatile"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — 70B model on Groq (account 4)."
-
-  - model_name: "groq-qwen3-32b"
-    litellm_params:
-      model: "groq/qwen/qwen3-32b"
+      model: "groq/mixtral-8x7b-32768"
       api_key: "os.environ/GROQ_API_KEY"
       stream: true
     model_info:
-      description: "FREE — Qwen 3 32B on Groq. Preview (may be discontinued). Dual-mode reasoning."
-
-  - model_name: "groq-qwen3-32b"
-    litellm_params:
-      model: "groq/qwen/qwen3-32b"
-      api_key: "os.environ/GROQ_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — Qwen 3 32B on Groq (account 2)."
-
-  - model_name: "groq-qwen3-32b"
-    litellm_params:
-      model: "groq/qwen/qwen3-32b"
-      api_key: "os.environ/GROQ_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — Qwen 3 32B on Groq (account 3)."
-
-  - model_name: "groq-qwen3-32b"
-    litellm_params:
-      model: "groq/qwen/qwen3-32b"
-      api_key: "os.environ/GROQ_API_KEY_4"
-      stream: true
-    model_info:
-      description: "FREE — Qwen 3 32B on Groq (account 4)."
+      description: "FREE (1K/day) — Mixtral on Groq. 32K context."
 
   # ===========================================================================
-  # TIER 3: FREE — Cerebras (1M tokens/day, fastest inference)
+  # TIER 3: CHEAP — $0.14-0.60 per 1M tokens
   # ===========================================================================
-  # 2.4x faster than Groq. 1M TPD free. No credit card required.
-  # Production models: llama3.1-8b, gpt-oss-120b. Preview: qwen3-235b, zai-glm.
-  # cerebras-llama-4-scout REMOVED — Cerebras dropped it (April 2026).
-  # cerebras-llama-3.3-70b REMOVED — no longer in Cerebras model list.
-
-  - model_name: "cerebras-gpt-oss-120b"
-    litellm_params:
-      model: "cerebras/gpt-oss-120b"
-      api_key: "os.environ/CEREBRAS_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — GPT-OSS 120B on Cerebras. Production. 3000 t/s. Primary agent model."
-
-  - model_name: "cerebras-llama-3.1-8b"
-    litellm_params:
-      model: "cerebras/llama3.1-8b"
-      api_key: "os.environ/CEREBRAS_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Llama 3.1 8B on Cerebras. Production. 2267 t/s. Fastest model."
-
-  - model_name: "cerebras-qwen3-235b"
-    litellm_params:
-      model: "cerebras/qwen-3-235b-a22b-instruct-2507"
-      api_key: "os.environ/CEREBRAS_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Qwen 3 235B on Cerebras. Preview. Reduced free-tier limits."
-
-  - model_name: "cerebras-zai-glm"
-    litellm_params:
-      model: "cerebras/zai-glm-4.7"
-      api_key: "os.environ/CEREBRAS_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — ZAI GLM-4.7 on Cerebras. Preview. Reasoning model. 128K context."
-
-  # ===========================================================================
-  # TIER 4: FREE — Google Gemini (load-balanced across 3 API keys)
-  # ===========================================================================
-  # 3 keys = 3x quota. Flash: 750 RPD, Flash-Lite: 3000 RPD, Pro: 300 RPD.
-
-  - model_name: "gemini-flash"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash"
-      api_key: "os.environ/GEMINI_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash. 10 RPM, 250 RPD. Fast + capable."
-
-  - model_name: "gemini-flash"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash"
-      api_key: "os.environ/GEMINI_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash (key 2)."
-
-  - model_name: "gemini-flash"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash"
-      api_key: "os.environ/GEMINI_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash (key 3)."
-
-  - model_name: "gemini-flash-lite"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash-lite"
-      api_key: "os.environ/GEMINI_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash-Lite. 15 RPM, 1000 RPD. High volume."
-
-  - model_name: "gemini-flash-lite"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash-lite"
-      api_key: "os.environ/GEMINI_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash-Lite (key 2)."
-
-  - model_name: "gemini-flash-lite"
-    litellm_params:
-      model: "gemini/gemini-2.5-flash-lite"
-      api_key: "os.environ/GEMINI_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Flash-Lite (key 3)."
-
-  - model_name: "gemini-pro"
-    litellm_params:
-      model: "gemini/gemini-2.5-pro"
-      api_key: "os.environ/GEMINI_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Pro. 5 RPM, 100 RPD. Best free reasoning."
-
-  - model_name: "gemini-pro"
-    litellm_params:
-      model: "gemini/gemini-2.5-pro"
-      api_key: "os.environ/GEMINI_API_KEY_2"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Pro (key 2)."
-
-  - model_name: "gemini-pro"
-    litellm_params:
-      model: "gemini/gemini-2.5-pro"
-      api_key: "os.environ/GEMINI_API_KEY_3"
-      stream: true
-    model_info:
-      description: "FREE — Gemini 2.5 Pro (key 3)."
-
-  # ---------------------------------------------------------------------------
-  # Gemini Embeddings (for OpenClaw memory_search — load-balanced across 3 keys)
-  # ---------------------------------------------------------------------------
-  # text-embedding-004: 768 dimensions, 2048 token input, FREE (1500 RPM).
-  # OpenClaw routes embeddings here via memorySearch.remote.baseUrl config.
-
-  - model_name: "gemini-embedding"
-    litellm_params:
-      model: "gemini/text-embedding-004"
-      api_key: "os.environ/GEMINI_API_KEY"
-    model_info:
-      description: "FREE — Gemini text-embedding-004 (key 1). For agent memory search."
-
-  - model_name: "gemini-embedding"
-    litellm_params:
-      model: "gemini/text-embedding-004"
-      api_key: "os.environ/GEMINI_API_KEY_2"
-    model_info:
-      description: "FREE — Gemini text-embedding-004 (key 2)."
-
-  - model_name: "gemini-embedding"
-    litellm_params:
-      model: "gemini/text-embedding-004"
-      api_key: "os.environ/GEMINI_API_KEY_3"
-    model_info:
-      description: "FREE — Gemini text-embedding-004 (key 3)."
-
-  # ===========================================================================
-  # TIER 5: FREE — Mistral (all models, 2 RPM, 1B tokens/month)
-  # ===========================================================================
-  # Low RPM but massive monthly allowance. Great for overflow/coding.
-
-  - model_name: "mistral-large"
-    litellm_params:
-      model: "mistral/mistral-large-latest"
-      api_key: "os.environ/MISTRAL_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Mistral Large. 2 RPM. Strong reasoning. 1B tokens/mo."
-
-  - model_name: "codestral"
-    litellm_params:
-      model: "mistral/codestral-latest"
-      api_key: "os.environ/MISTRAL_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Codestral. 2 RPM. Best free code model. 1B tokens/mo."
-
-  - model_name: "mistral-small"
-    litellm_params:
-      model: "mistral/mistral-small-latest"
-      api_key: "os.environ/MISTRAL_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Mistral Small 3.1 24B. Fast + capable."
-
-  - model_name: "mistral-nemo"
-    litellm_params:
-      model: "mistral/open-mistral-nemo"
-      api_key: "os.environ/MISTRAL_API_KEY"
-      stream: true
-    model_info:
-      description: "FREE — Mistral Nemo. Lightweight, good for simple tasks."
-
-  # ===========================================================================
-  # TIER 6: CHEAP — $0.14-0.60 per 1M tokens
-  # ===========================================================================
-  # Use when you need speed + quality beyond free tiers.
+  # Use when you need speed + quality beyond local models.
 
   - model_name: "deepseek-chat"
     litellm_params:
@@ -373,7 +76,7 @@ model_list:
       api_base: "https://api.deepseek.com"
       stream: true
     model_info:
-      description: "CHEAP ($0.28/1M in) — DeepSeek V3.2. Excellent value."
+      description: "CHEAP ($0.14/1M in) — DeepSeek V2. Excellent value."
 
   - model_name: "deepseek-coder"
     litellm_params:
@@ -382,7 +85,7 @@ model_list:
       api_base: "https://api.deepseek.com"
       stream: true
     model_info:
-      description: "CHEAP ($0.28/1M in) — DeepSeek Coder. Great for code."
+      description: "CHEAP ($0.14/1M in) — DeepSeek Coder. Great for code."
 
   - model_name: "gpt-4o-mini"
     litellm_params:
@@ -393,7 +96,7 @@ model_list:
       description: "CHEAP ($0.15/1M in) — Fast, capable. Good general use."
 
   # ===========================================================================
-  # TIER 7: MID — $0.80-1.20 per 1M tokens
+  # TIER 4: MID — $0.80-1.20 per 1M tokens
   # ===========================================================================
 
   - model_name: "claude-haiku"
@@ -405,7 +108,7 @@ model_list:
       description: "MID ($1.00/1M in) — Claude Haiku. Fast + smart."
 
   # ===========================================================================
-  # TIER 8: PREMIUM — $3-15 per 1M tokens (use sparingly!)
+  # TIER 5: PREMIUM — $3-15 per 1M tokens (use sparingly!)
   # ===========================================================================
   # Reserve for complex reasoning, architecture decisions, hard debugging.
 
@@ -442,81 +145,35 @@ model_list:
       description: "PREMIUM ($15/1M in) — OpenAI o1. Deep reasoning."
 
   # ===========================================================================
-  # MiniMax M2.5
+  # OPTIONAL — MiniMax M2.5 (uncomment when you have an API key)
   # ===========================================================================
-  - model_name: "minimax-m2.5"
-    litellm_params:
-      model: "openai/MiniMax-M2.5"
-      api_key: "os.environ/MINIMAX_API_KEY"
-      api_base: "https://api.minimax.io/v1"
-      stream: true
-    model_info:
-      description: "MID ($0.30/1M in) — MiniMax M2.5. Strong coder. 1M context."
+  # - model_name: "minimax-m2.5"
+  #   litellm_params:
+  #     model: "openai/MiniMax-M2.5"
+  #     api_key: "os.environ/MINIMAX_API_KEY"
+  #     api_base: "https://api.minimax.io/v1"
+  #     stream: true
+  #   model_info:
+  #     description: "MID ($0.30/1M in) — MiniMax M2.5. Strong coder."
 
 # =============================================================================
 # General Settings
 # =============================================================================
 general_settings:
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  # Allow connections from our domain only
-  allowed_origins: ["https://in-fused.org"]
+  drop_params: true
+  # Allow connections from Open WebUI
+  allowed_origins: ["*"]
 
 litellm_settings:
-  # Drop unsupported params (e.g. 'store') instead of rejecting requests
-  drop_params: true
   # Enable streaming for all models
   set_verbose: false
-  # Cache disabled — prevents cross-user response leakage
-  cache: false
+  # Cache responses to save tokens on repeated queries
+  cache: true
+  cache_params:
+    type: "local"
+    ttl: 600  # Cache for 10 minutes
   # Request timeout
   request_timeout: 120
   # Number of retries on failure
   num_retries: 2
-  # Log every request to PostgreSQL for spend tracking (Monitor view in Mission Control)
-  success_callback: ["db"]
-  failure_callback: ["db"]
-
-router_settings:
-  # When a free-tier model hits rate limits (429), fall back through the chain.
-  # Each free provider has ~1M TPD. Chain ensures agents never get stuck.
-  # Groq ↔ Cerebras (cross-fallback), then DeepSeek as paid safety net.
-  fallbacks:
-    # Free-first strategy: exhaust ALL free cloud providers → free Ollama → paid last resort.
-    # Production models: groq-gpt-oss-120b, cerebras-gpt-oss-120b, groq-llama-3.3-70b.
-    # Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) have ZERO rate limits.
-    # Cloud free tiers
-    - gemini-flash: ["gemini-flash-lite", "groq-gpt-oss-120b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
-    - gemini-flash-lite: ["gemini-flash", "groq-gpt-oss-20b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
-    - gemini-pro: ["gemini-flash", "groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "qwen3:14b", "deepseek-chat"]
-    - groq-gpt-oss-120b: ["cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
-    - groq-gpt-oss-20b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
-    - groq-llama-3.3-70b: ["groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
-    - groq-qwen3-32b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
-    - cerebras-gpt-oss-120b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
-    - cerebras-qwen3-235b: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
-    - cerebras-zai-glm: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
-    - cerebras-llama-3.1-8b: ["groq-gpt-oss-20b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
-    - mistral-large: ["mistral-small", "gemini-flash", "groq-gpt-oss-120b", "deepseek-chat"]
-    - mistral-small: ["mistral-large", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
-    - mistral-nemo: ["mistral-small", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
-    - codestral: ["mistral-small", "gemini-flash", "qwen3-coder:30b", "deepseek-coder"]
-    # DeepSeek — fallback to free providers if down
-    - deepseek-chat: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-flash", "qwen3:14b"]
-    - deepseek-coder: ["deepseek-chat", "codestral", "groq-gpt-oss-120b", "qwen3-coder:30b"]
-    # Ollama models fall back to each other, then cloud free, then paid
-    - "qwen3.5:9b": ["qwen3:14b", "groq-gpt-oss-20b", "gemini-flash-lite", "deepseek-chat"]
-    - "qwen3:14b": ["qwen3.5:9b", "groq-gpt-oss-120b", "gemini-flash", "deepseek-chat"]
-    - "qwen3-coder:30b": ["qwen3:14b", "codestral", "gemini-flash", "deepseek-coder"]
-  # Allow 1 retry per deployment, then cascade to fallback chain.
-  # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
-  num_retries: 1
-  retry_after: 1
-  # After 2 failures, temporarily remove a deployment from the pool (60s cooldown)
-  allowed_fails: 2
-  cooldown_time: 60
-  # Use lowest-latency model when multiple are available (load balancing)
-  routing_strategy: "latency-based-routing"
-  # Allow 429s to trigger fallback chain (Groq → Cerebras → DeepSeek)
-  retry_policy:
-    RateLimitErrorRetries: 2
-    ContentPolicyViolationErrorRetries: 0

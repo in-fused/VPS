@@ -11,7 +11,7 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 ┌─── AWS EC2 t3.small ──────────────────────────┐
 │                                                  │
 │  Caddy ── reverse proxy + auto-HTTPS ── :443    │
-│    ├──► Mission Control ── Agent Management SPA  │
+│    ├──► Open WebUI ── Chat Frontend             │
 │    └──► LiteLLM ── API Gateway                  │
 │           ├──► Remote Ollama (Oracle Cloud)      │
 │           ├──► Groq API (free)                   │
@@ -24,9 +24,9 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
                     │
 ┌─── Oracle Cloud ARM (FREE FOREVER) ──────────────┐
 │  Ollama Server (24GB RAM)                         │
-│    • qwen3.5:9b           (general + agents)      │
-│    • qwen3:14b            (reasoning)             │
-│    • qwen3-coder:30b      (coding, MoE)           │
+│    • qwen2.5-coder:14b   (coding)                │
+│    • deepseek-coder-v2:16b (code + general)      │
+│    • llama3.2:8b          (fast chat)            │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -34,7 +34,7 @@ A self-hosted, multi-agent AI workforce running on low-cost infrastructure. Acce
 
 | Item | Monthly Cost |
 |------|-------------|
-| AWS EC2 t3.small (2 vCPU, 2GB RAM, 50GB gp3) | ~$15 |
+| AWS EC2 t3.small (2 vCPU, 2GB RAM, 30GB gp3) | ~$15 |
 | Oracle Cloud ARM 24GB | $0 (free forever) |
 | API credits | ~$10 |
 | **Total** | **~$25** |
@@ -238,7 +238,7 @@ This will:
 1. Validate your `.env` has API keys
 2. Auto-generate security secrets
 3. Download Docker images (~1-2 minutes — you'll see progress bars)
-4. Start all services (Caddy, LiteLLM, OpenClaw, Scrapling)
+4. Start all services (Caddy, Open WebUI, LiteLLM, OpenClaw)
 5. Run health checks
 6. Print a status report showing what's running
 
@@ -252,10 +252,13 @@ Go to: **https://in-fused.org**
 
 > **If HTTPS isn't working yet** (DNS can take up to 24 hours to propagate), try: `http://50.17.251.154` (using http, not https)
 
-1. You'll see the **login page** — enter the site password from your `.env`
-2. After logging in, you'll see **Mission Control** — the agent management dashboard
-3. Go to **Chat** → **New Conversation** → pick **Lead** (the orchestrator)
-4. Type a message and hit Enter — you're live!
+1. You'll see the **Open WebUI** login page
+2. Click **Sign Up** — create a username and password
+3. **The first user to sign up becomes the admin** — that's you!
+4. After logging in, you'll see a chat interface (looks like ChatGPT)
+5. Click the **model dropdown** at the top
+6. Select `gpt-4o-mini` (cheapest cloud model) or `claude-haiku` (fast + smart)
+7. Type a message and hit Enter — you're live!
 
 ---
 
@@ -321,9 +324,9 @@ sudo bash scripts/setup-ollama-server.sh YOUR_EC2_ELASTIC_IP
 ```
 
 This installs Ollama, hardens security, and pulls three models (~30-45 minutes for downloads):
-- **qwen3.5:9b** — General purpose + agent tasks (beats GPT-OSS-120B, excellent tool calling)
-- **qwen3:14b** — Reasoning + general purpose (dense, reliable on ARM)
-- **qwen3-coder:30b-a3b** — Best open-source coding model (MoE, only 3.3B active per token)
+- **qwen2.5-coder:14b** — Your primary coding model (rivals GPT-4o for code)
+- **deepseek-coder-v2:16b** — Strong coder, 300+ languages
+- **llama3.2:8b** — Fast general chat
 
 ### Step 2.4 — Connect Ollama to Your Hub
 
@@ -352,7 +355,7 @@ docker compose down && docker compose up -d
 
 1. Open https://in-fused.org
 2. Click the model dropdown at the top
-3. You should see local models: `qwen3.5:9b`, `qwen3:14b`, `qwen3-coder:30b`
+3. You should see local models: `qwen2.5-coder:14b`, `deepseek-coder-v2:16b`, `llama3.2:8b`
 4. Select one and send a message — this runs entirely on your Oracle server at $0 cost!
 
 ### Step 2.6 — Oracle Cloud Security Group
@@ -410,9 +413,9 @@ MiniMax M2.5 is a strong coding model at $0.30/1M tokens. Add when you need it:
 
 ## Part 4: Daily Usage Guide
 
-### Choosing Models
+### Choosing Models in Open WebUI
 
-Models are available across multiple tiers in Mission Control and LiteLLM:
+When you open https://in-fused.org, you'll see a model dropdown at the top. Models are labeled by cost tier:
 
 - **"FREE — ..."** → Local Ollama models, $0 cost. Use these for daily work!
 - **"FREE (1K/day) — ..."** → Groq models, $0 but rate-limited
@@ -485,13 +488,13 @@ ollama list
 ollama pull codellama:13b
 
 # Remove a model (to free disk space)
-ollama rm model-name
+ollama rm deepseek-coder-v2:16b
 
 # Test a model directly
-ollama run qwen3.5:9b "Write a Python function to reverse a linked list"
+ollama run qwen2.5-coder:14b "Write a Python function to reverse a linked list"
 ```
 
-After adding or removing models, they automatically appear in Mission Control and LiteLLM.
+After adding or removing models, they automatically appear in Open WebUI.
 
 ### Monitoring API Spend
 
@@ -528,7 +531,7 @@ docker compose up -d
 | TLS | Auto-HTTPS | Caddy + Let's Encrypt for in-fused.org |
 | Docker | Network isolation | Services on internal network only |
 | Docker | Memory limits | Prevents OOM crashes on 2GB instance |
-| App | User auth | Site-wide password protects all services |
+| App | User auth | Open WebUI requires login (first user = admin) |
 | App | Security headers | HSTS, XSS protection, no-sniff |
 | Secrets | .env file | Never committed to git |
 | Ollama | IP whitelist | Only accepts connections from EC2 |
@@ -549,6 +552,7 @@ docker compose ps
 docker compose logs -f
 
 # View specific service logs
+docker compose logs -f open-webui
 docker compose logs -f litellm
 docker compose logs -f openclaw
 
@@ -581,7 +585,7 @@ Services are still starting. Wait 30-60 seconds and refresh.
 - Check Caddy: `docker compose logs caddy`
 - Check Security Groups: ports 80 and 443 must be open
 
-### Models not showing
+### Models not showing in Open WebUI
 - Check LiteLLM: `docker compose logs litellm`
 - Verify API keys in `.env`
 - If Ollama models missing: check `OLLAMA_BASE_URL` in `.env`

@@ -2,2221 +2,561 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Mission Control — in-fused.org</title>
-  <meta name="description" content="AI Agent Mission Control — manage, orchestrate, and monitor autonomous agents">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>in-fused.org — Neural Fusion</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #050508;
+      color: #e0e0e0;
+      min-height: 100vh;
+      overflow: hidden;
+    }
 
-  <!-- Tailwind CSS (CDN with custom config) -->
-  <script src="https://cdn.tailwindcss.com"></script>
+    /* ===== Canvas Background ===== */
+    #neural-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ===== Hub Content (default state) ===== */
+    .hub {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    body.fused .hub {
+      opacity: 0;
+      transform: scale(0.9);
+      pointer-events: none;
+    }
+
+    .brand {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.3rem;
+      text-shadow: 0 0 40px rgba(96, 165, 250, 0.3);
+      transition: text-shadow 0.8s ease;
+    }
+
+    .tagline {
+      color: #666;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 2.5rem;
+    }
+
+    /* ===== Status Row ===== */
+    .status-row {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .status-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 0.8rem 1.2rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 140px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #333;
+      flex-shrink: 0;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .status-dot.online {
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-label {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .status-label span {
+      display: block;
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 1px;
+    }
+
+    /* ===== Enter the Grid Button ===== */
+    .enter-grid {
+      position: relative;
+      background: rgba(96, 165, 250, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.25);
+      border-radius: 12px;
+      padding: 1rem 2.5rem;
+      color: #60a5fa;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: all 0.3s ease;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .enter-grid::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), transparent, rgba(96, 165, 250, 0.1));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .enter-grid:hover {
+      border-color: rgba(96, 165, 250, 0.5);
+      background: rgba(96, 165, 250, 0.12);
+      box-shadow: 0 0 30px rgba(96, 165, 250, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .enter-grid:hover::before {
+      opacity: 1;
+    }
+
+    /* ===== Nav Links ===== */
+    .nav {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .nav a {
+      color: #555;
+      text-decoration: none;
+      padding: 0.45rem 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      transition: all 0.2s ease;
+    }
+
+    .nav a:hover {
+      color: #60a5fa;
+      border-color: rgba(96, 165, 250, 0.3);
+    }
+
+    /* ===== OpenClaw Panel (fused state) ===== */
+    .grid-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+
+    body.fused .grid-panel {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .iframe-container {
+      position: relative;
+      width: 92vw;
+      height: 85vh;
+      max-width: 1400px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(10, 10, 15, 0.6);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+      box-shadow:
+        0 0 60px rgba(245, 158, 11, 0.08),
+        inset 0 0 60px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transform: scale(0.95);
+      transition: transform 0.6s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+    }
+
+    body.fused .iframe-container {
+      transform: scale(1);
+    }
+
+    .iframe-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 16px;
+    }
+
+    /* Animated glow border */
+    .iframe-container::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 18px;
+      background: conic-gradient(
+        from var(--glow-angle, 0deg),
+        transparent 0%,
+        rgba(245, 158, 11, 0.3) 10%,
+        transparent 20%,
+        transparent 50%,
+        rgba(245, 158, 11, 0.2) 60%,
+        transparent 70%
+      );
+      z-index: -1;
+      animation: glow-spin 4s linear infinite;
+    }
+
+    @keyframes glow-spin {
+      to { --glow-angle: 360deg; }
+    }
+
+    @property --glow-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    /* ===== Exit Grid Button ===== */
+    .exit-grid {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      z-index: 30;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0.4rem 0.9rem;
+      color: #888;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .exit-grid:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .brand { font-size: 1.8rem; }
+      .status-row { gap: 0.8rem; }
+      .status-card { min-width: 120px; padding: 0.6rem 0.9rem; }
+      .iframe-container { width: 96vw; height: 88vh; border-radius: 10px; }
+      .enter-grid { padding: 0.8rem 1.8rem; font-size: 0.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="neural-canvas"></canvas>
+
+  <!-- Hub Content -->
+  <div class="hub">
+    <h1 class="brand">in-fused</h1>
+    <p class="tagline">Autonomous AI Hub</p>
+
+    <div class="status-row">
+      <div class="status-card">
+        <div class="status-dot" id="status-webui"></div>
+        <div class="status-label">Open WebUI<span>Chat Interface</span></div>
+      </div>
+      <div class="status-card">
+        <div class="status-dot" id="status-litellm"></div>
+        <div class="status-label">LiteLLM<span>Model Router</span></div>
+      </div>
+      <div class="status-card">
+        <div class="status-dot" id="status-openclaw"></div>
+        <div class="status-label">OpenClaw<span>Agent Gateway</span></div>
+      </div>
+    </div>
+
+    <button class="enter-grid" onclick="enterGrid()">Enter the Grid</button>
+
+    <nav class="nav">
+      <a href="/">Open WebUI</a>
+      <a href="/openclaw/">OpenClaw Direct</a>
+      <a href="/api/litellm/">LiteLLM API</a>
+    </nav>
+  </div>
+
+  <!-- OpenClaw Iframe Panel -->
+  <div class="grid-panel">
+    <div class="iframe-container">
+      <button class="exit-grid" onclick="exitGrid()">Exit Grid</button>
+      <iframe id="openclaw-frame" allow="clipboard-write" loading="lazy"></iframe>
+    </div>
+  </div>
+
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            mc: {
-              bg: '#0a0e17',
-              surface: '#111827',
-              elevated: '#1f2937',
-              border: '#374151',
-              primary: '#06b6d4',
-              'primary-dim': 'rgba(6,182,212,0.12)',
-              secondary: '#8b5cf6',
-              'secondary-dim': 'rgba(139,92,246,0.12)',
-              success: '#10b981',
-              'success-dim': 'rgba(16,185,129,0.12)',
-              warning: '#f59e0b',
-              'warning-dim': 'rgba(245,158,11,0.12)',
-              danger: '#ef4444',
-              'danger-dim': 'rgba(239,68,68,0.12)',
-              text: '#f9fafb',
-              'text-sec': '#9ca3af',
-              'text-muted': '#6b7280',
-            }
+    // =========================================================================
+    // Neural Network Canvas
+    // =========================================================================
+    const canvas = document.getElementById('neural-canvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    let mouse = { x: -1000, y: -1000 };
+    let isFused = false;
+    let colorTransition = 0; // 0 = blue, 1 = amber
+    const NODE_COUNT_DESKTOP = 65;
+    const NODE_COUNT_MOBILE = 35;
+    const CONNECTION_DIST = 180;
+    const MOUSE_RADIUS = 200;
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function isMobile() {
+      return window.innerWidth < 768;
+    }
+
+    function initNodes() {
+      const count = isMobile() ? NODE_COUNT_MOBILE : NODE_COUNT_DESKTOP;
+      nodes = [];
+      for (let i = 0; i < count; i++) {
+        nodes.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.4,
+          radius: Math.random() * 2 + 1,
+          baseAlpha: Math.random() * 0.4 + 0.2,
+        });
+      }
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function getNodeColor(alpha) {
+      const r = Math.round(lerp(96, 245, colorTransition));
+      const g = Math.round(lerp(165, 158, colorTransition));
+      const b = Math.round(lerp(250, 11, colorTransition));
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function getLineColor(alpha) {
+      const r = Math.round(lerp(30, 146, colorTransition));
+      const g = Math.round(lerp(58, 100, colorTransition));
+      const b = Math.round(lerp(95, 6, colorTransition));
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Smooth color transition
+      const targetColor = isFused ? 1 : 0;
+      colorTransition += (targetColor - colorTransition) * 0.02;
+
+      const speedMult = lerp(1, 1.8, colorTransition);
+      const distMult = lerp(1, 1.3, colorTransition);
+      const connDist = CONNECTION_DIST * distMult;
+
+      // Update nodes
+      for (const node of nodes) {
+        node.x += node.vx * speedMult;
+        node.y += node.vy * speedMult;
+
+        // Wrap around edges
+        if (node.x < -10) node.x = canvas.width + 10;
+        if (node.x > canvas.width + 10) node.x = -10;
+        if (node.y < -10) node.y = canvas.height + 10;
+        if (node.y > canvas.height + 10) node.y = -10;
+
+        // Mouse attraction
+        const dx = mouse.x - node.x;
+        const dy = mouse.y - node.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < MOUSE_RADIUS && dist > 0) {
+          const force = (1 - dist / MOUSE_RADIUS) * 0.015;
+          node.vx += dx * force;
+          node.vy += dy * force;
+        }
+
+        // Dampen velocity
+        node.vx *= 0.99;
+        node.vy *= 0.99;
+      }
+
+      // Draw connections
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < connDist) {
+            const alpha = (1 - dist / connDist) * 0.35;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.strokeStyle = getLineColor(alpha);
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
           }
         }
       }
+
+      // Draw nodes
+      for (const node of nodes) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        ctx.fillStyle = getNodeColor(node.baseAlpha);
+        ctx.fill();
+
+        // Glow effect
+        const glowSize = node.radius * 4;
+        const gradient = ctx.createRadialGradient(
+          node.x, node.y, 0,
+          node.x, node.y, glowSize
+        );
+        gradient.addColorStop(0, getNodeColor(node.baseAlpha * 0.3));
+        gradient.addColorStop(1, getNodeColor(0));
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, glowSize, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
+
+      requestAnimationFrame(animate);
     }
+
+    // =========================================================================
+    // Grid Enter/Exit
+    // =========================================================================
+    function enterGrid() {
+      isFused = true;
+      document.body.classList.add('fused');
+      // Load iframe only on first enter
+      const frame = document.getElementById('openclaw-frame');
+      if (!frame.src) {
+        frame.src = '/openclaw/';
+      }
+    }
+
+    function exitGrid() {
+      isFused = false;
+      document.body.classList.remove('fused');
+    }
+
+    // Escape key exits grid
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isFused) exitGrid();
+    });
+
+    // =========================================================================
+    // Status Checks
+    // =========================================================================
+    async function checkStatus(id, url) {
+      const dot = document.getElementById(id);
+      try {
+        const res = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+        // no-cors returns opaque response; if fetch doesn't throw, host is up
+        dot.classList.add('online');
+        dot.classList.remove('offline');
+      } catch {
+        dot.classList.add('offline');
+        dot.classList.remove('online');
+      }
+    }
+
+    function checkAllStatus() {
+      checkStatus('status-webui', '/');
+      checkStatus('status-litellm', '/api/litellm/health/liveliness');
+      checkStatus('status-openclaw', '/openclaw/');
+    }
+
+    // =========================================================================
+    // Mouse Tracking
+    // =========================================================================
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    document.addEventListener('mouseleave', () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    });
+
+    // Touch support
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        mouse.x = e.touches[0].clientX;
+        mouse.y = e.touches[0].clientY;
+      }
+    });
+
+    document.addEventListener('touchend', () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    });
+
+    // =========================================================================
+    // Init
+    // =========================================================================
+    window.addEventListener('resize', () => {
+      resize();
+      initNodes();
+    });
+
+    resize();
+    initNodes();
+    animate();
+    checkAllStatus();
+    // Re-check status every 30 seconds
+    setInterval(checkAllStatus, 30000);
   </script>
-
-  <!-- Custom Styles -->
-  <link rel="stylesheet" href="css/styles.css">
-
-  <!-- LiteGraph removed — workflows moved to Paperclip -->
-
-  <!-- Alpine.js (deferred — runs after app.js registers stores) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
-
-  <!-- Favicon + PWA -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2322d3ee'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%2306b6d4' stroke-width='2' opacity='0.3'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.4'/%3E%3Ccircle cx='32' cy='32' r='8' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.5'/%3E%3Ccircle cx='32' cy='32' r='3' fill='url(%23g)'/%3E%3Cline x1='32' y1='32' x2='52' y2='16' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' opacity='0.8'/%3E%3Ccircle cx='52' cy='16' r='2.5' fill='%2322d3ee'/%3E%3Ccircle cx='20' cy='22' r='2' fill='%2306b6d4' opacity='0.7'/%3E%3Ccircle cx='44' cy='42' r='2' fill='%2306b6d4' opacity='0.7'/%3E%3C/svg%3E">
-  <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Mission Ctrl">
-  <meta name="theme-color" content="#0a0e17">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2322d3ee'/%3E%3Cstop offset='100%25' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230a0e17'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%2306b6d4' stroke-width='2' opacity='0.3'/%3E%3Ccircle cx='32' cy='32' r='15' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.4'/%3E%3Ccircle cx='32' cy='32' r='6' fill='none' stroke='%2306b6d4' stroke-width='1.5' opacity='0.5'/%3E%3Ccircle cx='32' cy='32' r='3' fill='url(%23g)'/%3E%3Cline x1='32' y1='32' x2='48' y2='18' stroke='%2322d3ee' stroke-width='2' stroke-linecap='round' opacity='0.8'/%3E%3Ccircle cx='48' cy='18' r='2.5' fill='%2322d3ee'/%3E%3C/svg%3E">
-
-  <!-- x-cloak: hide Alpine elements until initialized -->
-  <style>[x-cloak] { display: none !important; }</style>
-</head>
-
-<body class="bg-mc-bg text-mc-text font-sans text-sm">
-
-  <!-- ====================================================================
-       AUTH SCREEN — shown until user authenticates
-       ==================================================================== -->
-  <div x-data="{ username: '', password: '', error: '', loading: false }"
-       x-show="!$store.auth.ok"
-       class="fixed inset-0 z-[200] bg-mc-bg flex items-center justify-center mc-grid-bg">
-
-    <div class="w-full max-w-sm mx-4">
-      <!-- Branding -->
-      <div class="text-center mb-8">
-        <div class="mb-4 flex justify-center" style="filter: drop-shadow(0 0 20px rgba(6,182,212,0.3))">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-14 h-14">
-            <defs><linearGradient id="mc-grad-login" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
-            <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2" opacity="0.3"/>
-            <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="1.5" opacity="0.4"/>
-            <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
-            <circle cx="32" cy="32" r="3" fill="url(#mc-grad-login)"/>
-            <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-            <circle cx="52" cy="16" r="2.5" fill="#22d3ee"/>
-            <circle cx="20" cy="22" r="2" fill="#06b6d4" opacity="0.7"/>
-            <circle cx="44" cy="42" r="2" fill="#06b6d4" opacity="0.7"/>
-          </svg>
-        </div>
-        <div class="text-xl font-bold text-cyan-400 tracking-[0.2em]">MISSION CONTROL</div>
-        <div class="text-xs text-mc-text-muted mt-2 font-mono tracking-wider">in-fused.org</div>
-      </div>
-
-      <!-- Login Card -->
-      <div class="bg-mc-surface border border-mc-border rounded-2xl p-6 shadow-2xl shadow-black/50">
-        <div class="text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-5 text-center">Authentication Required</div>
-
-        <!-- Error -->
-        <div x-show="error" x-transition
-             class="mb-4 px-3 py-2 bg-mc-danger-dim border border-red-500/20 rounded-lg text-xs text-red-400 text-center"
-             x-text="error"></div>
-
-        <!-- Username -->
-        <div class="mb-4">
-          <label class="block text-[10px] font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Username</label>
-          <input type="text" x-model="username"
-                 placeholder="admin"
-                 class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus"
-                 @keydown.enter="$refs.passInput.focus()">
-        </div>
-
-        <!-- Password -->
-        <div class="mb-6">
-          <label class="block text-[10px] font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Password</label>
-          <input type="password" x-model="password" x-ref="passInput"
-                 placeholder="Enter password"
-                 class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus"
-                 @keydown.enter="loading = true; error = ''; $store.auth.login(username, password).then(ok => { loading = false; if (!ok) { error = 'Invalid credentials'; password = ''; } })">
-        </div>
-
-        <!-- Submit -->
-        <button @click="loading = true; error = ''; $store.auth.login(username, password).then(ok => { loading = false; if (!ok) { error = 'Invalid credentials'; password = ''; } })"
-                :disabled="loading || !username.trim() || !password.trim()"
-                class="w-full py-2.5 bg-cyan-500 text-mc-bg rounded-lg text-sm font-semibold hover:brightness-110 transition-all shadow-lg shadow-cyan-500/25 disabled:opacity-30 disabled:cursor-not-allowed">
-          <span x-show="!loading">Access Mission Control</span>
-          <span x-show="loading" class="flex items-center justify-center gap-2">
-            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            Verifying...
-          </span>
-        </button>
-      </div>
-
-      <!-- Footer -->
-      <div class="text-center mt-6 text-[10px] text-mc-text-muted font-mono opacity-50">
-        Secured access &middot; Session expires on tab close
-      </div>
-    </div>
-  </div>
-
-  <!-- ====================================================================
-       BOOT SCREEN
-       ==================================================================== -->
-  <div x-data x-show="$store.auth.ok && $store.app.booting" x-cloak
-       x-transition:leave="transition ease-in duration-500"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-[100] bg-mc-bg flex items-center justify-center">
-    <div class="mc-boot-scanline"></div>
-    <div class="text-center">
-      <div class="mb-4 flex justify-center">
-        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12">
-          <defs><linearGradient id="mc-grad-boot" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
-          <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2" opacity="0.3"/>
-          <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="1.5" opacity="0.4"/>
-          <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="1.5" opacity="0.5"/>
-          <circle cx="32" cy="32" r="3" fill="url(#mc-grad-boot)"/>
-          <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-          <circle cx="52" cy="16" r="2.5" fill="#22d3ee"/>
-          <circle cx="20" cy="22" r="2" fill="#06b6d4" opacity="0.7"/>
-          <circle cx="44" cy="42" r="2" fill="#06b6d4" opacity="0.7"/>
-        </svg>
-      </div>
-      <div class="text-xl font-bold text-cyan-400 tracking-wider mb-2">MISSION CONTROL</div>
-      <div class="mc-boot-text text-xs text-mc-text-muted font-mono">Initializing systems...</div>
-      <div class="mt-6 w-48 mx-auto h-0.5 bg-mc-border rounded overflow-hidden">
-        <div class="h-full bg-cyan-400 rounded" style="animation: bootProgress 1.5s ease-out forwards"></div>
-      </div>
-    </div>
-    <style>
-      @keyframes bootProgress { from { width: 0% } to { width: 100% } }
-    </style>
-  </div>
-
-  <!-- ====================================================================
-       MAIN APPLICATION SHELL
-       ==================================================================== -->
-  <div x-data x-show="$store.auth.ok && !$store.app.booting" x-cloak
-       @keydown.window="if ($event.key === '[' && !$store.app.mobile && !['INPUT','TEXTAREA','SELECT'].includes($event.target.tagName)) { $store.app.sidebarOpen = !$store.app.sidebarOpen; $event.preventDefault(); }"
-       class="flex h-screen w-screen overflow-hidden"
-       style="height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px)">
-
-    <!-- Mobile Sidebar Backdrop -->
-    <div class="mc-sidebar-backdrop"
-         :class="$store.app.mobile && $store.app.sidebarOpen ? 'open' : ''"
-         @click="$store.app.sidebarOpen = false"></div>
-
-    <!-- ==================================================================
-         SIDEBAR
-         ================================================================== -->
-    <aside :class="[
-             $store.app.mobile ? 'mc-sidebar-mobile' : ($store.app.sidebarOpen ? 'w-60 min-w-[240px]' : 'w-16 min-w-[64px]'),
-             $store.app.sidebarOpen ? 'open' : ''
-           ]"
-           class="bg-mc-surface border-r border-mc-border flex flex-col transition-all duration-200">
-
-      <!-- Logo -->
-      <div class="h-14 flex items-center gap-3 px-4 border-b border-mc-border flex-shrink-0">
-        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 flex-shrink-0">
-          <circle cx="32" cy="32" r="28" stroke="#06b6d4" stroke-width="2.5" opacity="0.3"/>
-          <circle cx="32" cy="32" r="18" stroke="#06b6d4" stroke-width="2" opacity="0.4"/>
-          <circle cx="32" cy="32" r="8" stroke="#06b6d4" stroke-width="2" opacity="0.5"/>
-          <circle cx="32" cy="32" r="3.5" fill="#22d3ee"/>
-          <line x1="32" y1="32" x2="52" y2="16" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
-          <circle cx="52" cy="16" r="3" fill="#22d3ee"/>
-        </svg>
-        <span x-show="$store.app.sidebarOpen || $store.app.mobile" x-transition
-              class="font-semibold text-sm tracking-wide text-cyan-400 whitespace-nowrap">
-          MISSION CONTROL
-        </span>
-      </div>
-
-      <!-- Navigation — setView auto-closes sidebar on mobile -->
-      <!-- Grouped navigation with section headers -->
-      <nav class="flex-1 py-2 px-2 overflow-y-auto mc-nav-grouped">
-
-        <!-- ── CORE (no header — top items always visible) ── -->
-
-        <!-- Dashboard (always visible) -->
-        <button @click="$store.app.setView('dashboard')"
-                :class="$store.app.view === 'dashboard' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Dashboard">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Dashboard</span>
-        </button>
-
-        <!-- Chat -->
-        <button x-show="$store.settings.isVisible('chat')"
-                @click="$store.app.setView('chat')"
-                :class="$store.app.view === 'chat' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Chat">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Chat</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.sessions.list.filter(s => s.unread > 0).length > 0"
-                class="ml-auto w-5 h-5 flex items-center justify-center text-[10px] bg-cyan-500 text-mc-bg rounded-full font-bold"
-                x-text="$store.sessions.list.reduce((n, s) => n + s.unread, 0)"></span>
-        </button>
-
-        <!-- Paperclip — Agent Orchestration -->
-        <a href="/paperclip/" target="_blank"
-           x-show="$store.settings.isVisible('workflows')"
-           class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text" data-tip="Paperclip">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Paperclip</span>
-        </a>
-
-        <!-- ── OBSERVE ── -->
-        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="mc-nav-section-header">OBSERVE</div>
-        <div x-show="!($store.app.sidebarOpen || $store.app.mobile)" class="my-2 border-t border-mc-border/30"></div>
-
-        <!-- Activity -->
-        <button x-show="$store.settings.isVisible('activity')"
-                @click="$store.app.setView('activity'); $store.activity.dismissNew()"
-                :class="$store.app.view === 'activity' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Activity">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Activity</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.activity.newCount > 0"
-                class="ml-auto w-5 h-5 flex items-center justify-center text-[10px] bg-violet-500 text-white rounded-full font-bold"
-                x-text="$store.activity.newCount > 99 ? '99+' : $store.activity.newCount"></span>
-        </button>
-
-        <!-- Monitor -->
-        <button x-show="$store.settings.isVisible('monitor')"
-                @click="$store.app.setView('monitor')"
-                :class="$store.app.view === 'monitor' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Monitor">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Monitor</span>
-        </button>
-
-        <!-- ── MANAGE ── -->
-        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="mc-nav-section-header">MANAGE</div>
-        <div x-show="!($store.app.sidebarOpen || $store.app.mobile)" class="my-2 border-t border-mc-border/30"></div>
-
-        <!-- Agents -->
-        <button x-show="$store.settings.isVisible('agents')"
-                @click="$store.app.setView('agents')"
-                :class="$store.app.view === 'agents' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Agents">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Agents</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.agents.scheduled > 0"
-                class="ml-auto text-[10px] bg-mc-warning-dim text-amber-400 px-1.5 py-0.5 rounded-full font-mono"
-                x-text="$store.agents.scheduled + ' scheduled'"></span>
-        </button>
-
-        <!-- Teams — redirects to Paperclip (governance moved there) -->
-        <a x-show="$store.settings.isVisible('teams')"
-           href="/paperclip/" target="_blank"
-           class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text" data-tip="Teams">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Teams</span>
-        </a>
-
-        <!-- Staging -->
-        <button x-show="$store.settings.isVisible('staging')"
-                @click="$store.app.setView('staging')"
-                :class="$store.app.view === 'staging' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Staging">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Staging</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.staging.pendingCount > 0"
-                class="ml-auto w-5 h-5 flex items-center justify-center text-[10px] bg-amber-500 text-mc-bg rounded-full font-bold"
-                x-text="$store.staging.pendingCount"></span>
-        </button>
-
-        <!-- ── AUTOMATE ── -->
-        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="mc-nav-section-header">AUTOMATE</div>
-        <div x-show="!($store.app.sidebarOpen || $store.app.mobile)" class="my-2 border-t border-mc-border/30"></div>
-
-        <!-- Cron Jobs -->
-        <button x-show="$store.settings.isVisible('cron')"
-                @click="$store.app.setView('cron')"
-                :class="$store.app.view === 'cron' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Cron">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Cron Jobs</span>
-          <span x-show="($store.app.sidebarOpen || $store.app.mobile) && $store.cron.jobs && $store.cron.jobs.length > 0"
-                class="ml-auto text-[10px] bg-mc-success-dim text-emerald-400 px-1.5 py-0.5 rounded-full font-mono"
-                x-text="$store.cron.jobs.length"></span>
-        </button>
-
-        <!-- Spacer before settings -->
-        <div class="flex-1 min-h-[8px]"></div>
-
-        <!-- Divider -->
-        <div class="my-1 border-t border-mc-border/50"></div>
-
-        <!-- Settings (always visible — cannot be hidden) -->
-        <button @click="$store.app.setView('settings')"
-                :class="$store.app.view === 'settings' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-sec hover:bg-mc-elevated hover:text-mc-text'"
-                class="mc-nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-left" data-tip="Settings">
-          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen || $store.app.mobile" class="whitespace-nowrap">Settings</span>
-        </button>
-
-      </nav>
-
-      <!-- Sidebar Footer -->
-      <div class="border-t border-mc-border p-3 flex-shrink-0">
-        <!-- Connection Status — two clearly separate indicators -->
-        <div x-show="$store.app.sidebarOpen || $store.app.mobile" class="flex items-center gap-2 px-2 py-1.5 text-xs mb-2">
-          <!-- LiteLLM API status (not tappable — health polling handles it) -->
-          <div class="flex items-center gap-1.5 px-2 py-1 rounded-md"
-               :class="$store.app.connected ? 'bg-emerald-500/10' : 'bg-red-500/10'">
-            <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
-            <span :class="$store.app.connected ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-mono"
-                  x-text="$store.app.connected ? 'API' : 'API'"></span>
-          </div>
-          <!-- OpenClaw WS status (tappable — retries WS only) -->
-          <button @click.stop="$store.app.reconnect()"
-                  class="flex items-center gap-1.5 px-2 py-1 rounded-md transition-all"
-                  :class="$store.app.ocConnected ? 'bg-emerald-500/10 hover:bg-emerald-500/20' : 'bg-red-500/10 hover:bg-red-500/20'"
-                  :title="$store.app.ocConnected ? 'OpenClaw connected' : 'Tap to reconnect'">
-            <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : ($store.app._reconnecting ? 'mc-dot-idle' : 'mc-dot-disconnected')" style="width:6px;height:6px"></span>
-            <span :class="$store.app.ocConnected ? 'text-emerald-400' : ($store.app._reconnecting ? 'text-amber-400' : 'text-red-400')"
-                  class="text-[10px] font-mono"
-                  x-text="$store.app.ocConnected ? 'WS' : ($store.app._reconnecting ? 'WS...' : 'WS')"></span>
-          </button>
-        </div>
-        <!-- Collapse Toggle (desktop only) -->
-        <button x-show="!$store.app.mobile"
-                @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"
-                class="w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-lg text-mc-text-muted hover:text-mc-text hover:bg-mc-elevated transition-all">
-          <svg class="w-4 h-4 transition-transform" :class="$store.app.sidebarOpen ? '' : 'rotate-180'"
-               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
-          </svg>
-          <span x-show="$store.app.sidebarOpen" class="text-xs">Collapse</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- ==================================================================
-         MAIN CONTENT AREA
-         ================================================================== -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-      <!-- ================================================================
-           HEADER BAR
-           ================================================================ -->
-      <header class="h-14 min-h-[56px] bg-mc-surface border-b border-mc-border flex items-center px-4 md:px-6 gap-2 md:gap-4 flex-shrink-0">
-        <!-- Hamburger (mobile only) -->
-        <button @click="$store.app.sidebarOpen = !$store.app.sidebarOpen"
-                class="mc-hamburger w-10 h-10 flex items-center justify-center rounded-lg text-mc-text-sec hover:bg-mc-elevated transition-all flex-shrink-0">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
-          </svg>
-        </button>
-
-        <h1 class="text-base font-semibold text-mc-text capitalize" x-text="$store.app.view === 'cron' ? 'Cron Jobs' : $store.app.view"></h1>
-        <div class="flex-1"></div>
-
-        <!-- Demo Mode Badge + Reconnect -->
-        <template x-if="$store.app.demoMode">
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] font-mono bg-mc-warning-dim text-amber-400 px-2 py-0.5 rounded-full tracking-wide">
-              DEMO
-            </span>
-            <button @click="$store.app.reconnect()"
-                    class="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-full tracking-wide hover:bg-cyan-500/20 transition-all cursor-pointer">
-              Reconnect
-            </button>
-          </div>
-        </template>
-
-        <!-- Header metrics (hidden on small mobile) -->
-        <div class="hidden sm:flex items-center gap-1.5">
-          <!-- Agent count pill -->
-          <div class="flex items-center gap-1 px-2 py-1 rounded-md bg-mc-primary-dim text-[10px] font-mono text-cyan-400">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
-            </svg>
-            <span x-text="$store.agents.list.length"></span>
-          </div>
-          <!-- Session count pill (if any active) -->
-          <div x-show="$store.sessions.list.length > 0"
-               class="flex items-center gap-1 px-2 py-1 rounded-md bg-mc-secondary-dim text-[10px] font-mono text-violet-400">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242"/>
-            </svg>
-            <span x-text="$store.sessions.list.length"></span>
-          </div>
-        </div>
-
-        <!-- Connection Status — two separate pills: API + WS -->
-        <div class="flex items-center gap-1">
-          <!-- LiteLLM API status -->
-          <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono"
-               :class="$store.app.connected ? 'bg-mc-success-dim text-emerald-400' : 'bg-red-500/10 text-red-400'">
-            <span class="mc-dot"
-                  :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'"
-                  style="width:5px;height:5px"></span>
-            <span x-text="$store.app.connected ? 'API' : 'API'"></span>
-          </div>
-          <!-- OpenClaw WS status (tappable to reconnect) -->
-          <button @click="$store.app.reconnect()"
-                  class="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono transition-all"
-                  :class="$store.app.ocConnected
-                    ? 'bg-mc-success-dim text-emerald-400'
-                    : $store.app._reconnecting
-                      ? 'bg-mc-warning-dim text-amber-400 animate-pulse'
-                      : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'"
-                  :title="$store.app.ocConnected ? 'OpenClaw connected' : 'Tap to reconnect'">
-            <span class="mc-dot"
-                  :class="$store.app.ocConnected ? 'mc-dot-connected' : ($store.app._reconnecting ? 'mc-dot-idle' : 'mc-dot-disconnected')"
-                  style="width:5px;height:5px"></span>
-            <span x-text="$store.app.ocConnected ? 'WS' : ($store.app._reconnecting ? 'WS...' : 'WS')"></span>
-          </button>
-        </div>
-
-        <!-- Digital clock (hidden on mobile) -->
-        <div x-data="{ time: '' }" x-init="setInterval(() => { const d = new Date(); time = d.toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'}); }, 1000)"
-             class="hidden md:block text-[11px] font-mono text-mc-text-muted tabular-nums" x-text="time"></div>
-
-        <!-- OpenClaw Native UI (fallback link) -->
-        <a href="/openclaw/" target="_blank"
-           class="hidden md:flex items-center gap-1 px-2 py-1 text-mc-text-muted rounded-lg text-[10px] hover:text-mc-text-sec hover:bg-mc-elevated transition-all opacity-60 hover:opacity-100"
-           title="Open native OpenClaw UI (fallback)">
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-          </svg>
-          Native UI
-        </a>
-      </header>
-
-      <!-- ================================================================
-           CONTENT VIEWS
-           ================================================================ -->
-      <main class="flex-1 overflow-hidden">
-
-        <!-- ==========================================
-             VIEW: DASHBOARD
-             ========================================== -->
-        <div x-show="$store.app.view === 'dashboard'"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <!-- Away Report Banner (shown when agents worked while you were away) -->
-          <div x-show="$store.app.awayReport" x-transition
-               class="mb-6 bg-mc-secondary-dim border border-violet-500/20 rounded-xl p-5">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="text-2xl">&#128203;</div>
-              <div class="flex-1">
-                <div class="text-sm font-semibold text-mc-text">While You Were Away</div>
-                <div class="text-xs text-mc-text-muted" x-text="($store.app.awayReport?.duration || '') + ' since last visit'"></div>
-              </div>
-              <div class="flex items-center gap-2">
-                <button @click="$store.app.setView('activity')"
-                        class="text-violet-400 hover:text-violet-300 text-xs px-2 py-1 rounded hover:bg-violet-500/10 transition-all">
-                  View All
-                </button>
-                <button @click="$store.app.awayReport = null"
-                        class="text-mc-text-muted hover:text-mc-text text-xs px-2 py-1 rounded hover:bg-mc-elevated transition-all">
-                  Dismiss
-                </button>
-              </div>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div class="bg-mc-bg rounded-lg p-3">
-                <div class="text-mc-text-muted">Tasks Completed</div>
-                <div class="text-lg font-bold text-emerald-400" x-text="$store.app.awayReport?.tasksCompleted || 0"></div>
-              </div>
-              <div class="bg-mc-bg rounded-lg p-3">
-                <div class="text-mc-text-muted">Workflows Run</div>
-                <div class="text-lg font-bold text-cyan-400" x-text="$store.app.awayReport?.workflowsRun || 0"></div>
-              </div>
-              <div class="bg-mc-bg rounded-lg p-3">
-                <div class="text-mc-text-muted">Staging Items</div>
-                <div class="text-lg font-bold text-amber-400" x-text="$store.app.awayReport?.stagingItems || 0"></div>
-              </div>
-              <div class="bg-mc-bg rounded-lg p-3">
-                <div class="text-mc-text-muted">Errors</div>
-                <div class="text-lg font-bold text-red-400" x-text="$store.app.awayReport?.errors || 0"></div>
-              </div>
-            </div>
-            <!-- Top active agents while away -->
-            <template x-if="$store.app.awayReport?.topAgents?.length > 0">
-              <div class="mt-3 flex items-center gap-2 flex-wrap text-xs">
-                <span class="text-mc-text-muted">Most active:</span>
-                <template x-for="ta in $store.app.awayReport.topAgents" :key="ta.id">
-                  <span class="px-2 py-1 rounded-lg bg-mc-bg border border-mc-border/50">
-                    <span class="text-mc-text-sec" x-text="ta.id"></span>
-                    <span class="text-mc-text-muted ml-1" x-text="ta.count + ' events'"></span>
-                  </span>
-                </template>
-              </div>
-            </template>
-          </div>
-
-          <!-- Stats Row -->
-          <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-            <div class="mc-stat-border cyan relative bg-mc-surface border border-mc-border rounded-xl p-5 cursor-pointer" @click="$store.app.setView('agents')">
-              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Agents</div>
-              <div class="text-2xl font-bold text-mc-text" x-text="$store.agents.list.length"></div>
-              <div class="text-xs mt-1" :class="$store.agents.scheduled > 0 ? 'text-emerald-400' : 'text-mc-text-muted'"><span x-text="$store.agents.scheduled + '/' + $store.agents.list.length"></span> with crons</div>
-            </div>
-            <div class="mc-stat-border amber relative bg-mc-surface border border-mc-border rounded-xl p-5 cursor-pointer" @click="$store.app.setView('staging')">
-              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Staging</div>
-              <div class="text-2xl font-bold" :class="$store.staging.pendingCount > 0 ? 'text-amber-400' : 'text-mc-text'" x-text="$store.staging.pendingCount"></div>
-              <div class="text-xs mt-1" :class="$store.staging.pendingCount > 0 ? 'text-amber-400' : 'text-mc-text-muted'" x-text="$store.staging.pendingCount > 0 ? 'awaiting review' : 'queue empty'"></div>
-            </div>
-            <div class="mc-stat-border green relative bg-mc-surface border border-mc-border rounded-xl p-5 cursor-pointer" @click="$store.app.setView('activity')">
-              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Activity</div>
-              <div class="text-2xl font-bold text-mc-text" x-text="$store.activity.events.length"></div>
-              <div class="text-xs mt-1" :class="$store.activity.newCount > 0 ? 'text-emerald-400' : 'text-mc-text-muted'">
-                <span x-text="$store.activity.newCount > 0 ? $store.activity.newCount + ' new' : 'events logged'"></span>
-              </div>
-            </div>
-            <a href="/paperclip/" target="_blank" class="mc-stat-border purple relative bg-mc-surface border border-mc-border rounded-xl p-5 cursor-pointer block">
-              <div class="text-mc-text-muted text-xs font-medium uppercase tracking-wider mb-1">Cron Jobs</div>
-              <div class="text-2xl font-bold text-mc-text" x-text="$store.cron.jobs.length"></div>
-              <div class="text-xs mt-1 text-mc-text-muted">background tasks</div>
-            </a>
-          </div>
-
-          <!-- Paperclip Quick Access -->
-          <a href="/paperclip/" target="_blank"
-             class="mb-6 flex items-center gap-4 p-4 bg-mc-surface border border-mc-border rounded-xl hover:border-cyan-500/30 transition-all group cursor-pointer block">
-            <div class="text-2xl">📎</div>
-            <div class="flex-1">
-              <div class="text-sm font-semibold text-mc-text group-hover:text-cyan-400 transition-colors">Paperclip — Agent Orchestration</div>
-              <div class="text-xs text-mc-text-muted">Org charts, budgets, goals, task queues, audit trails</div>
-            </div>
-            <svg class="w-4 h-4 text-mc-text-muted group-hover:text-cyan-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-            </svg>
-          </a>
-
-          <!-- Active Agents -->
-          <div class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-semibold text-mc-text">Active Agents</h2>
-              <button @click="$store.agents.openWizard()" class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">+ Create Agent</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              <template x-for="agent in $store.agents.list" :key="agent.id">
-                <div class="bg-mc-surface border border-mc-border rounded-xl p-5 mc-card-glow transition-all cursor-pointer"
-                     @click="$store.agents.selectAgent(agent.id); $store.app.setView('agents')">
-                  <div class="flex items-start gap-3 mb-3">
-                    <span class="text-2xl" x-text="agent.emoji"></span>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="font-semibold text-mc-text truncate" x-text="agent.name"></span>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded font-medium"
-                              :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agent.id).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agent.id).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
-                              x-text="$store.governance.getTierName(agent.id)"></span>
-                        <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
-                      </div>
-                      <div class="text-xs text-mc-text-muted truncate" x-text="agent.description"></div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-4 text-xs text-mc-text-muted">
-                    <span class="font-mono truncate max-w-[120px]" x-text="agent.model"></span>
-                    <span x-text="agent.tasksCompleted + ' tasks'"></span>
-                    <span x-text="agent.lastActive" class="ml-auto"></span>
-                  </div>
-                  <div x-show="agent.currentTask" class="mt-3 text-xs bg-mc-elevated rounded-lg px-3 py-2 text-cyan-300 truncate">
-                    <span x-text="agent.currentTask"></span>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Autonomy Status Bar -->
-          <div class="mb-6 bg-mc-surface border border-mc-border rounded-xl p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-sm font-semibold text-mc-text">Autonomy Status</h2>
-              <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                    :class="$store.cron.jobs.length >= 8 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : $store.cron.jobs.length > 0 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'"
-                    x-text="$store.cron.jobs.length >= 8 ? 'FULLY AUTONOMOUS' : $store.cron.jobs.length > 0 ? 'PARTIALLY ACTIVE' : 'DORMANT'"></span>
-            </div>
-            <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
-              <template x-for="agent in $store.agents.list" :key="agent.id">
-                <div class="flex flex-col items-center gap-1 p-2 rounded-lg transition-all cursor-pointer hover:bg-mc-elevated"
-                     :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-emerald-500/5' : 'bg-mc-bg'"
-                     @click="$store.sessions.createSession(agent.id)">
-                  <span class="text-lg" x-text="agent.emoji"></span>
-                  <span class="text-[9px] text-mc-text-muted truncate w-full text-center" x-text="agent.name"></span>
-                  <div class="flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full" :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-mc-border'"></span>
-                    <span class="text-[8px]" :class="$store.cron.countForAgent(agent.id) > 0 ? 'text-emerald-400' : 'text-mc-text-muted'"
-                          x-text="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron' : 'idle'"></span>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Staging Queue + Recent Activity -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Staging Queue Preview (what the owner needs to review) -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl p-5">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-sm font-semibold text-mc-text">Staging Queue</h2>
-                <button @click="$store.app.setView('staging')"
-                        class="text-xs text-amber-400 hover:text-amber-300 transition-colors">
-                  View All <span x-show="$store.staging.pendingCount > 0" x-text="'(' + $store.staging.pendingCount + ')'"></span>
-                </button>
-              </div>
-              <div x-show="$store.staging.items.filter(i => i.status === 'pending').length > 0" class="space-y-2 max-h-48 overflow-y-auto">
-                <template x-for="item in $store.staging.items.filter(i => i.status === 'pending').slice(0, 5)" :key="item.id">
-                  <div class="flex items-center gap-3 p-2.5 rounded-lg bg-mc-bg hover:bg-mc-elevated transition-colors cursor-pointer"
-                       @click="$store.staging.selectedId = item.id; $store.app.setView('staging')">
-                    <span class="text-amber-400 text-sm flex-shrink-0">&#9679;</span>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-xs text-mc-text truncate" x-text="item.name"></div>
-                      <div class="text-[10px] text-mc-text-muted" x-text="'by ' + item.createdBy"></div>
-                    </div>
-                    <div class="flex gap-1 flex-shrink-0">
-                      <button @click.stop="$store.staging.approve(item.id)"
-                              class="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                              title="Approve">&#10003;</button>
-                      <button @click.stop="$store.staging.selectedId = item.id; $store.app.setView('staging')"
-                              class="px-2 py-1 rounded text-[10px] bg-mc-elevated text-mc-text-muted hover:text-mc-text transition-all"
-                              title="Preview">&#9655;</button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-              <div x-show="$store.staging.items.filter(i => i.status === 'pending').length === 0" class="text-center py-6 text-xs text-mc-text-muted">
-                <div class="text-2xl mb-2">&#128203;</div>
-                No items awaiting review. Agents will stage deliverables here.
-              </div>
-              <!-- Quick stats below the queue -->
-              <div class="mt-3 pt-3 border-t border-mc-border/50 flex justify-between text-[10px] text-mc-text-muted">
-                <span>Pending: <span class="text-amber-400 font-medium" x-text="$store.staging.items.filter(i => i.status === 'pending').length"></span></span>
-                <span>Approved: <span class="text-emerald-400 font-medium" x-text="$store.staging.items.filter(i => i.status === 'approved').length"></span></span>
-                <span>Rejected: <span class="text-red-400 font-medium" x-text="$store.staging.items.filter(i => i.status === 'rejected').length"></span></span>
-              </div>
-            </div>
-
-            <div class="bg-mc-surface border border-mc-border rounded-xl p-5">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-sm font-semibold text-mc-text">Recent Activity</h2>
-                <div class="flex gap-1">
-                  <button @click="$store.app._dashActivity = 'agents'"
-                          class="px-2 py-1 rounded text-[11px] transition-all"
-                          :class="($store.app._dashActivity || 'agents') === 'agents' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-muted hover:text-mc-text'">
-                    Agents
-                    <span x-show="$store.activity.newCount > 0"
-                          class="ml-0.5 px-1 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px]"
-                          x-text="$store.activity.newCount"></span>
-                  </button>
-                  <button @click="$store.app._dashActivity = 'system'"
-                          class="px-2 py-1 rounded text-[11px] transition-all"
-                          :class="$store.app._dashActivity === 'system' ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-muted hover:text-mc-text'">
-                    System
-                  </button>
-                </div>
-              </div>
-
-              <!-- Agent Activity (live + server events) -->
-              <div x-show="($store.app._dashActivity || 'agents') === 'agents'" class="space-y-1 max-h-48 overflow-y-auto">
-                <template x-for="(ev, i) in $store.activity.events.slice(0, 10)" :key="ev.time + '-' + i">
-                  <div class="flex items-start gap-2 px-2 py-1.5 rounded text-xs hover:bg-mc-elevated/50 transition-colors">
-                    <span class="text-[10px] flex-shrink-0 w-4 text-center" x-text="$store.activity.typeIcon(ev.type)"></span>
-                    <span class="text-mc-text-muted whitespace-nowrap flex-shrink-0" x-text="$store.activity.formatTime(ev.time)"></span>
-                    <span class="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                          :class="$store.activity.typeColor(ev.type)"
-                          x-text="$store.activity.typeLabel(ev.type)"></span>
-                    <span class="text-mc-text-sec truncate" x-text="ev.message"></span>
-                  </div>
-                </template>
-                <div x-show="$store.activity.events.length === 0" class="text-center py-4 text-xs text-mc-text-muted">
-                  No agent activity yet. Live events appear when agents are working.
-                </div>
-              </div>
-
-              <!-- System Logs (client-side) -->
-              <div x-show="$store.app._dashActivity === 'system'" class="space-y-1 max-h-48 overflow-y-auto">
-                <template x-for="(log, i) in $store.monitor.logs.slice(0, 8)" :key="i">
-                  <div class="mc-log-row flex items-start gap-3 px-2 py-1.5 rounded text-xs font-mono">
-                    <span class="text-mc-text-muted whitespace-nowrap" x-text="log.time"></span>
-                    <span class="font-semibold w-10 text-center flex-shrink-0"
-                          :class="{'text-cyan-400': log.level==='info', 'text-amber-400': log.level==='warn', 'text-red-400': log.level==='error', 'text-mc-text-muted': log.level==='debug'}"
-                          x-text="log.level.toUpperCase()"></span>
-                    <span class="text-mc-text-sec truncate" x-text="log.msg"></span>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: AGENTS
-             ========================================== -->
-        <div x-show="$store.app.view === 'agents'"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <div class="flex items-center justify-between mb-4 md:mb-6 gap-3">
-            <div class="min-w-0">
-              <h2 class="text-base md:text-lg font-semibold text-mc-text">Agent Management</h2>
-              <p class="text-xs text-mc-text-muted mt-0.5 hidden sm:block">Create, configure, and manage your autonomous AI agents</p>
-            </div>
-            <button @click="$store.agents.openWizard()"
-                    class="flex items-center gap-2 px-3 md:px-4 py-2 bg-cyan-500 text-mc-bg rounded-lg text-xs md:text-sm font-medium hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20 flex-shrink-0">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-              </svg>
-              <span class="hidden sm:inline">Create Agent</span>
-              <span class="sm:hidden">New</span>
-            </button>
-          </div>
-
-          <!-- Team-grouped agent cards -->
-          <template x-for="team in $store.governance.teams" :key="team.id">
-            <div class="mb-6">
-              <!-- Team header -->
-              <div class="flex items-center gap-3 mb-3">
-                <h3 class="text-sm font-semibold text-mc-text uppercase tracking-wider" x-text="team.name"></h3>
-                <div class="flex-1 h-px bg-mc-border"></div>
-                <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                      :class="team.id === 'core' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'"
-                      x-text="team.members.length + ' agents'"></span>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <template x-for="agent in $store.agents.list.filter(a => team.members.includes(a.id))" :key="agent.id">
-                  <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
-                    <div class="p-5">
-                      <div class="flex items-start gap-3 mb-4">
-                        <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="font-semibold text-mc-text" x-text="agent.name"></span>
-                            <span x-show="team.lead === agent.id" class="text-[9px] px-1.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded font-medium">LEAD</span>
-                            <span class="text-[9px] px-1.5 py-0.5 rounded font-medium"
-                                  :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agent.id).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agent.id).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
-                                  x-text="$store.governance.getTierName(agent.id)"></span>
-                            <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
-                          </div>
-                          <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
-                        </div>
-                      </div>
-                      <div class="space-y-2 text-xs">
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Tokens Used</span><span class="text-mc-text-sec" x-text="formatTokens(agent.tokensUsed)"></span></div>
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Score</span><span class="text-mc-text-sec font-semibold" x-text="$store.governance.getScore(agent.id)"></span></div>
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Tier</span><span class="font-semibold" :class="$store.governance._getMetrics(agent.id).tier === 3 ? 'text-amber-400' : $store.governance._getMetrics(agent.id).tier === 2 ? 'text-cyan-400' : $store.governance._getMetrics(agent.id).tier === 0 ? 'text-red-400' : 'text-mc-text-sec'" x-text="$store.governance.getTierName(agent.id) + ' (' + $store.governance._getMetrics(agent.id).tier + '/3)'"></span></div>
-                      </div>
-                      <div x-show="agent.tools && agent.tools.length > 0" class="mt-3 flex flex-wrap gap-1">
-                        <template x-for="toolId in agent.tools" :key="toolId">
-                          <span class="text-[10px] px-1.5 py-0.5 bg-mc-elevated rounded text-mc-text-muted"
-                                x-text="(AGENT_TOOLS.find(t => t.id === toolId) || {name: toolId}).name"></span>
-                        </template>
-                      </div>
-                    </div>
-                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
-                      <button @click="$store.cron.toggle(agent.id)"
-                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-elevated text-mc-text-muted hover:bg-mc-surface hover:text-mc-text-sec'">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <span x-text="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' job' + ($store.cron.countForAgent(agent.id) !== 1 ? 's' : '') : 'Cron'"></span>
-                      </button>
-                      <button @click="$store.sessions.createSession(agent.id)"
-                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
-                        Chat
-                      </button>
-                      <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
-                              class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </template>
-
-          <!-- Unassigned agents (not in any team) -->
-          <template x-if="$store.agents.list.filter(a => !$store.governance.teams.some(t => t.members.includes(a.id))).length > 0">
-            <div class="mb-6">
-              <div class="flex items-center gap-3 mb-3">
-                <h3 class="text-sm font-semibold text-mc-text-muted uppercase tracking-wider">Unassigned</h3>
-                <div class="flex-1 h-px bg-mc-border"></div>
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <template x-for="agent in $store.agents.list.filter(a => !$store.governance.teams.some(t => t.members.includes(a.id)))" :key="agent.id">
-                  <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden mc-card-glow transition-all">
-                    <div class="p-5">
-                      <div class="flex items-start gap-3 mb-4">
-                        <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center text-2xl flex-shrink-0" x-text="agent.emoji"></div>
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="font-semibold text-mc-text" x-text="agent.name"></span>
-                            <span class="mc-dot" :class="$store.cron.countForAgent(agent.id) > 0 ? 'mc-dot-running' : 'mc-dot-idle'" :title="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' cron job(s)' : 'No scheduled jobs'"></span>
-                          </div>
-                          <div class="text-xs text-mc-text-muted mt-0.5" x-text="agent.description"></div>
-                        </div>
-                      </div>
-                      <div class="space-y-2 text-xs">
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Model</span><span class="text-mc-text-sec font-mono" x-text="agent.model"></span></div>
-                        <div class="flex justify-between"><span class="text-mc-text-muted">Tasks Completed</span><span class="text-mc-text-sec" x-text="agent.tasksCompleted"></span></div>
-                      </div>
-                    </div>
-                    <div class="border-t border-mc-border px-5 py-3 flex items-center gap-2">
-                      <button @click="$store.cron.toggle(agent.id)"
-                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                              :class="$store.cron.countForAgent(agent.id) > 0 ? 'bg-mc-warning-dim text-amber-400 hover:bg-amber-500/20' : 'bg-mc-elevated text-mc-text-muted hover:bg-mc-surface hover:text-mc-text-sec'">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <span x-text="$store.cron.countForAgent(agent.id) > 0 ? $store.cron.countForAgent(agent.id) + ' job' + ($store.cron.countForAgent(agent.id) !== 1 ? 's' : '') : 'Cron'"></span>
-                      </button>
-                      <button @click="$store.sessions.createSession(agent.id)"
-                              class="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium bg-mc-primary-dim text-cyan-400 hover:bg-cyan-500/20 transition-all">
-                        Chat
-                      </button>
-                      <button @click="if(confirm('Delete agent ' + agent.name + '?')) $store.agents.deleteAgent(agent.id)"
-                              class="px-3 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-red-400 hover:bg-mc-danger-dim transition-all">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </template>
-
-          <!-- Add Card -->
-          <div @click="$store.agents.openWizard()"
-               class="border-2 border-dashed border-mc-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all min-h-[200px] max-w-sm">
-            <div class="w-12 h-12 rounded-xl bg-mc-elevated flex items-center justify-center">
-              <svg class="w-6 h-6 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-              </svg>
-            </div>
-            <span class="text-sm text-mc-text-muted">Create New Agent</span>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: WORKFLOWS — Redirects to Paperclip
-             ========================================== -->
-        <div x-show="$store.app.view === 'workflows'"
-             x-transition:enter="animate-fade-up"
-             class="h-full flex items-center justify-center">
-          <div class="text-center p-8">
-            <div class="text-4xl mb-4">📎</div>
-            <h2 class="text-xl font-bold text-mc-text mb-2">Workflows moved to Paperclip</h2>
-            <p class="text-mc-text-muted mb-6 max-w-md">Agent orchestration, workflows, budgets, and governance are now managed by Paperclip.</p>
-            <a href="/paperclip/" target="_blank"
-               class="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold transition-colors">
-              Open Paperclip
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-              </svg>
-            </a>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: CHAT
-             ========================================== -->
-        <div x-show="$store.app.view === 'chat'"
-             x-transition:enter="animate-fade-up"
-             class="h-full flex overflow-hidden relative">
-
-          <!-- Mobile backdrop for chat panel -->
-          <div x-show="$store.app.mobile && $store.app.chatPanelOpen"
-               x-transition:enter="transition-opacity ease-out duration-200"
-               x-transition:enter-start="opacity-0"
-               x-transition:enter-end="opacity-100"
-               x-transition:leave="transition-opacity ease-in duration-150"
-               x-transition:leave-start="opacity-100"
-               x-transition:leave-end="opacity-0"
-               @click="$store.app.chatPanelOpen = false"
-               class="fixed inset-0 bg-black/40 z-[34]" style="top: 56px"></div>
-
-          <!-- Session List (desktop: inline panel, mobile: slide-in overlay) -->
-          <div :class="$store.app.mobile ? 'mc-chat-panel-mobile' + ($store.app.chatPanelOpen ? ' open' : '') : 'w-64 min-w-[256px]'"
-               class="bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
-            <div class="p-4 border-b border-mc-border flex items-center justify-between">
-              <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted">Conversations</div>
-              <button x-show="$store.app.mobile"
-                      @click="$store.app.chatPanelOpen = false"
-                      class="w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-sec hover:bg-mc-elevated transition-all">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-2">
-              <template x-for="session in $store.sessions.list" :key="session.id">
-                <div class="relative group mb-1">
-                  <button @click="$store.sessions.select(session.id); if($store.app.mobile) $store.app.chatPanelOpen = false"
-                          class="w-full text-left px-3 py-3 rounded-lg transition-all"
-                          :class="$store.sessions.activeId === session.id ? 'bg-mc-primary-dim' : 'hover:bg-mc-elevated'">
-                    <div class="flex items-center gap-2">
-                      <span class="text-lg" x-text="session.agentEmoji"></span>
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <span class="text-xs font-semibold text-mc-text truncate" x-text="session.agentName"></span>
-                          <span x-show="session.unread > 0"
-                                class="w-4 h-4 flex items-center justify-center text-[9px] bg-cyan-500 text-mc-bg rounded-full font-bold"
-                                x-text="session.unread"></span>
-                        </div>
-                        <div class="text-[11px] text-mc-text-muted truncate mt-0.5" x-text="session.lastMessage || session.title"></div>
-                      </div>
-                    </div>
-                  </button>
-                  <!-- Delete session button — visible on hover (desktop) or when active -->
-                  <button @click.stop="$store.sessions.deleteSession(session.id)"
-                          class="absolute top-1/2 -translate-y-1/2 right-2 w-6 h-6 flex items-center justify-center rounded text-mc-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
-                          :class="$store.sessions.activeId === session.id ? 'opacity-60' : ''"
-                          title="Delete conversation">
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-              </template>
-              <div x-show="$store.sessions.list.length === 0" class="p-4 text-center text-xs text-mc-text-muted">
-                No conversations yet.
-              </div>
-            </div>
-            <div class="p-3 border-t border-mc-border" x-data="{ showPicker: false }">
-              <button @click="showPicker = !showPicker"
-                      class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-mc-elevated text-mc-text-sec hover:text-mc-text transition-all">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                </svg>
-                New Conversation
-              </button>
-              <div x-show="showPicker" @click.away="showPicker = false"
-                   class="mt-2 bg-mc-elevated border border-mc-border rounded-lg overflow-hidden">
-                <template x-for="agent in $store.agents.list" :key="agent.id">
-                  <button @click="$store.sessions.createSession(agent.id, true); showPicker = false; if($store.app.mobile) $store.app.chatPanelOpen = false"
-                          class="w-full text-left px-3 py-2 text-xs hover:bg-mc-border/30 transition-all flex items-center gap-2">
-                    <span x-text="agent.emoji"></span>
-                    <span class="text-mc-text-sec" x-text="agent.name"></span>
-                    <span x-show="$store.sessions.list.find(s => s.sessionKey === 'agent:' + agent.id + ':main')"
-                          class="text-[9px] text-amber-400/60 ml-auto">(reset)</span>
-                  </button>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <!-- Chat Area -->
-          <div class="flex-1 flex flex-col min-w-0">
-            <div class="h-12 flex items-center px-4 border-b border-mc-border flex-shrink-0 gap-3">
-              <!-- Mobile: toggle conversations panel -->
-              <button @click="$store.app.chatPanelOpen = !$store.app.chatPanelOpen"
-                      class="mc-mobile-panel-toggle w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-sec hover:bg-mc-elevated transition-all flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
-                </svg>
-              </button>
-              <template x-if="$store.sessions.active">
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="text-lg flex-shrink-0" x-text="$store.sessions.active?.agentEmoji"></span>
-                  <span class="text-sm font-semibold text-mc-text truncate" x-text="$store.sessions.active?.agentName"></span>
-                  <span class="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
-                        x-data="{ get agentId() { return $store.sessions.active?.agentId || '' } }"
-                        :class="$store.governance._getMetrics(agentId).tier === 3 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : $store.governance._getMetrics(agentId).tier === 2 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : $store.governance._getMetrics(agentId).tier === 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-mc-bg text-mc-text-muted'"
-                        x-text="$store.governance.getTierName(agentId)"></span>
-                  <span class="text-[10px] font-mono text-mc-text-muted flex-shrink-0 hidden sm:inline"
-                        x-data="{ get agentId() { return $store.sessions.active?.agentId || '' } }"
-                        x-text="'Score: ' + $store.governance.getScore(agentId)"></span>
-                  <span class="text-xs text-mc-text-muted truncate hidden md:inline" x-text="$store.sessions.active?.title"></span>
-                </div>
-              </template>
-              <template x-if="!$store.sessions.active">
-                <span class="text-sm text-mc-text-muted">Select a conversation</span>
-              </template>
-            </div>
-            <!-- Minimal status bar — connection state only -->
-            <div class="flex items-center gap-2 px-3 py-1 border-b border-mc-border bg-mc-surface/50 text-[11px] flex-shrink-0">
-              <span class="w-2 h-2 rounded-full flex-shrink-0"
-                    :class="$store.app.ocConnected ? 'bg-emerald-400' : ($store.app.connected ? 'bg-amber-400' : 'bg-red-400')"></span>
-              <span class="text-mc-text-muted"
-                    x-text="$store.app.ocConnected ? 'Live' : ($store.app.connected ? 'Fallback' : 'Offline')"></span>
-            </div>
-
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
-              <!-- WebSocket disconnection banner -->
-              <div x-show="!$store.app.ocConnected && !$store.app.demoMode"
-                   class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
-                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                </svg>
-                <span class="flex-1">OpenClaw disconnected — using LiteLLM fallback</span>
-                <button @click="$store.app.reconnect()"
-                        class="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 transition-all text-[11px] font-medium flex-shrink-0">
-                  Retry
-                </button>
-              </div>
-              <div x-show="$store.app.demoMode"
-                   class="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                <span class="flex-1">No backend connected — demo mode</span>
-                <button @click="$store.app.reconnect()"
-                        class="px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/30 transition-all text-[11px] font-medium flex-shrink-0">
-                  Reconnect
-                </button>
-              </div>
-              <template x-for="msg in $store.sessions.messages" :key="msg.id">
-                <div class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                  <!-- Merged tool output bubble (collapsed by default) -->
-                  <template x-if="msg._toolOutput && msg._toolCount > 1">
-                    <div class="max-w-[75%]">
-                      <details class="mc-tool-group">
-                        <summary class="mc-tool-group-summary">
-                          <span class="inline-block w-1.5 h-1.5 rounded-full bg-cyan-500/60 mr-1.5"></span>
-                          <span x-text="msg._toolCount + ' tool actions'"></span>
-                        </summary>
-                        <div class="mc-tool-group-body mc-chat-content" x-html="formatChatMessage(msg.content || '')"></div>
-                      </details>
-                      <div class="text-[10px] mt-1 opacity-30 pl-2" x-text="msg.time"></div>
-                    </div>
-                  </template>
-                  <!-- Normal message bubble -->
-                  <template x-if="!msg._toolOutput || !msg._toolCount || msg._toolCount <= 1">
-                    <div class="max-w-[75%] rounded-xl px-4 py-3 text-sm leading-relaxed"
-                         :class="msg.role === 'user' ? 'mc-bubble-user' : (msg._systemNote ? 'bg-mc-elevated/50 border border-mc-border text-mc-text-muted italic' : (msg._toolOutput ? 'mc-bubble-tool' : 'mc-bubble-agent'))">
-                      <div class="mc-chat-content" x-html="formatChatMessage(msg.content || (msg.streaming ? '' : ''))"></div>
-                      <span x-show="msg.streaming && !msg.content" class="inline-block w-2 h-4 bg-cyan-400 animate-pulse rounded-sm"></span>
-                      <span x-show="msg.streaming && msg.content" class="inline-block w-1.5 h-3.5 bg-cyan-400 animate-pulse rounded-sm ml-0.5 align-text-bottom"></span>
-                      <div class="text-[10px] mt-1 opacity-40" x-text="msg.streaming ? 'typing...' : msg.time"></div>
-                    </div>
-                  </template>
-                </div>
-              </template>
-              <div x-show="$store.sessions.messages.length === 0" class="h-full flex items-center justify-center">
-                <div class="text-center text-mc-text-muted px-6">
-                  <div class="text-4xl mb-3 opacity-30">💬</div>
-                  <div class="text-sm" x-text="$store.sessions.active ? 'Send a message to start' : 'Select a conversation or start a new one'"></div>
-                </div>
-              </div>
-            </div>
-            <div x-show="$store.sessions.active" class="border-t border-mc-border p-3 md:p-4 flex gap-2 md:gap-3 flex-shrink-0">
-              <input type="text"
-                     x-model="$store.sessions.input"
-                     @keydown.enter="$store.sessions.sendMessage()"
-                     placeholder="Type your message..."
-                     class="flex-1 bg-mc-bg border border-mc-border rounded-lg px-3 md:px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus min-w-0">
-              <button x-show="$store.sessions._sending"
-                      @click="$store.sessions.abortCurrentRun()"
-                      class="px-3 md:px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:brightness-110 transition-all flex-shrink-0 min-w-[52px]">
-                Stop
-              </button>
-              <button x-show="!$store.sessions._sending"
-                      @click="$store.sessions.sendMessage()"
-                      :disabled="!$store.sessions.input.trim()"
-                      class="px-3 md:px-4 py-2.5 bg-cyan-500 text-mc-bg rounded-lg text-sm font-medium hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0">
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: TEAMS — Redirects to Paperclip
-             ========================================== -->
-        <div x-show="$store.app.view === 'teams'"
-             x-transition:enter="animate-fade-up"
-             class="h-full flex items-center justify-center">
-          <div class="text-center p-8">
-            <div class="text-4xl mb-4">📎</div>
-            <h2 class="text-xl font-bold text-mc-text mb-2">Teams & Governance moved to Paperclip</h2>
-            <p class="text-mc-text-muted mb-6 max-w-md">Performance tracking, leaderboards, tier promotions, and team management are now handled by Paperclip.</p>
-            <a href="/paperclip/" target="_blank"
-               class="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold transition-colors">
-              Open Paperclip
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-              </svg>
-            </a>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: MONITOR
-             ========================================== -->
-        <div x-show="$store.app.view === 'monitor'"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <!-- System Health -->
-          <div class="mb-6">
-            <h2 class="text-sm font-semibold text-mc-text mb-4">System Health</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
-                <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
-                <div>
-                  <div class="text-xs text-mc-text-muted">OpenClaw</div>
-                  <div class="text-sm font-medium" :class="$store.app.ocConnected ? 'text-emerald-400' : 'text-mc-text-muted'"
-                       x-text="$store.app.ocConnected ? 'Online' : 'Offline'"></div>
-                </div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4 flex items-center gap-3">
-                <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
-                <div>
-                  <div class="text-xs text-mc-text-muted">LiteLLM</div>
-                  <div class="text-sm font-medium" :class="$store.app.connected ? 'text-emerald-400' : 'text-mc-text-muted'"
-                       x-text="$store.app.connected ? 'Healthy' : 'Offline'"></div>
-                </div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-xs text-mc-text-muted">Models Available</div>
-                <div class="text-lg font-bold text-mc-text" x-text="$store.monitor.systemHealth.modelsAvailable"></div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-xs text-mc-text-muted">Uptime</div>
-                <div class="text-lg font-bold text-mc-text font-mono" x-text="$store.monitor.systemHealth.uptime"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Token Usage -->
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <h2 class="text-sm font-semibold text-mc-text">Token Usage (Today)</h2>
-                <button @click="$store.monitor.fetchSpend()"
-                        :disabled="$store.monitor.spendLoading"
-                        class="text-xs text-cyan-400 hover:text-cyan-300 disabled:text-mc-text-muted transition-colors"
-                        :title="$store.monitor.spendLastFetched ? 'Last updated: ' + new Date($store.monitor.spendLastFetched).toLocaleTimeString() : 'Click to refresh'">
-                  <span x-show="!$store.monitor.spendLoading">&#x21bb;</span>
-                  <span x-show="$store.monitor.spendLoading" class="animate-spin inline-block">&#x21bb;</span>
-                </button>
-                <span x-show="$store.monitor.spendLastFetched" class="text-[10px] text-mc-text-muted"
-                      x-text="'Updated ' + new Date($store.monitor.spendLastFetched).toLocaleTimeString()"></span>
-              </div>
-              <span class="text-xs text-mc-text-muted font-mono">
-                Total: <span x-text="formatTokens($store.monitor.totalTokens)"></span>
-                · ~$<span x-text="$store.monitor.totalCost.toFixed(3)"></span>
-              </span>
-            </div>
-            <div x-show="$store.monitor.spendError" class="mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400">
-              Spend API: <span x-text="$store.monitor.spendError"></span>
-              <span class="text-mc-text-muted ml-1">(real-time tracking still active)</span>
-            </div>
-            <div class="bg-mc-surface border border-mc-border rounded-xl p-5 space-y-4">
-              <template x-if="Object.keys($store.monitor.tokenUsage).length === 0">
-                <div class="text-center text-xs text-mc-text-muted py-4">
-                  <span x-show="$store.monitor.spendLoading">Loading spend data...</span>
-                  <span x-show="!$store.monitor.spendLoading">No token usage recorded yet today. Usage will appear here as agents run.</span>
-                </div>
-              </template>
-              <template x-for="(usage, modelId) in $store.monitor.tokenUsage" :key="modelId">
-                <div>
-                  <div class="flex items-center justify-between mb-1.5">
-                    <span class="text-xs font-mono text-mc-text-sec" x-text="modelId"></span>
-                    <span class="text-xs text-mc-text-muted">
-                      <span x-text="formatTokens(usage.input + usage.output) + ' tokens'"></span>
-                      <span x-show="usage.cost > 0" class="ml-1 text-amber-400" x-text="'$' + usage.cost.toFixed(4)"></span>
-                      <span x-show="usage.requests > 0" class="ml-1" x-text="'(' + usage.requests + ' req)'"></span>
-                    </span>
-                  </div>
-                  <div class="mc-usage-track">
-                    <div class="mc-usage-fill bg-cyan-500"
-                         :style="'width: ' + Math.round((usage.input + usage.output) / $store.monitor.maxUsage() * 100) + '%'"></div>
-                  </div>
-                  <div class="flex justify-between mt-0.5 text-[10px] text-mc-text-muted">
-                    <span x-text="'In: ' + formatTokens(usage.input)"></span>
-                    <span x-text="'Out: ' + formatTokens(usage.output)"></span>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- Activity Log -->
-          <div>
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-sm font-semibold text-mc-text">Activity Log</h2>
-              <div class="flex gap-1 flex-wrap">
-                <template x-for="level in ['all', 'info', 'warn', 'error', 'debug']" :key="level">
-                  <button @click="$store.monitor.logFilter = level"
-                          class="mc-log-filter-btn px-2.5 py-1.5 rounded text-[10px] font-mono uppercase transition-all"
-                          :class="$store.monitor.logFilter === level ? 'bg-mc-primary-dim text-cyan-400' : 'text-mc-text-muted hover:text-mc-text-sec'">
-                    <span x-text="level"></span>
-                  </button>
-                </template>
-              </div>
-            </div>
-            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
-              <div class="max-h-96 overflow-y-auto p-2">
-                <template x-for="(log, i) in $store.monitor.filteredLogs" :key="i">
-                  <div class="mc-log-row flex items-start gap-3 px-3 py-1.5 rounded text-xs font-mono">
-                    <span class="text-mc-text-muted whitespace-nowrap" x-text="log.time"></span>
-                    <span class="font-semibold w-11 text-center flex-shrink-0"
-                          :class="{'text-cyan-400': log.level==='info', 'text-amber-400': log.level==='warn', 'text-red-400': log.level==='error', 'text-mc-text-muted': log.level==='debug'}"
-                          x-text="log.level.toUpperCase()"></span>
-                    <span class="text-mc-text-sec" x-text="log.msg"></span>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: ACTIVITY — mission control event feed
-             ========================================== -->
-        <div x-show="$store.app.view === 'activity'"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <!-- Header + filters -->
-          <div class="mb-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <h2 class="text-sm font-semibold text-mc-text">Mission Control</h2>
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full font-mono"
-                      :class="$store.app.ocConnected ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'"
-                      x-text="$store.app.ocConnected ? 'LIVE' : 'POLLING'"></span>
-                <span class="text-[10px] text-mc-text-muted" x-text="$store.activity.events.length + ' events'"></span>
-              </div>
-            </div>
-
-            <!-- Agent filter -->
-            <div class="flex gap-1.5 flex-wrap">
-              <button @click="$store.activity.agentFilter = 'all'"
-                      class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all min-h-[32px]"
-                      :class="$store.activity.agentFilter === 'all' ? 'bg-mc-primary-dim text-cyan-400 border border-cyan-500/30' : 'bg-mc-surface border border-mc-border text-mc-text-muted hover:text-mc-text'">All Agents</button>
-              <template x-for="aid in $store.activity.agents" :key="aid">
-                <button @click="$store.activity.agentFilter = aid"
-                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all min-h-[32px]"
-                        :class="$store.activity.agentFilter === aid ? 'bg-mc-primary-dim text-cyan-400 border border-cyan-500/30' : 'bg-mc-surface border border-mc-border text-mc-text-muted hover:text-mc-text'"
-                        x-text="aid"></button>
-              </template>
-            </div>
-
-            <!-- Type filter pills -->
-            <div class="flex gap-1 flex-wrap">
-              <template x-for="f in [
-                {key:'all', label:'All', cls:'bg-mc-primary-dim text-cyan-400'},
-                {key:'tool', label:'Tools', cls:'bg-blue-500/15 text-blue-400'},
-                {key:'comms', label:'Comms', cls:'bg-violet-500/15 text-violet-400'},
-                {key:'file-op', label:'Files', cls:'bg-teal-500/15 text-teal-400'},
-                {key:'chat', label:'Chat', cls:'bg-cyan-500/15 text-cyan-400'},
-                {key:'task-complete', label:'Tasks', cls:'bg-emerald-500/15 text-emerald-400'},
-                {key:'staging-new', label:'Staging', cls:'bg-amber-500/15 text-amber-400'},
-                {key:'error', label:'Errors', cls:'bg-red-500/15 text-red-400'},
-                {key:'rate-limit', label:'Rate Limits', cls:'bg-orange-500/15 text-orange-400'}
-              ]" :key="f.key">
-                <button @click="$store.activity.filter = f.key"
-                        class="px-2 py-1 rounded text-[11px] transition-all min-h-[28px]"
-                        :class="$store.activity.filter === f.key ? f.cls : 'text-mc-text-muted hover:text-mc-text'"
-                        x-text="f.label"></button>
-              </template>
-            </div>
-          </div>
-
-          <!-- Activity event list -->
-          <div class="space-y-1.5">
-            <template x-for="(ev, i) in $store.activity.filtered.slice(0, 200)" :key="ev.time + '-' + i">
-              <div class="bg-mc-surface border border-mc-border rounded-lg px-3 py-2.5 flex items-start gap-2.5 hover:border-mc-border/80 transition-colors">
-                <!-- Type icon -->
-                <span class="text-sm flex-shrink-0 mt-0.5 w-5 text-center" x-text="$store.activity.typeIcon(ev.type)"></span>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                          :class="$store.activity.typeColor(ev.type)"
-                          style="background: rgba(255,255,255,0.05)"
-                          x-text="$store.activity.typeLabel(ev.type)"></span>
-                    <span x-show="ev.agent" class="text-[10px] font-mono px-1 py-0.5 rounded bg-mc-elevated text-mc-text-muted" x-text="ev.agent"></span>
-                    <span x-show="ev.source === 'live'" class="text-[9px] px-1 rounded bg-emerald-500/10 text-emerald-500">LIVE</span>
-                    <span class="text-[10px] text-mc-text-muted ml-auto flex-shrink-0" x-text="$store.activity.formatTime(ev.time)"></span>
-                  </div>
-                  <div class="text-xs text-mc-text-sec leading-relaxed" x-text="ev.message"></div>
-                  <div x-show="ev.detail" class="text-[11px] text-mc-text-muted mt-0.5 font-mono truncate" x-text="ev.detail"></div>
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <div x-show="$store.activity.filtered.length === 0"
-               class="flex flex-col items-center justify-center py-16 text-mc-text-muted">
-            <svg class="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <div class="text-xs">No agent activity recorded yet.</div>
-            <div class="text-[11px] mt-1">When connected live, all agent operations (tool calls, messaging, file writes, errors) appear here in real-time.</div>
-            <div class="text-[11px] mt-0.5">Server-side events from /workspace/agent-activity/log.json are polled every 15s.</div>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: STAGING
-             ========================================== -->
-        <div x-show="$store.app.view === 'staging'"
-             x-transition:enter="animate-fade-up"
-             class="h-full flex overflow-hidden relative">
-
-          <!-- Mobile backdrop for staging panel -->
-          <div x-show="$store.app.mobile && $store.app.stagingPanelOpen"
-               x-transition:enter="transition-opacity ease-out duration-200"
-               x-transition:enter-start="opacity-0"
-               x-transition:enter-end="opacity-100"
-               x-transition:leave="transition-opacity ease-in duration-150"
-               x-transition:leave-start="opacity-100"
-               x-transition:leave-end="opacity-0"
-               @click="$store.app.stagingPanelOpen = false"
-               class="fixed inset-0 bg-black/40 z-[34]" style="top: 56px"></div>
-
-          <!-- Staging List (desktop: inline panel, mobile: slide-in overlay) -->
-          <div :class="$store.app.mobile ? 'mc-chat-panel-mobile' + ($store.app.stagingPanelOpen ? ' open' : '') : 'w-64 min-w-[256px]'"
-               class="bg-mc-surface border-r border-mc-border flex flex-col flex-shrink-0">
-            <div class="p-4 border-b border-mc-border flex items-center justify-between">
-              <div>
-                <div class="text-xs font-semibold uppercase tracking-wider text-mc-text-muted">Agent Staging</div>
-                <div class="text-[11px] text-mc-text-muted mt-1">Review agent-generated content</div>
-              </div>
-              <button x-show="$store.app.mobile"
-                      @click="$store.app.stagingPanelOpen = false"
-                      class="w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-sec hover:bg-mc-elevated transition-all flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <!-- Batch actions for pending items -->
-            <div x-show="$store.staging.items.filter(i => i.status === 'pending').length > 1"
-                 class="px-3 py-2 border-b border-mc-border flex items-center gap-2">
-              <button @click="if(confirm('Approve all ' + $store.staging.items.filter(i => i.status === 'pending').length + ' pending items?')) $store.staging.items.filter(i => i.status === 'pending').forEach(i => $store.staging.approve(i.id))"
-                      class="flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all text-center">
-                Approve All (<span x-text="$store.staging.items.filter(i => i.status === 'pending').length"></span>)
-              </button>
-            </div>
-            <div class="flex-1 overflow-y-auto p-2">
-              <template x-for="item in $store.staging.items" :key="item.id">
-                <button @click="$store.staging.selectedId = item.id; if($store.app.mobile) $store.app.stagingPanelOpen = false"
-                        class="w-full text-left px-3 py-3 rounded-lg mb-1 transition-all"
-                        :class="$store.staging.selectedId === item.id ? 'bg-mc-primary-dim' : 'hover:bg-mc-elevated'">
-                  <div class="flex items-center gap-2">
-                    <span class="text-lg" x-text="item.type === 'html' ? '&#127760;' : '&#128196;'"></span>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-xs font-medium text-mc-text truncate" x-text="item.name"></div>
-                      <div class="text-[11px] text-mc-text-muted truncate" x-text="item.createdBy"></div>
-                    </div>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded-full"
-                          :class="item.status === 'approved' ? 'bg-mc-success-dim text-emerald-400' : item.status === 'rejected' ? 'bg-mc-danger-dim text-red-400' : 'bg-mc-warning-dim text-amber-400'"
-                          x-text="item.status"></span>
-                  </div>
-                </button>
-              </template>
-              <div x-show="$store.staging.items.length === 0" class="p-4 text-center text-xs text-mc-text-muted">
-                No staged content yet. Agents will post previews here.
-              </div>
-            </div>
-          </div>
-
-          <!-- Preview Area -->
-          <div class="flex-1 flex flex-col min-w-0">
-            <!-- Header bar with mobile toggle + item actions -->
-            <div class="h-12 flex items-center px-4 border-b border-mc-border flex-shrink-0 gap-3">
-              <button @click="$store.app.stagingPanelOpen = !$store.app.stagingPanelOpen"
-                      class="mc-mobile-panel-toggle w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-sec hover:bg-mc-elevated transition-all flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
-                </svg>
-              </button>
-              <template x-if="$store.staging.selected">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <span class="text-sm font-semibold text-mc-text truncate flex-1"
-                        x-text="$store.staging.selected.name"></span>
-                  <span class="text-[11px] text-mc-text-muted hidden sm:inline" x-text="$store.staging.selected.description"></span>
-                  <template x-if="!$store.staging._rejectingId">
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                      <button @click="$store.staging.approve($store.staging.selected.id)"
-                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-success-dim text-emerald-400 hover:bg-emerald-500/20 transition-all">
-                        Approve
-                      </button>
-                      <button @click="$store.staging._rejectingId = $store.staging.selected.id; $store.staging._rejectReason = ''"
-                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-mc-danger-dim text-red-400 hover:bg-red-500/20 transition-all">
-                        Reject
-                      </button>
-                    </div>
-                  </template>
-                  <template x-if="$store.staging._rejectingId === $store.staging.selected?.id">
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
-                      <input x-model="$store.staging._rejectReason" type="text" placeholder="Reason (optional)"
-                             class="w-32 sm:w-48 px-2 py-1.5 rounded-lg text-xs bg-mc-elevated border border-mc-border text-mc-text placeholder-mc-text-muted focus:border-red-500/50 focus:outline-none"
-                             @keydown.enter="$store.staging.reject($store.staging._rejectingId, $store.staging._rejectReason); $store.staging._rejectingId = null"
-                             @keydown.escape="$store.staging._rejectingId = null"
-                             x-ref="rejectInput" x-init="$nextTick(() => $refs.rejectInput?.focus())">
-                      <button @click="$store.staging.reject($store.staging._rejectingId, $store.staging._rejectReason); $store.staging._rejectingId = null"
-                              class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">
-                        Send
-                      </button>
-                      <button @click="$store.staging._rejectingId = null"
-                              class="px-2 py-1.5 rounded-lg text-xs text-mc-text-muted hover:text-mc-text transition-all">
-                        Cancel
-                      </button>
-                    </div>
-                  </template>
-                </div>
-              </template>
-              <template x-if="!$store.staging.selected">
-                <span class="text-sm text-mc-text-muted">Select an item to preview</span>
-              </template>
-            </div>
-
-            <template x-if="$store.staging.selected">
-              <div class="flex-1 flex flex-col">
-                <iframe :src="$store.staging.selected.previewUrl"
-                        class="flex-1 w-full border-0 bg-white"
-                        sandbox="allow-scripts allow-same-origin"></iframe>
-              </div>
-            </template>
-            <template x-if="!$store.staging.selected">
-              <div class="flex-1 flex items-center justify-center">
-                <div class="text-center text-mc-text-muted">
-                  <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                  <div class="text-xs">Select a staged item to preview</div>
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- ==========================================
-             VIEW: SETTINGS
-             ========================================== -->
-        <div x-show="$store.app.view === 'settings'"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <div class="max-w-3xl mx-auto space-y-6">
-
-            <!-- Header -->
-            <div>
-              <h1 class="text-xl font-bold text-mc-text">Settings</h1>
-              <p class="text-sm text-mc-text-muted mt-1">Customize your Mission Control sidebar and preferences</p>
-            </div>
-
-            <!-- Sidebar Visibility -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
-              <div class="p-4 md:p-5 border-b border-mc-border">
-                <h2 class="text-sm font-semibold text-mc-text">Sidebar Navigation</h2>
-                <p class="text-xs text-mc-text-muted mt-1">Toggle which views appear in the sidebar. Dashboard and Settings are always visible.</p>
-              </div>
-              <div class="divide-y divide-mc-border/50">
-
-                <!-- Dashboard (always on, disabled) -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Dashboard</div>
-                      <div class="text-[11px] text-mc-text-muted">Overview, stats, and quick actions</div>
-                    </div>
-                  </div>
-                  <div class="mc-toggle on cursor-not-allowed opacity-50" title="Always visible">
-                    <div class="mc-toggle-knob"></div>
-                  </div>
-                </div>
-
-                <!-- Agents -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Agents</div>
-                      <div class="text-[11px] text-mc-text-muted">Create, manage, and monitor AI agents</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('agents')"
-                          class="mc-toggle" :class="$store.settings.sidebar.agents ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Workflows -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Paperclip</div>
-                      <div class="text-[11px] text-mc-text-muted">Agent orchestration dashboard (opens in new tab)</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('workflows')"
-                          class="mc-toggle" :class="$store.settings.sidebar.workflows ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Chat -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Chat</div>
-                      <div class="text-[11px] text-mc-text-muted">Conversations with agents via OpenClaw or LiteLLM</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('chat')"
-                          class="mc-toggle" :class="$store.settings.sidebar.chat ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Teams -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Teams & Governance</div>
-                      <div class="text-[11px] text-mc-text-muted">Opens Paperclip for team management</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('teams')"
-                          class="mc-toggle" :class="$store.settings.sidebar.teams ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Monitor -->
-                <div class="flex items-center justify-between p-4 md:px-5">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Monitor</div>
-                      <div class="text-[11px] text-mc-text-muted">System health, token usage, activity logs</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('monitor')"
-                          class="mc-toggle" :class="$store.settings.sidebar.monitor ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Staging -->
-                <div class="flex items-center justify-between py-2">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Staging</div>
-                      <div class="text-[11px] text-mc-text-muted">Agent content preview and approval</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('staging')"
-                          class="mc-toggle" :class="$store.settings.sidebar.staging ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Activity -->
-                <div class="flex items-center justify-between py-2">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Activity</div>
-                      <div class="text-[11px] text-mc-text-muted">Server-side agent event log</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('activity')"
-                          class="mc-toggle" :class="$store.settings.sidebar.activity ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-                <!-- Cron Jobs -->
-                <div class="flex items-center justify-between py-2">
-                  <div class="flex items-center gap-3">
-                    <svg class="w-5 h-5 text-mc-text-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z M16 12l-4-2.5V7"/>
-                    </svg>
-                    <div>
-                      <div class="text-sm text-mc-text">Cron Jobs</div>
-                      <div class="text-[11px] text-mc-text-muted">Scheduled background tasks</div>
-                    </div>
-                  </div>
-                  <button @click="$store.settings.toggle('cron')"
-                          class="mc-toggle" :class="$store.settings.sidebar.cron ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- Audio Notifications -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
-              <div class="p-4 md:p-5 border-b border-mc-border">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h2 class="text-sm font-semibold text-mc-text">Audio Notifications</h2>
-                    <p class="text-xs text-mc-text-muted mt-1">Subtle sounds when agents complete tasks, new staging items arrive, and more</p>
-                  </div>
-                  <button @click="$store.settings.toggleAudio('enabled'); if($store.settings.audio.enabled) mcAudio.unlock()"
-                          class="mc-toggle" :class="$store.settings.audio.enabled ? 'on' : ''">
-                    <div class="mc-toggle-knob"></div>
-                  </button>
-                </div>
-              </div>
-
-              <div x-show="$store.settings.audio.enabled"
-                   x-transition:enter="transition-all duration-200 ease-out"
-                   x-transition:enter-start="opacity-0 max-h-0"
-                   x-transition:enter-end="opacity-100"
-                   x-transition:leave="transition-all duration-150 ease-in"
-                   x-transition:leave-start="opacity-100"
-                   x-transition:leave-end="opacity-0"
-              >
-                <!-- Volume slider -->
-                <div class="p-4 md:px-5 border-b border-mc-border/50">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs text-mc-text-sec">Volume</span>
-                    <span class="text-xs font-mono text-mc-text-muted" x-text="$store.settings.audio.volume + '%'"></span>
-                  </div>
-                  <input type="range" min="0" max="100" step="5"
-                         :value="$store.settings.audio.volume"
-                         @input="$store.settings.setVolume($event.target.value)"
-                         @change="mcAudio.unlock(); mcAudio.chatComplete()"
-                         class="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-amber-500"
-                         style="background: linear-gradient(to right, var(--mc-accent, #d4a017) 0%, var(--mc-border, #333) 100%)">
-                </div>
-
-                <div class="divide-y divide-mc-border/50">
-                  <!-- Chat responses -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">💬</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Chat Responses</div>
-                        <div class="text-[11px] text-mc-text-muted">When an agent finishes a reply</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('chat')"
-                            class="mc-toggle" :class="$store.settings.audio.chat ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-
-                  <!-- Task completion -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">✓</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Task Events</div>
-                        <div class="text-[11px] text-mc-text-muted">Governance task success or failure</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('tasks')"
-                            class="mc-toggle" :class="$store.settings.audio.tasks ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-
-                  <!-- Staging -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">📋</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Staging</div>
-                        <div class="text-[11px] text-mc-text-muted">New items for review, approvals</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('staging')"
-                            class="mc-toggle" :class="$store.settings.audio.staging ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-
-                  <!-- Workflows -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">⚡</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Workflows</div>
-                        <div class="text-[11px] text-mc-text-muted">When a workflow finishes executing</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('workflows')"
-                            class="mc-toggle" :class="$store.settings.audio.workflows ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-
-                  <!-- Activity -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">🔔</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Background Activity</div>
-                        <div class="text-[11px] text-mc-text-muted">New server-side agent events</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('activity')"
-                            class="mc-toggle" :class="$store.settings.audio.activity ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-
-                  <!-- Errors -->
-                  <div class="flex items-center justify-between p-4 md:px-5">
-                    <div class="flex items-center gap-3">
-                      <span class="text-base w-5 text-center">⚠️</span>
-                      <div>
-                        <div class="text-sm text-mc-text">Error Alerts</div>
-                        <div class="text-[11px] text-mc-text-muted">System errors logged to monitor</div>
-                      </div>
-                    </div>
-                    <button @click="$store.settings.toggleAudio('errors')"
-                            class="mc-toggle" :class="$store.settings.audio.errors ? 'on' : ''">
-                      <div class="mc-toggle-knob"></div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Connection Info -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
-              <h2 class="text-sm font-semibold text-mc-text mb-4">Connection Status</h2>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-mc-elevated">
-                  <span class="mc-dot" :class="$store.app.ocConnected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
-                  <div>
-                    <div class="text-xs text-mc-text-muted">OpenClaw Gateway</div>
-                    <div class="text-sm font-medium" :class="$store.app.ocConnected ? 'text-emerald-400' : 'text-mc-text-muted'"
-                         x-text="$store.app.ocConnected ? 'Connected (real-time)' : 'Disconnected (fallback mode)'"></div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-mc-elevated">
-                  <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
-                  <div>
-                    <div class="text-xs text-mc-text-muted">LiteLLM API</div>
-                    <div class="text-sm font-medium" :class="$store.app.connected ? 'text-emerald-400' : 'text-mc-text-muted'"
-                         x-text="$store.app.connected ? 'Healthy' : 'Offline'"></div>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-4 flex items-center gap-3">
-                <button @click="$store.app.reconnect()"
-                        class="px-4 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs font-medium text-mc-text-sec hover:text-mc-text hover:border-mc-text-muted transition-all">
-                  Reconnect Services
-                </button>
-                <a href="/openclaw/" target="_blank"
-                   class="px-4 py-2 bg-mc-elevated border border-mc-border rounded-lg text-xs font-medium text-mc-text-sec hover:text-mc-text hover:border-mc-text-muted transition-all inline-flex items-center gap-1.5">
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-                  </svg>
-                  Open Native OpenClaw UI
-                </a>
-              </div>
-            </div>
-
-            <!-- About -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl p-4 md:p-5">
-              <h2 class="text-sm font-semibold text-mc-text mb-2">About Mission Control</h2>
-              <p class="text-xs text-mc-text-sec leading-relaxed">
-                Mission Control is the primary hub for managing OpenClaw agents, workflows, and teams
-                on in-fused.org. It connects to OpenClaw via a dedicated WebSocket for real-time agent
-                monitoring and control, and to LiteLLM for multi-provider AI model access.
-                The native OpenClaw UI at <code class="text-cyan-400">/openclaw/</code> is available
-                as a fallback.
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-      <!-- Global Cron Jobs Bottom Sheet (mobile-friendly) -->
-      <template x-if="$store.cron.activeAgent">
-        <div class="fixed inset-0 z-[60]" @click.self="$store.cron.close()">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-black/50" @click="$store.cron.close()"></div>
-          <!-- Bottom sheet -->
-          <div class="absolute bottom-0 left-0 right-0 bg-mc-surface border-t border-mc-border rounded-t-2xl shadow-2xl z-[61] max-h-[70vh] flex flex-col"
-               style="padding-bottom: env(safe-area-inset-bottom, 0px)">
-            <!-- Drag handle -->
-            <div class="flex justify-center pt-3 pb-1">
-              <div class="w-10 h-1 rounded-full bg-mc-border"></div>
-            </div>
-            <!-- Header -->
-            <div class="flex items-center justify-between px-5 pb-3 border-b border-mc-border">
-              <div>
-                <span class="text-sm font-semibold text-mc-text">Scheduled Jobs</span>
-                <span class="text-xs text-mc-text-muted ml-2" x-text="'(' + $store.cron.forAgent($store.cron.activeAgent).length + ')'"></span>
-              </div>
-              <button @click="$store.cron.close()" class="p-2 -mr-2 text-mc-text-muted hover:text-mc-text min-w-[44px] min-h-[44px] flex items-center justify-center">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <!-- Content -->
-            <div class="flex-1 overflow-y-auto px-5 py-3">
-              <div x-show="$store.cron.loading" class="text-sm text-mc-text-muted py-8 text-center">Loading...</div>
-              <div x-show="!$store.cron.loading && $store.cron.forAgent($store.cron.activeAgent).length === 0" class="text-sm text-mc-text-muted py-8 text-center">
-                No scheduled jobs yet. Agents create them via the cron tool.
-              </div>
-              <div x-show="!$store.cron.loading" class="space-y-3">
-                <template x-for="job in $store.cron.forAgent($store.cron.activeAgent)" :key="job.id || job.jobId">
-                  <div class="flex items-center justify-between bg-mc-elevated rounded-xl px-4 py-3">
-                    <div class="flex-1 min-w-0 mr-3">
-                      <div class="text-sm text-mc-text truncate" x-text="job.label || job.name || job.id || 'Unnamed'"></div>
-                      <div class="text-xs text-mc-text-muted font-mono mt-0.5" x-text="$store.cron.formatSchedule(job)"></div>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                      <button @click="$store.cron.runNow(job.id || job.jobId)" title="Run now"
-                              class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-mc-text-muted hover:text-emerald-400 hover:bg-emerald-500/10 transition-all active:scale-95">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
-                      </button>
-                      <button @click="$store.cron.remove(job.id || job.jobId)" title="Remove"
-                              class="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-mc-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-95">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                      </button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-              <div x-show="$store.cron.error" class="text-sm text-red-400 mt-3 text-center" x-text="$store.cron.error"></div>
-            </div>
-          </div>
-        </div>
-      </template>
-
-        <!-- ==========================================
-             VIEW: CRON JOBS
-             ========================================== -->
-        <div x-show="$store.app.view === 'cron'"
-             x-effect="if ($store.app.view === 'cron') $store.cron.fetch()"
-             x-transition:enter="animate-fade-up"
-             class="h-full overflow-y-auto p-4 md:p-6 mc-grid-bg">
-
-          <div class="max-w-4xl mx-auto space-y-4">
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-              <div>
-                <h1 class="text-xl font-bold text-mc-text">Cron Jobs</h1>
-                <p class="text-sm text-mc-text-muted mt-1">Background scheduled tasks running 24/7 on OpenClaw</p>
-              </div>
-              <button @click="$store.cron.fetch()"
-                      class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg text-xs font-medium hover:bg-cyan-500/20 transition-all">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
-                </svg>
-                Refresh
-              </button>
-            </div>
-
-            <!-- Stats row -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-2xl font-bold text-mc-text" x-text="$store.cron.jobs ? $store.cron.jobs.length : 0"></div>
-                <div class="text-[11px] text-mc-text-muted mt-1">Total Jobs</div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-2xl font-bold text-emerald-400" x-text="$store.cron.jobs ? $store.cron.jobs.filter(j => j.status === 'active' || !j.status).length : 0"></div>
-                <div class="text-[11px] text-mc-text-muted mt-1">Active</div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-2xl font-bold text-cyan-400" x-text="(() => { const agents = new Set(); ($store.cron.jobs || []).forEach(j => { if (j.agentId) agents.add(j.agentId); }); return agents.size; })()"></div>
-                <div class="text-[11px] text-mc-text-muted mt-1">Agents with Cron</div>
-              </div>
-              <div class="bg-mc-surface border border-mc-border rounded-xl p-4">
-                <div class="text-2xl font-bold text-amber-400" x-text="$store.cron.jobs ? $store.cron.jobs.filter(j => j.schedule && j.schedule.expression && j.schedule.expression.startsWith('*/5') || j.schedule.expression.startsWith('0 */2')).length : 0"></div>
-                <div class="text-[11px] text-mc-text-muted mt-1">Inbox Checks</div>
-              </div>
-            </div>
-
-            <!-- Job List -->
-            <div class="bg-mc-surface border border-mc-border rounded-xl overflow-hidden">
-              <div class="p-4 border-b border-mc-border">
-                <h2 class="text-sm font-semibold text-mc-text">All Scheduled Jobs</h2>
-              </div>
-
-              <!-- Empty state -->
-              <div x-show="!$store.cron.jobs || $store.cron.jobs.length === 0"
-                   class="p-8 text-center text-mc-text-muted">
-                <svg class="w-8 h-8 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
-                </svg>
-                <div class="text-sm" x-text="$store.app.ocConnected ? 'No cron jobs found' : 'Connect to OpenClaw to view cron jobs'"></div>
-              </div>
-
-              <!-- Job rows -->
-              <template x-for="job in ($store.cron.jobs || [])" :key="job.id || job.jobId">
-                <div class="flex items-center gap-3 p-4 border-b border-mc-border/50 hover:bg-mc-elevated/50 transition-all">
-                  <!-- Status dot -->
-                  <span class="mc-dot flex-shrink-0" style="width:8px;height:8px"
-                        :class="(job.status === 'active' || !job.status) ? 'mc-dot-connected' : 'mc-dot-idle'"></span>
-                  <!-- Agent & schedule -->
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-medium text-mc-text capitalize" x-text="job.agentId || 'unknown'"></span>
-                      <span class="text-[10px] font-mono bg-mc-elevated px-2 py-0.5 rounded text-mc-text-sec"
-                            x-text="$store.cron.formatSchedule(job)"></span>
-                    </div>
-                    <div class="text-xs text-mc-text-muted mt-0.5 truncate"
-                         x-text="(job.payload?.message || job.payload?.kind || '—').substring(0, 80) + ((job.payload?.message || '').length > 80 ? '...' : '')"></div>
-                  </div>
-                  <!-- Actions -->
-                  <div class="flex items-center gap-1 flex-shrink-0">
-                    <button @click="$store.cron.runNow(job.id || job.jobId)" title="Run now"
-                            class="w-9 h-9 flex items-center justify-center rounded-lg text-mc-text-muted hover:text-cyan-400 hover:bg-cyan-500/10 transition-all">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
-                      </svg>
-                    </button>
-                    <button @click="$store.cron.remove(job.id || job.jobId)" title="Remove"
-                            class="w-9 h-9 flex items-center justify-center rounded-lg text-mc-text-muted hover:text-red-400 hover:bg-red-500/10 transition-all">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </template>
-            </div>
-
-            <!-- Error -->
-            <div x-show="$store.cron.error" class="text-sm text-red-400 text-center" x-text="$store.cron.error"></div>
-          </div>
-        </div>
-
-      </main>
-
-      <!-- ================================================================
-           STATUS BAR
-           ================================================================ -->
-      <footer class="h-9 min-h-[36px] bg-mc-surface border-t border-mc-border flex items-center px-3 md:px-4 gap-3 md:gap-4 text-[11px] font-mono text-mc-text-muted flex-shrink-0 overflow-hidden">
-        <div class="flex items-center gap-1.5 flex-shrink-0">
-          <span class="mc-dot" :class="$store.app.connected ? 'mc-dot-connected' : 'mc-dot-disconnected'" style="width:6px;height:6px"></span>
-          <span x-text="$store.app.connected ? 'Online' : 'Demo'"></span>
-        </div>
-        <span class="opacity-30">|</span>
-        <span class="flex-shrink-0" x-text="$store.agents.list.length + ' agents'"></span>
-        <span class="opacity-30 mc-statusbar-extra">|</span>
-        <span class="mc-statusbar-extra" x-text="$store.agents.scheduled + ' scheduled'"></span>
-        <span class="opacity-30 mc-statusbar-extra">|</span>
-        <span class="mc-statusbar-extra" x-text="$store.sessions.list.length + ' sessions'"></span>
-        <div class="flex-1"></div>
-        <span class="opacity-50 flex-shrink-0 hidden sm:inline">in-fused.org</span>
-      </footer>
-    </div>
-
-  </div>
-
-  <!-- ====================================================================
-       AGENT CREATION WIZARD (Modal Overlay)
-       ==================================================================== -->
-  <div x-data x-show="$store.agents.wizardOpen" x-cloak
-       class="fixed inset-0 z-50 flex items-center justify-center"
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0">
-
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$store.agents.closeWizard()"></div>
-
-    <!-- Modal -->
-    <div class="relative bg-mc-surface border border-mc-border rounded-2xl w-[90%] max-w-xl max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
-
-      <!-- Header -->
-      <div class="px-6 pt-6 pb-4 border-b border-mc-border">
-        <div class="flex items-center justify-between">
-          <h2 class="text-base font-semibold text-mc-text">Create New Agent</h2>
-          <button @click="$store.agents.closeWizard()"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg text-mc-text-muted hover:text-mc-text hover:bg-mc-elevated transition-all">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Step Indicators -->
-        <div class="flex items-center gap-2 mt-4">
-          <template x-for="step in [1, 2, 3, 4]" :key="step">
-            <div class="flex items-center gap-2">
-              <div class="mc-step-dot" :class="$store.agents.wizardStep > step ? 'done' : ($store.agents.wizardStep === step ? 'active' : '')">
-                <span x-show="$store.agents.wizardStep <= step" x-text="step"></span>
-                <span x-show="$store.agents.wizardStep > step">&#10003;</span>
-              </div>
-              <div x-show="step < 4" class="mc-step-line" :class="$store.agents.wizardStep > step ? 'done' : ''"></div>
-            </div>
-          </template>
-        </div>
-      </div>
-
-      <!-- Step Content -->
-      <div class="p-6">
-
-        <!-- STEP 1: Identity -->
-        <div x-show="$store.agents.wizardStep === 1">
-          <h3 class="text-sm font-semibold text-mc-text mb-4">Agent Identity</h3>
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Name</label>
-            <input type="text" x-model="$store.agents.wizard.name"
-                   placeholder="e.g., CodeCraft, Sentinel, Scribe..."
-                   class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus">
-          </div>
-          <div class="mb-4">
-            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Avatar</label>
-            <div class="grid grid-cols-8 gap-1.5">
-              <template x-for="emoji in AGENT_EMOJIS" :key="emoji">
-                <button @click="$store.agents.wizard.emoji = emoji"
-                        class="mc-emoji-btn" :class="$store.agents.wizard.emoji === emoji ? 'selected' : ''"
-                        x-text="emoji"></button>
-              </template>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-mc-text-muted uppercase tracking-wider mb-1.5">Description</label>
-            <input type="text" x-model="$store.agents.wizard.description"
-                   placeholder="Brief description of what this agent does..."
-                   class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-2.5 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus">
-          </div>
-        </div>
-
-        <!-- STEP 2: Model -->
-        <div x-show="$store.agents.wizardStep === 2">
-          <h3 class="text-sm font-semibold text-mc-text mb-4">Choose Model</h3>
-          <div class="space-y-2 max-h-[50vh] overflow-y-auto">
-            <template x-for="model in $store.models.list" :key="model.id">
-              <button @click="$store.agents.wizard.model = model.id"
-                      class="w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center gap-3"
-                      :class="$store.agents.wizard.model === model.id ? 'border-cyan-500 bg-mc-primary-dim' : 'border-mc-border bg-mc-bg hover:border-mc-text-muted'">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-mc-text" x-text="model.name"></span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                          :class="{'bg-emerald-500/10 text-emerald-400': model.tier === 'free', 'bg-cyan-500/10 text-cyan-400': model.tier === 'cheap', 'bg-amber-500/10 text-amber-400': model.tier === 'mid', 'bg-violet-500/10 text-violet-400': model.tier === 'premium'}"
-                          x-text="model.tier.toUpperCase()"></span>
-                  </div>
-                  <div class="text-xs text-mc-text-muted mt-0.5" x-text="model.desc"></div>
-                </div>
-                <div class="text-right flex-shrink-0">
-                  <div class="text-xs font-mono text-mc-text-sec" x-text="model.cost"></div>
-                  <div class="text-[10px] text-mc-text-muted" x-text="model.provider"></div>
-                </div>
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <!-- STEP 3: System Prompt & Tools -->
-        <div x-show="$store.agents.wizardStep === 3">
-          <h3 class="text-sm font-semibold text-mc-text mb-4">System Prompt</h3>
-          <div class="mb-6">
-            <textarea x-model="$store.agents.wizard.systemPrompt"
-                      placeholder="Define the agent's role, personality, and instructions...&#10;&#10;Example: You are a senior full-stack developer specializing in TypeScript and React. Review code for bugs, security issues, and performance problems."
-                      rows="5"
-                      class="w-full bg-mc-bg border border-mc-border rounded-lg px-4 py-3 text-sm text-mc-text placeholder-mc-text-muted mc-input-focus font-mono resize-y"></textarea>
-          </div>
-          <h3 class="text-sm font-semibold text-mc-text mb-3">Tools & Capabilities</h3>
-          <div class="grid grid-cols-2 gap-2">
-            <template x-for="tool in AGENT_TOOLS" :key="tool.id">
-              <button @click="$store.agents.toggleTool(tool.id)"
-                      class="text-left px-3 py-3 rounded-lg border transition-all"
-                      :class="$store.agents.wizard.tools.includes(tool.id) ? 'border-cyan-500 bg-mc-primary-dim' : 'border-mc-border bg-mc-bg hover:border-mc-text-muted'">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-base" x-text="tool.icon"></span>
-                  <span class="text-xs font-medium text-mc-text" x-text="tool.name"></span>
-                </div>
-                <div class="text-[10px] text-mc-text-muted" x-text="tool.desc"></div>
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <!-- STEP 4: Review -->
-        <div x-show="$store.agents.wizardStep === 4">
-          <h3 class="text-sm font-semibold text-mc-text mb-4">Review & Create</h3>
-          <div class="bg-mc-bg border border-mc-border rounded-xl p-5 space-y-4">
-            <div class="flex items-center gap-3">
-              <div class="w-14 h-14 rounded-xl bg-mc-elevated flex items-center justify-center text-3xl" x-text="$store.agents.wizard.emoji"></div>
-              <div>
-                <div class="text-base font-semibold text-mc-text" x-text="$store.agents.wizard.name || 'Unnamed Agent'"></div>
-                <div class="text-xs text-mc-text-muted" x-text="$store.agents.wizard.description || 'No description'"></div>
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <div class="text-mc-text-muted uppercase tracking-wider mb-0.5">Model</div>
-                <div class="text-mc-text font-mono" x-text="$store.agents.wizard.model"></div>
-              </div>
-              <div>
-                <div class="text-mc-text-muted uppercase tracking-wider mb-0.5">Tools</div>
-                <div class="text-mc-text" x-text="$store.agents.wizard.tools.length + ' enabled'"></div>
-              </div>
-            </div>
-            <div x-show="$store.agents.wizard.systemPrompt">
-              <div class="text-xs text-mc-text-muted uppercase tracking-wider mb-1">System Prompt</div>
-              <div class="text-xs text-mc-text-sec font-mono bg-mc-elevated rounded-lg p-3 max-h-24 overflow-y-auto whitespace-pre-wrap"
-                   x-text="$store.agents.wizard.systemPrompt"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-mc-border flex justify-between">
-        <button @click="$store.agents.wizardStep > 1 ? $store.agents.prevStep() : $store.agents.closeWizard()"
-                class="px-4 py-2 rounded-lg text-sm text-mc-text-sec border border-mc-border hover:bg-mc-elevated transition-all">
-          <span x-text="$store.agents.wizardStep > 1 ? 'Back' : 'Cancel'"></span>
-        </button>
-        <button x-show="$store.agents.wizardStep < 4"
-                @click="$store.agents.nextStep()"
-                :disabled="$store.agents.wizardStep === 1 && !$store.agents.wizard.name.trim()"
-                class="px-5 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-mc-bg hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-          Next
-        </button>
-        <button x-show="$store.agents.wizardStep === 4"
-                @click="$store.agents.createAgent()"
-                class="px-5 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-mc-bg hover:brightness-110 transition-all shadow-lg shadow-cyan-500/20">
-          Create Agent
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ====================================================================
-       SCRIPTS (order matters: openclaw-client → app.js)
-       ==================================================================== -->
-  <script src="js/native-bridge.js"></script>
-  <script src="js/openclaw-client.js"></script>
-  <script src="js/app.js"></script>
-  <!-- LiteGraph + workflow.js + workflow-bridge.js removed — Paperclip handles workflows -->
-
 </body>
 </html>

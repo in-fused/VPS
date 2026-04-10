@@ -40,15 +40,3 @@ venv/
 
 # Node (if any frontends)
 node_modules/
-
-# Generated docs (created at deploy time by generate-reference-docs.sh)
-# Ignore auto-generated files but keep hand-crafted ones
-workspace/reference/*.md
-!workspace/reference/index.md
-!workspace/reference/startup-chain.md
-workspace/reference/infrastructure.md
-workspace/reference/models.md
-workspace/reference/agents.md
-workspace/reference/frontend.md
-workspace/reference/scraping.md
-workspace/reference/project-overview.md

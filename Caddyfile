@@ -5,294 +5,60 @@
 # When DOMAIN is empty: HTTP on port 80 (access via IP address)
 # =============================================================================
 
-{
-	# Rate limit must execute before authentication checks
-	order rate_limit before basic_auth
-}
-
 {$DOMAIN::80} {
-
-	# =========================================================================
-	# Brute Force Protection — Rate Limiting
-	# =========================================================================
-	# Requires custom Caddy build with github.com/mholt/caddy-ratelimit.
-	# Limits /auth/verify to 5 attempts per minute per IP — enough for
-	# legitimate use (typos, password managers) but blocks automated attacks.
-	# Also applies a general site-wide limit as secondary defense.
-	rate_limit {
-		zone auth_bruteforce {
-			match {
-				path /auth/verify
-			}
-			key    {remote_host}
-			events 5
-			window 1m
-		}
-		zone site_general {
-			key    {remote_host}
-			events 100
-			window 1m
-		}
-		log_key
-	}
-
-	# Custom 429 response for rate-limited requests
-	handle_errors {
-		@ratelimited expression `{err.status_code} == 429`
-		handle @ratelimited {
-			header Content-Type "text/plain"
-			respond "Too many requests. Please wait and try again." 429
-		}
-	}
 
 	# =========================================================================
 	# Security Headers
 	# =========================================================================
 	header {
-		# HSTS — force HTTPS for 2 years, prevent SSL stripping attacks
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		# Prevent clickjacking
+		# Prevent clickjacking (allow same-origin iframes for portal)
 		X-Frame-Options "SAMEORIGIN"
+		# XSS protection
+		X-XSS-Protection "1; mode=block"
 		# Prevent MIME type sniffing
 		X-Content-Type-Options "nosniff"
 		# Referrer policy
 		Referrer-Policy "strict-origin-when-cross-origin"
-		# Content Security Policy — allow self, CDN assets, Google Fonts, inline for Alpine/Tailwind
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss://{host} ws://{host}; frame-ancestors 'self'"
-		# Restrict browser features — deny access to hardware APIs not needed by Mission Control
-		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()"
 		# Remove server identification
 		-Server
 	}
 
 	# =========================================================================
-	# Auth Verification Endpoint — /auth/verify
+	# LiteLLM API Gateway — /api/litellm/*
 	# =========================================================================
-	# Server-side password verification via direct header comparison.
-	# No basicauth directive = no WWW-Authenticate header = no browser popup.
-	# Auth pages send credentials via fetch() with Authorization: Basic header.
-	# caddy-entrypoint.sh pre-computes the expected base64 token.
-	# When WORKSPACE_PASSWORD is unset, always returns OK (no auth).
-	handle /auth/verify {
-		@noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		respond @noauth "OK" 200
-
-		@valid header Authorization "Basic {$WORKSPACE_AUTH_B64}"
-		respond @valid "OK" 200
-		respond "Unauthorized" 401
-	}
-
-	# =========================================================================
-	# Mission Control API — /api/mc/* (cookie-gated LiteLLM proxy)
-	# =========================================================================
-	# Authenticated proxy for Mission Control to call LiteLLM's chat API.
-	# Requires the mc_oc auth cookie. Injects the LiteLLM master key so
-	# the browser never needs to know it. Supports streaming (SSE).
-	handle_path /api/mc/* {
-		# When auth is disabled, proxy unconditionally
-		@mc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @mc_noauth {
-			reverse_proxy litellm:4000 {
-				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
-				flush_interval -1
-			}
-		}
-
-		@mc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @mc_authed {
-			reverse_proxy litellm:4000 {
-				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
-				flush_interval -1
-			}
-		}
-		handle {
-			respond "Unauthorized" 401
-		}
-	}
-
-	# =========================================================================
-	# LiteLLM API Gateway — /api/litellm/* (cookie-gated)
-	# =========================================================================
-	# Previously unprotected — now requires the same mc_oc cookie as all
-	# other authenticated routes. Without this, anyone could hit LiteLLM
-	# directly and potentially enumerate models or make API calls.
 	handle_path /api/litellm/* {
-		@litellm_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @litellm_noauth {
-			reverse_proxy litellm:4000 {
-				flush_interval -1
-			}
-		}
-
-		@litellm_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @litellm_authed {
-			reverse_proxy litellm:4000 {
-				flush_interval -1
-			}
-		}
-		handle {
-			respond "Unauthorized" 401
-		}
-	}
-
-	# =========================================================================
-	# Webhook API — /api/webhook/* (workflow triggers from external services)
-	# =========================================================================
-	# handle_path strips /api/webhook, so handler sees /trigger/{id},
-	# /register, /list, /revoke/{id}, /health.
-	#
-	# /trigger/* is public — external services POST here with a per-webhook
-	# token. All other paths require the site auth cookie.
-	handle_path /api/webhook/* {
-		# Trigger endpoint — public, token-validated by webhook handler
-		@wh_trigger path /trigger/*
-		handle @wh_trigger {
-			reverse_proxy webhook:9090 {
-				flush_interval -1
-			}
-		}
-
-		# Management endpoints — cookie-gated
-		@wh_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @wh_noauth {
-			reverse_proxy webhook:9090 {
-				flush_interval -1
-			}
-		}
-
-		@wh_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @wh_authed {
-			reverse_proxy webhook:9090 {
-				flush_interval -1
-			}
-		}
-		handle {
-			respond "Unauthorized" 401
-		}
-	}
-
-	# =========================================================================
-	# Paperclip — Agent Orchestration UI + API — /paperclip/*
-	# =========================================================================
-	# Cookie-gated proxy to Paperclip's built-in React UI and REST API.
-	# Paperclip runs on port 3100 with its own auth (BETTER_AUTH_SECRET),
-	# but we gate access at the Caddy level with the site cookie first.
-	# Paperclip is optional (docker compose profile). When the service is
-	# not running, Caddy will return 502 on proxy failure — which is fine.
-	# The reverse_proxy directive handles DNS resolution errors gracefully.
-	@paperclipbare path /paperclip
-	redir @paperclipbare /paperclip/ 301
-	handle_path /paperclip/* {
-		@pc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @pc_noauth {
-			reverse_proxy paperclip:3100 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				flush_interval -1
-			}
-		}
-
-		@pc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @pc_authed {
-			reverse_proxy paperclip:3100 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				flush_interval -1
-			}
-		}
-
-		handle {
-			rewrite * /auth.html
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
+		reverse_proxy litellm:4000
 	}
 
 	# =========================================================================
 	# OpenClaw Web UI + WebSocket Gateway — /openclaw/*
 	# =========================================================================
-	# Cookie-based auth gate: caddy-entrypoint.sh exports WORKSPACE_PASS_SHA256,
-	# unauthenticated requests get a login page, authenticated get proxied.
-	# flush_interval -1 disables response buffering (required for WebSocket/SSE).
-	# header_down strips upstream frame-blocking headers for iframe embedding.
+	# OpenClaw's basePath is set to "/openclaw" in its config, so it expects
+	# the full /openclaw/ prefix in requests. Use handle (not handle_path)
+	# to preserve the path.
+	# flush_interval -1 disables response buffering (required for WebSocket
+	# and SSE streams). header_up forwards real client IP for device pairing.
+	# header_down strips upstream frame-blocking headers so Caddy's global
+	# SAMEORIGIN applies — allows embedding in the portal iframe.
 	@openclawbare path /openclaw
 	redir @openclawbare /openclaw/ 301
 	handle /openclaw/* {
-		# When auth is disabled, proxy unconditionally
-		@oc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @oc_noauth {
-			reverse_proxy openclaw:18789 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				header_down -X-Frame-Options
-				header_down -Content-Security-Policy
-				flush_interval -1
-			}
-		}
-
-		@oc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @oc_authed {
-			reverse_proxy openclaw:18789 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				header_down -X-Frame-Options
-				header_down -Content-Security-Policy
-				flush_interval -1
-			}
-		}
-
-		handle {
-			rewrite * /openclaw-auth.html
-			templates
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
+		reverse_proxy openclaw:18789 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_down -X-Frame-Options
+			header_down -Content-Security-Policy
+			flush_interval -1
 		}
 	}
 
 	# =========================================================================
-	# Mission Control WebSocket — /ws/openclaw (dedicated, conflict-free)
+	# OpenClaw WebSocket — root path upgrade
 	# =========================================================================
-	# Dedicated WebSocket path for Mission Control → OpenClaw gateway.
-	# handle_path strips /ws/openclaw so OpenClaw receives connections at /
-	# (which is what its gateway expects). This avoids conflicts with
-	# the landing page's root path and the @openclawws legacy matcher below.
-	#
-	# NOTE: No cookie check here. iOS Safari does not reliably send
-	# SameSite=Lax cookies with WebSocket upgrade requests, causing the
-	# connection to be rejected at the Caddy level. OpenClaw has its own
-	# password authentication via the WebSocket handshake, so the cookie
-	# check is redundant — removing it fixes iOS while maintaining security.
-	handle_path /ws/openclaw {
-		@wsmc_upgrade header Upgrade websocket
-		handle @wsmc_upgrade {
-			reverse_proxy openclaw:18789 {
-				header_up X-Real-IP {remote_host}
-				header_up X-Forwarded-For {remote_host}
-				header_up X-Forwarded-Proto {scheme}
-				flush_interval -1
-			}
-		}
-
-		handle {
-			respond "Unauthorized" 403
-		}
-	}
-
-	# =========================================================================
-	# OpenClaw WebSocket — root path upgrade (legacy / native Control UI)
-	# =========================================================================
-	# The native OpenClaw Control UI connects its WebSocket to wss://host/
-	# (root path, ignoring basePath). Kept for backward compatibility when
-	# accessing /openclaw/ directly. Mission Control uses /ws/openclaw above.
-	#
-	# No cookie check — same iOS Safari fix as /ws/openclaw above.
-	# OpenClaw handles its own password auth via WebSocket handshake.
+	# The Control UI JavaScript connects its WebSocket to wss://host/
+	# (root path, ignoring basePath). Route root-path WebSocket upgrades
+	# to OpenClaw. Open WebUI's WebSocket uses /socket.io/ so no conflict.
 	@openclawws {
 		path /
 		header Upgrade websocket
@@ -307,83 +73,35 @@
 	}
 
 	# =========================================================================
-	# Webhook API — /api/webhooks/* (NO auth — external services call this)
+	# Agent Workspace — /workspace/*
 	# =========================================================================
-	# External webhook triggers for workflows. No cookie required.
-	# Security: per-webhook secrets validated by the handler service.
-	# Rate-limited by site_general zone (100 req/min/IP).
-	handle_path /api/webhooks/* {
-		reverse_proxy webhook:9000 {
-			flush_interval -1
-		}
-	}
-
-	# =========================================================================
-	# Agent Workspace (Mission Control) — /workspace/*
-	# =========================================================================
-	# Cookie-gated like all other protected paths. Unauthenticated requests
-	# get the login page. This prevents direct access to app.js (agent
-	# configs/prompts), agent-workflows/, staging/, and activity logs.
-	# Bare /workspace redirects to /workspace/ for direct URL access.
-	@workspacebare path /workspace
-	redir @workspacebare /workspace/ 301
+	# Sandboxed file server for agent-created content. OpenClaw agents write
+	# files to the shared volume; Caddy serves them read-only.
 	handle_path /workspace/* {
-		# No `templates` directive — workspace serves arbitrary agent-generated
-		# files that may contain {{ }} syntax (Vue, Handlebars, Alpine, etc.)
-		# which Caddy would misinterpret as Go template expressions.
-
-		# When auth is disabled, serve unconditionally
-		@ws_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @ws_noauth {
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
-
-		@ws_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @ws_authed {
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
-
-		handle {
-			rewrite * /auth.html
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
+		root * /srv/workspace
+		file_server
 	}
 
 	# =========================================================================
-	# Landing Page — Chat + Hub Directory
+	# Miniverse Portal — exact root path
 	# =========================================================================
-	# Gated behind the same mc_oc cookie as /openclaw/ and /workspace/.
-	# Unauthenticated visitors see the login page (auth.html).
-	# Authenticated visitors see landing.html (quick chat + site directory).
+	# Serves the 3D terrarium landing page at /. Only matches the exact
+	# root path (non-WebSocket) — all other paths fall through to Open WebUI.
+	@portal {
+		path /
+		not header Upgrade websocket
+	}
+	handle @portal {
+		root * /srv/portal
+		file_server
+	}
+
+	# =========================================================================
+	# Open WebUI — Everything else (main frontend)
+	# =========================================================================
+	# SPA routes: /chat, /chat/123, /auth, /_app/*, /static/*, etc.
 	handle {
-		@root_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
-		handle @root_noauth {
-			rewrite * /landing.html
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
-
-		@root_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
-		handle @root_authed {
-			rewrite * /landing.html
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
-
-		handle {
-			rewrite * /auth.html
-			header Cache-Control "no-store, no-cache, must-revalidate"
-			root * /srv/workspace
-			file_server
-		}
+		reverse_proxy open-webui:8080
 	}
 
 	# =========================================================================

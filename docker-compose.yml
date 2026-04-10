@@ -2,7 +2,8 @@
 # Docker Compose — VPS Unified AI Hub
 ###############################################################################
 # Core services (always running):
-#   - caddy:      Reverse proxy + auto-HTTPS + landing page
+#   - caddy:      Reverse proxy + auto-HTTPS
+#   - open-webui: ChatGPT-like frontend
 #   - litellm:    Multi-provider API gateway
 #   - openclaw:   Autonomous AI agent (24/7 background tasks)
 #
@@ -21,10 +22,7 @@ services:
   # Caddy — Reverse Proxy + Auto-HTTPS
   # ===========================================================================
   caddy:
-    build:
-      context: ./caddy
-      dockerfile: Dockerfile
-    image: in-fused/caddy:latest
+    image: caddy:2-alpine
     container_name: caddy
     restart: unless-stopped
     ports:
@@ -33,15 +31,45 @@ services:
       - "443:443/udp"  # HTTP/3
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./scripts:/opt/scripts:ro
       - caddy-data:/data
       - caddy-config:/config
       - agent-workspace:/srv/workspace:ro
-    command: ["/bin/sh", "/opt/scripts/caddy-entrypoint.sh"]
+      - ./portal:/srv/portal:ro
     environment:
       - DOMAIN=${DOMAIN:-}
-      - WORKSPACE_PASSWORD=${OPENCLAW_PASSWORD}
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+    networks:
+      - ai-net
+    depends_on:
+      - open-webui
+      - litellm
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # ===========================================================================
+  # Open WebUI — Unified AI Frontend
+  # ===========================================================================
+  # ChatGPT-like interface that connects to all your AI providers.
+  # First user to sign up becomes admin.
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    volumes:
+      - webui-data:/app/backend/data
+    environment:
+      # Connect to LiteLLM as the OpenAI-compatible backend
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      # Connect to remote Ollama (Oracle Cloud) if configured
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      # Security
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - WEBUI_AUTH=true
+      # Features
+      - ENABLE_RAG_WEB_SEARCH=true
+      - ENABLE_IMAGE_GENERATION=false
     networks:
       - ai-net
     depends_on:
@@ -49,7 +77,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: 768M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ===========================================================================
   # LiteLLM Database — PostgreSQL
@@ -62,7 +96,7 @@ services:
     environment:
       POSTGRES_DB: litellm
       POSTGRES_USER: llmproxy
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: dbpassword9090
     volumes:
       - litellm-db-data:/var/lib/postgresql/data
     networks:
@@ -84,14 +118,14 @@ services:
   # Routes requests to the cheapest adequate model.
   # Supports Claude, ChatGPT, DeepSeek, Groq, Ollama, and more.
   litellm:
-    image: ghcr.io/berriai/litellm:v1.82.3-stable.patch.2
+    image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm
     restart: unless-stopped
     volumes:
       - ./litellm_config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
-      - DATABASE_URL=postgresql://llmproxy:${DB_PASSWORD}@litellm-db:5432/litellm
+      - DATABASE_URL=postgresql://llmproxy:dbpassword9090@litellm-db:5432/litellm
       - STORE_MODEL_IN_DB=True
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
       - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
@@ -99,15 +133,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GROQ_API_KEY_2=${GROQ_API_KEY_2:-}
-      - GROQ_API_KEY_3=${GROQ_API_KEY_3:-}
-      - GROQ_API_KEY_4=${GROQ_API_KEY_4:-}
       - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
-      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
-      - GEMINI_API_KEY_3=${GEMINI_API_KEY_3:-}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
     networks:
       - ai-net
@@ -122,24 +148,10 @@ services:
       test:
         - CMD-SHELL
         - "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""
-      interval: 15s
+      interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
-
-  # ===========================================================================
-  # OpenClaw Init — Fix volume ownership on fresh deploys
-  # ===========================================================================
-  # Named volumes are root-owned when first created. OpenClaw runs as the
-  # 'node' user (UID 1000) and needs write access to its data directory.
-  # This one-shot container ensures correct ownership before OpenClaw starts.
-  openclaw-init:
-    image: alpine:3
-    container_name: openclaw-init
-    volumes:
-      - openclaw-data:/data
-    command: chown -R 1000:1000 /data
-    restart: "no"
+      retries: 3
+      start_period: 40s
 
   # ===========================================================================
   # OpenClaw — Autonomous AI Agent (24/7)
@@ -155,17 +167,13 @@ services:
   # Config persisted in openclaw-data volume (~/.openclaw/).
   # See README Part 4 for full setup guide.
   openclaw:
-    image: ghcr.io/openclaw/openclaw:v2026.4.1
+    image: ghcr.io/openclaw/openclaw:main
     container_name: openclaw
     restart: unless-stopped
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - openclaw-data:/home/node/.openclaw
       - agent-workspace:/workspace
       - ./scripts:/opt/scripts:ro
-      # Oracle ARM SSH key — agents use exec ssh to access Oracle for builds/deploys
-      - ./oracle-instance-key:/opt/oracle/ssh-key:ro
     command: ["/bin/sh", "/opt/scripts/openclaw-entrypoint.sh"]
     environment:
       # Skip entry.js respawn — we supply the V8 flags and warning suppression directly
@@ -173,37 +181,12 @@ services:
       - NODE_OPTIONS=--max-old-space-size=1024 --disable-warning=ExperimentalWarning
       # Gateway auth — password required to access the /openclaw/ web UI
       - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_PASSWORD}
-      # Domain for OpenClaw allowedOrigins (v2026.2.24+ requirement)
-      - DOMAIN=${DOMAIN:-}
       # Route everything through LiteLLM — no direct provider keys needed
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=http://litellm:4000/v1
-      # v2026.3.2: plaintext ws:// restricted to loopback by default.
-      # Docker bridge network is private (not loopback) — Caddy proxies
-      # to openclaw:18789 via ws:// on the bridge. Without this, internal
-      # WebSocket connections fail with connection refused.
-      - OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1
-      # Reduce overhead on low-power VMs (t3.small) — skip process respawning
-      - OPENCLAW_NO_RESPAWN=1
-      # Auto-kickoff: send startup messages to leads on restart (opt-in)
-      - OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-1}
-      - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
-      # Oracle Cloud ARM — agents SSH here for builds, deploys, background compute
-      - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
-      - ORACLE_ARM_IP_2=${ORACLE_ARM_IP_2:-}
-      # Native Ollama provider — direct connection for tool calling + streaming
-      # (LiteLLM OpenAI-compat /v1 silently drops tool calls when streaming)
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
-      # Gemini API key — used directly by OpenClaw for memory_search embeddings
-      # (free, 1500 RPM, avoids LiteLLM proxy hop for embedding calls)
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      # Telegram bot integration (optional — set in .env)
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     networks:
       - ai-net
     depends_on:
-      openclaw-init:
-        condition: service_completed_successfully
       litellm:
         condition: service_healthy
     deploy:
@@ -211,183 +194,17 @@ services:
         limits:
           memory: 1536M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:18789/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:18789/openclaw/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 90s
 
   # ===========================================================================
-  # Scrapling — Web Scraping API for Agents
-  # ===========================================================================
-  # Lightweight HTTP API wrapping the Scrapling library.
-  # Agents call: exec wget -qO- 'http://scrapling:8000/scrape?url=...'
-  # Modes: "fast" (curl_cffi, ~50MB), "stealth" (Patchright, ~300MB), "browser" (Playwright, ~300MB).
-  scrapling:
-    build:
-      context: ./scrapling
-      dockerfile: Dockerfile
-    image: in-fused/scrapling:latest
-    container_name: scrapling
-    restart: unless-stopped
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  # ===========================================================================
-  # SearXNG — Self-hosted meta search engine (free, unlimited, no API key)
-  # ===========================================================================
-  # Aggregates Google, Bing, DuckDuckGo, Wikipedia. JSON API for agents.
-  # Agents call: exec wget -qO- 'http://searxng:8080/search?q=...&format=json'
-  searxng:
-    image: searxng/searxng:latest
-    container_name: searxng
-    volumes:
-      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
-    restart: unless-stopped
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  # ===========================================================================
-  # Webhook Handler — Lightweight endpoint for external workflow triggers
-  # ===========================================================================
-  # Receives POST requests from external services (GitHub, Stripe, etc.),
-  # validates per-webhook tokens, and triggers workflow execution via OpenClaw.
-  # Internal only — proxied through Caddy at /api/webhook/*.
-  webhook:
-    build:
-      context: ./webhook
-      dockerfile: Dockerfile
-    image: in-fused/webhook:latest
-    container_name: webhook
-    restart: unless-stopped
-    volumes:
-      - agent-workspace:/workspace
-    environment:
-      - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
-      - DOMAIN=${DOMAIN:-in-fused.org}
-      - WEBHOOK_ARCHIVE_URL=${WEBHOOK_ARCHIVE_URL:-}
-      - WEBHOOK_ARCHIVE_TOKEN=${WEBHOOK_ARCHIVE_TOKEN:-}
-      - WEBHOOK_ARCHIVE_AFTER_MINS=${WEBHOOK_ARCHIVE_AFTER_MINS:-30}
-    networks:
-      - ai-net
-    depends_on:
-      workspace-init:
-        condition: service_completed_successfully
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  # ===========================================================================
-  # Paperclip — AI Agent Orchestration Layer
-  # ===========================================================================
-  # Open-source orchestration for managing agent teams (org charts, budgets,
-  # governance, goal alignment). Replaces custom governance/workflow code.
-  # Built from source — no pre-built image on ghcr.io.
-  # UI + API at /paperclip/ via Caddy.
-  paperclip:
-    build:
-      context: ./paperclip
-      dockerfile: Dockerfile
-    image: in-fused/paperclip:latest
-    container_name: paperclip
-    restart: unless-stopped
-    profiles:
-      - paperclip
-    depends_on:
-      paperclip-db:
-        condition: service_healthy
-    environment:
-      - HOST=0.0.0.0
-      - PORT=3100
-      - PAPERCLIP_HOME=/paperclip
-      - DATABASE_URL=postgresql://paperclip:${PAPERCLIP_DB_PASSWORD}@paperclip-db:5432/paperclip
-      - NODE_ENV=production
-      - PAPERCLIP_DEPLOYMENT_MODE=authenticated
-      - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
-      - PAPERCLIP_PUBLIC_URL=https://${DOMAIN:-localhost}/paperclip
-      # Better Auth URL must be the origin only (no /paperclip path) because
-      # Caddy handle_path strips the /paperclip/ prefix before proxying.
-      # If the path is included, Better Auth registers routes at /paperclip/api/auth/*
-      # which never match (server only sees /api/auth/* after Caddy strip).
-      - BETTER_AUTH_URL=https://${DOMAIN:-localhost}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_TRUSTED_ORIGINS=https://${DOMAIN:-localhost}
-    volumes:
-      - paperclip-data:/paperclip
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3100/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # ===========================================================================
-  # Paperclip Database — PostgreSQL (required by paperclip)
-  # ===========================================================================
-  paperclip-db:
-    image: postgres:17-alpine
-    container_name: paperclip-db
-    restart: unless-stopped
-    profiles:
-      - paperclip
-    environment:
-      POSTGRES_USER: paperclip
-      POSTGRES_PASSWORD: ${PAPERCLIP_DB_PASSWORD}
-      POSTGRES_DB: paperclip
-    volumes:
-      - paperclip-pgdata:/var/lib/postgresql/data
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U paperclip"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-      start_period: 10s
-
-  # ===========================================================================
   # Workspace Init — Seeds the agent workspace volume with placeholder content
   # ===========================================================================
-  # Runs once on deploy to sync workspace/ seed files into the shared volume.
-  # Always copies seed files (so Mission Control updates are deployed).
-  # Agent-created files in other paths are preserved.
+  # Runs once on deploy to copy workspace/ files into the shared volume.
+  # Only copies if index.html doesn't already exist (won't overwrite agent work).
   workspace-init:
     image: alpine:3
     container_name: workspace-init
@@ -395,43 +212,8 @@ services:
       - ./workspace:/seed:ro
       - agent-workspace:/workspace
     command: >
-      sh -c "cp -r /seed/. /workspace/ &&
-        mkdir -p /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts /workspace/webhook-triggers &&
-        [ -f /workspace/agent-workflows/index.json ] || echo '{\"workflows\":[]}' > /workspace/agent-workflows/index.json &&
-        [ -f /workspace/agent-workflows/results/index.json ] || echo '{\"results\":[]}' > /workspace/agent-workflows/results/index.json &&
-        [ -f /workspace/staging/index.json ] || echo '{\"items\":[]}' > /workspace/staging/index.json &&
-        [ -f /workspace/webhook-triggers/index.json ] || echo '{\"triggers\":[]}' > /workspace/webhook-triggers/index.json &&
-        [ -f /workspace/agent-activity/log.json ] || echo '{\"events\":[]}' > /workspace/agent-activity/log.json &&
-        [ -f /workspace/mc-state/governance.json ] || echo '{\"agents\":{},\"teams\":[],\"updatedAt\":0}' > /workspace/mc-state/governance.json &&
-        chown -R 1000:1000 /workspace/agent-workflows /workspace/agent-workflows/results /workspace/staging /workspace/agent-activity /workspace/mc-state /workspace/prompts /workspace/webhook-triggers &&
-        echo 'Workspace synced + bridge dirs ready (owned by node:1000)'"
+      sh -c "[ -f /workspace/index.html ] && echo 'Workspace already initialized' || cp -r /seed/. /workspace/"
     restart: "no"
-
-  # ===========================================================================
-  # Watchtower — Auto-Update OpenClaw Container
-  # ===========================================================================
-  # Monitors the OpenClaw container image and auto-pulls new versions.
-  # Checks daily at 4 AM UTC. Only watches openclaw (label filter).
-  # After pulling a new image, restarts the container automatically.
-  watchtower:
-    image: nickfedor/watchtower:latest
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      # Only update containers with the enable label (openclaw)
-      - WATCHTOWER_LABEL_ENABLE=true
-      # Check daily at 4:00 AM UTC
-      - WATCHTOWER_SCHEDULE=0 0 4 * * *
-      # Remove old images after updating
-      - WATCHTOWER_CLEANUP=true
-      # Log only, no external notifications
-      - WATCHTOWER_NO_STARTUP_MESSAGE=false
-    deploy:
-      resources:
-        limits:
-          memory: 64M
 
   # ===========================================================================
   # Ollama — Local LLM Server (OPTIONAL — for same-box deployment)
@@ -469,9 +251,8 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
+  webui-data:
   litellm-db-data:
   openclaw-data:
   agent-workspace:
-  paperclip-data:
-  paperclip-pgdata:
   ollama-data:

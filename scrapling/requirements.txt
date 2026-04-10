@@ -1,3 +1,0 @@
-scrapling[fetchers]
-fastapi
-uvicorn[standard]
