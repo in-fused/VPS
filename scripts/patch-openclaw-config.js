@@ -97,10 +97,10 @@ config.models.providers.litellm = {
     { id: 'claude-opus', name: 'Claude Opus (premium)', contextWindow: 200000, maxTokens: 4096 },
     { id: 'gpt-4o', name: 'GPT-4o (premium)', contextWindow: 128000, maxTokens: 16384 },
     { id: 'o1', name: 'OpenAI o1 (premium)', contextWindow: 200000, maxTokens: 100000 },
-    // Local Ollama (Oracle ARM — zero rate limits)
-    { id: 'qwen3.5:9b', name: 'Qwen 3.5 9B (free/local, best small)', contextWindow: 32768, maxTokens: 8192 },
-    { id: 'qwen3:14b', name: 'Qwen3 14B (free/local, reasoning)', contextWindow: 32768, maxTokens: 8192 },
-    { id: 'qwen3-coder:30b', name: 'Qwen3 Coder 30B MoE (free/local, coding)', contextWindow: 131072, maxTokens: 8192 }
+    // Ollama models are NOT listed here — they use the native 'ollama' provider
+    // (added below when OLLAMA_BASE_URL is set) which supports tool calling +
+    // streaming simultaneously. The LiteLLM OpenAI-compat layer drops tool calls
+    // when streaming, so routing Ollama through LiteLLM breaks agent tool use.
   ]
 };
 
@@ -239,26 +239,30 @@ if (process.env.TELEGRAM_BOT_TOKEN) {
 config.agents.list = config.agents.list || [];
 
 // Only seed agents if none exist yet (preserve user-created agents)
+// Models here match MODEL_MAP below (FREE-FIRST strategy):
+//   Leads/developers: cerebras-gpt-oss-120b (free, 3000 t/s)
+//   Research/security: groq-gpt-oss-120b (free, 500 t/s)
+//   Doc writers: gemini-flash-lite (free, high RPD)
 if (config.agents.list.length === 0) {
   config.agents.list = [
-    // CORE TEAM — DeepSeek V3.2 for working agents, free for doc writers
+    // CORE TEAM
     {
       id: 'lead', workspace: 'Lead',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
       identity: { name: 'Lead', emoji: '\u{1F9E0}' },
-      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
     },
     {
       id: 'codecraft', workspace: 'CodeCraft',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
       identity: { name: 'CodeCraft', emoji: '\u26A1' },
-      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
     },
     {
       id: 'scout', workspace: 'Scout',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/groq-gpt-oss-120b' },
       identity: { name: 'Scout', emoji: '\u{1F50D}' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/groq-gpt-oss-120b' } },
     },
     {
       id: 'scribe', workspace: 'Scribe',
@@ -269,21 +273,21 @@ if (config.agents.list.length === 0) {
     // PLATFORM TEAM
     {
       id: 'ops-lead', workspace: 'Ops Lead',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
       identity: { name: 'Ops Lead', emoji: '\u{1F3AF}' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
     },
     {
       id: 'builder', workspace: 'Builder',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
       identity: { name: 'Builder', emoji: '\u{1F528}' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
     },
     {
       id: 'sentinel', workspace: 'Sentinel',
-      model: { primary: 'litellm/deepseek-chat' },
+      model: { primary: 'litellm/groq-gpt-oss-120b' },
       identity: { name: 'Sentinel', emoji: '\u{1F6E1}\uFE0F' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/deepseek-chat' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'chronicler'], model: { primary: 'litellm/groq-gpt-oss-120b' } },
     },
     {
       id: 'chronicler', workspace: 'Chronicler',
