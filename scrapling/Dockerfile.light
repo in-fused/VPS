@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-light.txt .
+RUN pip install --no-cache-dir -r requirements-light.txt
 
 # Skip 'scrapling install' — no browser binaries needed for fast fetcher
 # stealth/browser methods won't work, but fast handles most scraping needs

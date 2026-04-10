@@ -1,0 +1,6 @@
+# Lightweight deps for Scrapling "fast" fetcher only
+# No playwright/patchright (~92MB saved) — browser methods won't work
+scrapling
+curl_cffi
+fastapi
+uvicorn[standard]
