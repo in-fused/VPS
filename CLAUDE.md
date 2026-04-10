@@ -241,7 +241,7 @@ Docker network: ai-net (bridge)
 | caddy | in-fused/caddy:latest (custom build) | 64M | 80, 443 |
 | litellm | ghcr.io/berriai/litellm:v1.82.3-stable.patch.2 | 512M | 4000 |
 | litellm-db | postgres:16-alpine | 128M | 5432 |
-| openclaw | ghcr.io/openclaw/openclaw:v2026.4.1 | 1536M | 18789 |
+| openclaw | ghcr.io/openclaw/openclaw:main | 1536M | 18789 |
 | scrapling | in-fused/scrapling:latest (custom build) | 512M | 8000 (internal) |
 | searxng | searxng/searxng:latest | 256M | 8080 (internal) |
 | webhook | in-fused/webhook:latest (custom build) | 64M | 9090 (internal) |
@@ -965,9 +965,9 @@ Owner → Paperclip (orchestration, goals, budgets) → OpenClaw (agent runtime,
 
 ---
 
-## OpenClaw V3 Compatibility (verified 2026-04-10, pinned to v2026.4.1)
+## OpenClaw V3 Compatibility (verified 2026-04-10, floating on :main)
 
-**Key changes in v2026.3.1 / v2026.3.2 and how we handle them (protections still active in v2026.4.1):**
+**Key changes in v2026.3.1 / v2026.3.2 and how we handle them (protections still active):**
 
 | Change | Risk | Our Protection |
 |--------|------|----------------|
@@ -981,7 +981,7 @@ Owner → Paperclip (orchestration, goals, budgets) → OpenClaw (agent runtime,
 **Watch for:**
 - If agents exhibit compaction loops (every 2-3 min), the `softThresholdTokens` fix is in the entrypoint
 - If WebSocket connections fail after image update, check `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS=1` is set
-- OpenClaw is now pinned to `v2026.4.1` (no longer floating on `:main`). Watchtower auto-updates daily at 4 AM UTC (label-filtered to OpenClaw only).
+- OpenClaw is floating on `:main` (v2026.4.1 tag was removed from registry). Watchtower auto-updates daily at 4 AM UTC (label-filtered to OpenClaw only).
 
 ---
 
@@ -1033,7 +1033,7 @@ These are solved — do not re-investigate or re-fix. Critical fixes are also li
 ## OpenClaw Deep Reference (researched 2026-03-02)
 
 ### Version Info
-OpenClaw is pinned to `v2026.4.1` in docker-compose.yml. LiteLLM is pinned to `v1.82.3-stable.patch.2`. Watchtower monitors for OpenClaw updates daily at 4 AM UTC (label-filtered). The v2026.2.26 `device-required` issue ([#30092](https://github.com/openclaw/openclaw/issues/30092)) is resolved in v2026.4.1 — our `allowInsecureAuth` + `dangerouslyDisableDeviceAuth` protections remain active.
+OpenClaw is floating on `:main` in docker-compose.yml (v2026.4.1 tag was removed from registry). LiteLLM is pinned to `v1.82.3-stable.patch.2`. Watchtower monitors for OpenClaw updates daily at 4 AM UTC (label-filtered). The v2026.2.26 `device-required` issue ([#30092](https://github.com/openclaw/openclaw/issues/30092)) is resolved — our `allowInsecureAuth` + `dangerouslyDisableDeviceAuth` protections remain active.
 
 ### Entrypoint Config Additions (2026-03-03)
 - `cron.enabled = true` + `cron.maxConcurrentRuns = 1` — agents can create server-side scheduled jobs via the `cron` tool
