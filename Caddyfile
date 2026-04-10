@@ -92,7 +92,7 @@
 		# When auth is disabled, proxy unconditionally
 		@mc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @mc_noauth {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
 				flush_interval -1
 			}
@@ -100,7 +100,7 @@
 
 		@mc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @mc_authed {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
 				flush_interval -1
 			}
@@ -119,14 +119,14 @@
 	handle_path /api/litellm/* {
 		@litellm_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @litellm_noauth {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				flush_interval -1
 			}
 		}
 
 		@litellm_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @litellm_authed {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				flush_interval -1
 			}
 		}

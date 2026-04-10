@@ -1,14 +1,21 @@
 ###############################################################################
-# Docker Compose — VPS Unified AI Hub
+# Docker Compose — VPS Unified AI Hub (EC2)
 ###############################################################################
-# Core services (always running):
+# Core services (always running on EC2):
 #   - caddy:      Reverse proxy + auto-HTTPS + landing page
-#   - litellm:    Multi-provider API gateway
 #   - openclaw:   Autonomous AI agent (24/7 background tasks)
+#   - webhook:    External workflow trigger handler
+#   - watchtower: Auto-update OpenClaw image
 #
-# Optional profiles:
-#   - ollama (profile: local-models): Only if running Ollama on THIS server (GPU instance recommended)
-#     Enable with: docker compose --profile local-models up -d
+# Migrated to Oracle ARM (see oracle/docker-compose.yml):
+#   - litellm:    Multi-provider API gateway → http://ORACLE_ARM_IP:4000
+#   - litellm-db: PostgreSQL for LiteLLM
+#   - scrapling:  Web scraping API → http://ORACLE_ARM_IP:8000
+#   - searxng:    Meta search engine → http://ORACLE_ARM_IP:8080
+#   - ollama:     LLM inference (native, not Docker)
+#
+# Deploy Oracle services first: bash scripts/deploy-oracle.sh
+# Then deploy EC2:              bash scripts/deploy.sh
 #
 # Start core stack:  docker compose up -d
 # View logs:         docker compose logs -f
@@ -42,90 +49,14 @@ services:
       - DOMAIN=${DOMAIN:-}
       - WORKSPACE_PASSWORD=${OPENCLAW_PASSWORD}
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      # Oracle ARM — LiteLLM runs there now
+      - ORACLE_LITELLM_URL=${ORACLE_LITELLM_URL:-http://localhost:4000}
     networks:
       - ai-net
-    depends_on:
-      - litellm
     deploy:
       resources:
         limits:
           memory: 64M
-
-  # ===========================================================================
-  # LiteLLM Database — PostgreSQL
-  # ===========================================================================
-  # Required by LiteLLM for Prisma migrations, virtual keys, and spend tracking.
-  litellm-db:
-    image: postgres:16-alpine
-    container_name: litellm-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: litellm
-      POSTGRES_USER: llmproxy
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - litellm-db-data:/var/lib/postgresql/data
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U llmproxy -d litellm"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # ===========================================================================
-  # LiteLLM — Multi-Provider API Gateway
-  # ===========================================================================
-  # Routes requests to the cheapest adequate model.
-  # Supports Claude, ChatGPT, DeepSeek, Groq, Ollama, and more.
-  litellm:
-    image: ghcr.io/berriai/litellm:v1.82.3-stable.patch.2
-    container_name: litellm
-    restart: unless-stopped
-    volumes:
-      - ./litellm_config.yaml:/app/config.yaml:ro
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    environment:
-      - DATABASE_URL=postgresql://llmproxy:${DB_PASSWORD}@litellm-db:5432/litellm
-      - STORE_MODEL_IN_DB=True
-      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
-      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GROQ_API_KEY_2=${GROQ_API_KEY_2:-}
-      - GROQ_API_KEY_3=${GROQ_API_KEY_3:-}
-      - GROQ_API_KEY_4=${GROQ_API_KEY_4:-}
-      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-}
-      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
-      - GEMINI_API_KEY_3=${GEMINI_API_KEY_3:-}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
-    networks:
-      - ai-net
-    depends_on:
-      litellm-db:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')\""
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
 
   # ===========================================================================
   # OpenClaw Init — Fix volume ownership on fresh deploys
@@ -175,9 +106,9 @@ services:
       - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_PASSWORD}
       # Domain for OpenClaw allowedOrigins (v2026.2.24+ requirement)
       - DOMAIN=${DOMAIN:-}
-      # Route everything through LiteLLM — no direct provider keys needed
+      # Route everything through LiteLLM on Oracle ARM
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
-      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_BASE_URL=${ORACLE_LITELLM_URL:-http://localhost:4000}/v1
       # v2026.3.2: plaintext ws:// restricted to loopback by default.
       # Docker bridge network is private (not loopback) — Caddy proxies
       # to openclaw:18789 via ws:// on the bridge. Without this, internal
@@ -199,13 +130,14 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # Telegram bot integration (optional — set in .env)
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      # Oracle ARM service URLs — agents use these in exec wget calls
+      - ORACLE_SCRAPLING_URL=${ORACLE_SCRAPLING_URL:-http://localhost:8000}
+      - ORACLE_SEARXNG_URL=${ORACLE_SEARXNG_URL:-http://localhost:8080}
     networks:
       - ai-net
     depends_on:
       openclaw-init:
         condition: service_completed_successfully
-      litellm:
-        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -216,56 +148,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
-
-  # ===========================================================================
-  # Scrapling — Web Scraping API for Agents
-  # ===========================================================================
-  # Lightweight HTTP API wrapping the Scrapling library.
-  # Agents call: exec wget -qO- 'http://scrapling:8000/scrape?url=...'
-  # Modes: "fast" (curl_cffi, ~50MB), "stealth" (Patchright, ~300MB), "browser" (Playwright, ~300MB).
-  scrapling:
-    build:
-      context: ./scrapling
-      dockerfile: Dockerfile
-    image: in-fused/scrapling:latest
-    container_name: scrapling
-    restart: unless-stopped
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  # ===========================================================================
-  # SearXNG — Self-hosted meta search engine (free, unlimited, no API key)
-  # ===========================================================================
-  # Aggregates Google, Bing, DuckDuckGo, Wikipedia. JSON API for agents.
-  # Agents call: exec wget -qO- 'http://searxng:8080/search?q=...&format=json'
-  searxng:
-    image: searxng/searxng:latest
-    container_name: searxng
-    volumes:
-      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
-    restart: unless-stopped
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
   # ===========================================================================
   # Webhook Handler — Lightweight endpoint for external workflow triggers
@@ -469,7 +351,6 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
-  litellm-db-data:
   openclaw-data:
   agent-workspace:
   paperclip-data:

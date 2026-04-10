@@ -350,7 +350,7 @@ Log yourself online to /workspace/agent-activity/log.json. Confirm team comms (s
 
 3. SCOUT: External connectivity verification.
    - Test 5 free APIs from TOOLS.md via exec wget (crypto, weather, HN, geocoding, NASA)
-   - Test Scrapling: exec wget -qO- 'http://scrapling:8000/health' then scrape a real URL
+   - Test Scrapling: use the Scrapling URL from your TOOLS.md to test /health then scrape a real URL
    - Test agent-to-agent: send a test message to Ops Lead's team via sessions_send
    - Report which APIs work, which fail, and any rate-limit headers observed
 
@@ -529,7 +529,7 @@ Write a full report to /workspace/staging/prompt-marketplace-research.html:
 
 4. RECOMMENDATION: Build, fork, or skip?
 
-Use web_fetch for URLs, SearXNG for search (exec wget -qO- 'http://searxng:8080/search?q=...&format=json'), and Scrapling for scraping. Current data only, not training knowledge. Cite URLs.
+Use web_fetch for URLs, SearXNG for search (see TOOLS.md for URL), and Scrapling for scraping. Current data only, not training knowledge. Cite URLs.
 
 MANDATORY: Log start + finish to activity log. Write to staging with index.json updated. I check from my phone.</div>
         <button class="expand-btn" onclick="toggleExpand(this)">Show full prompt</button>
