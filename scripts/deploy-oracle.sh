@@ -112,8 +112,8 @@ scp $SCP_OPTS "$REPO_DIR/oracle/docker-compose.yml" "$SSH_USER@$ORACLE_IP:$REMOT
 # LiteLLM config
 scp $SCP_OPTS "$REPO_DIR/litellm_config.yaml" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/litellm_config.yaml"
 
-# Scrapling files
-scp $SCP_OPTS "$REPO_DIR/scrapling/Dockerfile" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/Dockerfile"
+# Scrapling files (light Dockerfile — no Playwright browsers, saves ~400MB)
+scp $SCP_OPTS "$REPO_DIR/scrapling/Dockerfile.light" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/Dockerfile.light"
 scp $SCP_OPTS "$REPO_DIR/scrapling/api.py" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/api.py"
 scp $SCP_OPTS "$REPO_DIR/scrapling/requirements.txt" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/requirements.txt"
 

@@ -95,7 +95,7 @@ services:
   scrapling:
     build:
       context: ./scrapling
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.light
     image: in-fused/scrapling:latest
     container_name: scrapling
     restart: unless-stopped

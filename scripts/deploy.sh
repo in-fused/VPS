@@ -327,20 +327,14 @@ else
     exit 1
 fi
 
-# Paperclip is optional (docker compose profile). Only build when COMPOSE_PROFILES
-# includes "paperclip" or --profile paperclip is passed.
-if echo "${COMPOSE_PROFILES:-}" | grep -q paperclip; then
-    log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
-    if docker compose build paperclip; then
-        log_ok "Paperclip image built"
-    else
-        log_warn "Paperclip build failed (non-fatal — core services will still start)"
-    fi
-    log_info "Pulling Paperclip database image..."
-    docker compose pull paperclip-db || true
+log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
+if docker compose build paperclip; then
+    log_ok "Paperclip image built"
 else
-    log_info "Skipping Paperclip (optional). Enable with: COMPOSE_PROFILES=paperclip bash scripts/deploy.sh"
+    log_warn "Paperclip build failed (non-fatal — core services will still start)"
 fi
+log_info "Pulling Paperclip database image..."
+docker compose pull paperclip-db || true
 
 ###############################################################################
 # 6. Start the stack
