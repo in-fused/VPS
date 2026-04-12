@@ -92,7 +92,7 @@
 		# When auth is disabled, proxy unconditionally
 		@mc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @mc_noauth {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
 				flush_interval -1
 			}
@@ -100,7 +100,7 @@
 
 		@mc_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @mc_authed {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				header_up Authorization "Bearer {$LITELLM_MASTER_KEY}"
 				flush_interval -1
 			}
@@ -119,14 +119,14 @@
 	handle_path /api/litellm/* {
 		@litellm_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @litellm_noauth {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				flush_interval -1
 			}
 		}
 
 		@litellm_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
 		handle @litellm_authed {
-			reverse_proxy litellm:4000 {
+			reverse_proxy {$ORACLE_LITELLM_HOST} {
 				flush_interval -1
 			}
 		}
@@ -302,18 +302,6 @@
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto {scheme}
-			flush_interval -1
-		}
-	}
-
-	# =========================================================================
-	# Webhook API — /api/webhooks/* (NO auth — external services call this)
-	# =========================================================================
-	# External webhook triggers for workflows. No cookie required.
-	# Security: per-webhook secrets validated by the handler service.
-	# Rate-limited by site_general zone (100 req/min/IP).
-	handle_path /api/webhooks/* {
-		reverse_proxy webhook:9000 {
 			flush_interval -1
 		}
 	}

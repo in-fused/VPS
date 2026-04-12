@@ -20,7 +20,15 @@ if [ -n "${WORKSPACE_PASSWORD:-}" ]; then
     echo "[caddy-entrypoint] Workspace auth configured"
 
     export WORKSPACE_AUTH_ENABLED=true
-else
+fi
+
+# Parse ORACLE_LITELLM_URL into host:port for Caddy reverse_proxy upstream
+LITELLM_URL="${ORACLE_LITELLM_URL:-http://litellm:4000}"
+ORACLE_LITELLM_HOST=$(echo "$LITELLM_URL" | sed -E 's|https?://||')
+export ORACLE_LITELLM_HOST
+echo "[caddy-entrypoint] LiteLLM upstream: $ORACLE_LITELLM_HOST"
+
+if [ -z "${WORKSPACE_PASSWORD:-}" ]; then
     # When no password is set, use impossible-to-match sentinel values.
     # Caddy matchers reference these via {$...} env placeholders — if we leave
     # them empty, matchers like `header Cookie *mc_oc=*` match everything or

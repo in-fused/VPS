@@ -29,14 +29,6 @@ model_list:
     model_info:
       description: "FREE — Qwen 3.5 9B. Beats GPT-OSS-120B. Best small model for agents + tool calling."
 
-  - model_name: "qwen3:14b"
-    litellm_params:
-      model: "ollama/qwen3:14b"
-      api_base: "os.environ/OLLAMA_BASE_URL"
-      stream: true
-    model_info:
-      description: "FREE — Qwen3 14B dense. Strong reasoning, reliable on ARM CPU."
-
   - model_name: "qwen3-coder:30b"
     litellm_params:
       model: "ollama/qwen3-coder:30b-a3b"
@@ -483,30 +475,29 @@ router_settings:
   fallbacks:
     # Free-first strategy: exhaust ALL free cloud providers → free Ollama → paid last resort.
     # Production models: groq-gpt-oss-120b, cerebras-gpt-oss-120b, groq-llama-3.3-70b.
-    # Ollama models (qwen3.5:9b, qwen3:14b, qwen3-coder:30b) have ZERO rate limits.
+    # Ollama models (qwen3.5:9b, qwen3-coder:30b) have ZERO rate limits.
     # Cloud free tiers
     - gemini-flash: ["gemini-flash-lite", "groq-gpt-oss-120b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
     - gemini-flash-lite: ["gemini-flash", "groq-gpt-oss-20b", "groq-llama-3.3-70b", "qwen3.5:9b", "deepseek-chat"]
-    - gemini-pro: ["gemini-flash", "groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "qwen3:14b", "deepseek-chat"]
-    - groq-gpt-oss-120b: ["cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
+    - gemini-pro: ["gemini-flash", "groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "qwen3.5:9b", "deepseek-chat"]
+    - groq-gpt-oss-120b: ["cerebras-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
     - groq-gpt-oss-20b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
     - groq-llama-3.3-70b: ["groq-gpt-oss-120b", "cerebras-gpt-oss-120b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
     - groq-qwen3-32b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
-    - cerebras-gpt-oss-120b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3:14b", "deepseek-chat"]
-    - cerebras-qwen3-235b: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
-    - cerebras-zai-glm: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3:14b", "deepseek-chat"]
+    - cerebras-gpt-oss-120b: ["groq-gpt-oss-120b", "groq-llama-3.3-70b", "gemini-flash", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-qwen3-235b: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3.5:9b", "deepseek-chat"]
+    - cerebras-zai-glm: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-pro", "qwen3.5:9b", "deepseek-chat"]
     - cerebras-llama-3.1-8b: ["groq-gpt-oss-20b", "gemini-flash-lite", "qwen3.5:9b", "deepseek-chat"]
     - mistral-large: ["mistral-small", "gemini-flash", "groq-gpt-oss-120b", "deepseek-chat"]
     - mistral-small: ["mistral-large", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
     - mistral-nemo: ["mistral-small", "gemini-flash-lite", "groq-gpt-oss-20b", "deepseek-chat"]
     - codestral: ["mistral-small", "gemini-flash", "qwen3-coder:30b", "deepseek-coder"]
     # DeepSeek — fallback to free providers if down
-    - deepseek-chat: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-flash", "qwen3:14b"]
+    - deepseek-chat: ["cerebras-gpt-oss-120b", "groq-gpt-oss-120b", "gemini-flash", "qwen3.5:9b"]
     - deepseek-coder: ["deepseek-chat", "codestral", "groq-gpt-oss-120b", "qwen3-coder:30b"]
     # Ollama models fall back to each other, then cloud free, then paid
-    - "qwen3.5:9b": ["qwen3:14b", "groq-gpt-oss-20b", "gemini-flash-lite", "deepseek-chat"]
-    - "qwen3:14b": ["qwen3.5:9b", "groq-gpt-oss-120b", "gemini-flash", "deepseek-chat"]
-    - "qwen3-coder:30b": ["qwen3:14b", "codestral", "gemini-flash", "deepseek-coder"]
+    - "qwen3.5:9b": ["qwen3-coder:30b", "groq-gpt-oss-20b", "gemini-flash-lite", "deepseek-chat"]
+    - "qwen3-coder:30b": ["qwen3.5:9b", "codestral", "gemini-flash", "deepseek-coder"]
   # Allow 1 retry per deployment, then cascade to fallback chain.
   # Previously num_retries=0 + RateLimitErrorRetries=0 prevented fallbacks from triggering.
   num_retries: 1

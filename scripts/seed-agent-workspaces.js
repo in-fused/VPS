@@ -13,6 +13,11 @@ const path = require('path');
 const OPENCLAW_DIR = '/home/node/.openclaw';
 const CONFIG_PATH = path.join(OPENCLAW_DIR, 'openclaw.json');
 
+// Oracle ARM service URLs — agents use these in exec wget calls
+const SCRAPLING_URL = process.env.ORACLE_SCRAPLING_URL || 'http://scrapling:8000';
+const SEARXNG_URL = process.env.ORACLE_SEARXNG_URL || 'http://searxng:8080';
+const LITELLM_URL = (process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1').replace(/\/v1$/, '');
+
 let config;
 try {
   config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -307,14 +312,14 @@ Example: \`sessions_send(sessionKey: "agent:codecraft:main", message: "BUILD a c
 
 ## 5. SERVICES
 
-### Scraping (http://scrapling:8000, internal only — requires exec)
-\`exec wget -qO- 'http://scrapling:8000/scrape?url=https://example.com'\`
-POST: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"}}' --header='Content-Type: application/json' http://scrapling:8000/scrape\`
+### Scraping (${SCRAPLING_URL}, Oracle ARM — requires exec)
+\`exec wget -qO- '${SCRAPLING_URL}/scrape?url=https://example.com'\`
+POST: \`exec wget -qO- --post-data='{"url":"...","selectors":{"title":"h1::text"}}' --header='Content-Type: application/json' ${SCRAPLING_URL}/scrape\`
 If exec is not available to you, use \`web_fetch\` for URLs or ask an agent with exec access (CodeCraft, Builder, Sentinel) to scrape for you.
 
-### Web Search (http://searxng:8080, internal only — requires exec)
+### Web Search (${SEARXNG_URL}, Oracle ARM — requires exec)
 SearXNG is a self-hosted meta search engine (Google, Bing, DuckDuckGo). **Use this instead of web_search.**
-\`exec wget -qO- 'http://searxng:8080/search?q=your+query+here&format=json' | head -c 4000\`
+\`exec wget -qO- '${SEARXNG_URL}/search?q=your+query+here&format=json' | head -c 4000\`
 The \`| head -c 4000\` trims output to avoid flooding context. Parse the JSON for results[].title, results[].url, results[].content.
 If exec is not available to you, ask an agent with exec access (CodeCraft, Builder, Sentinel) to search for you.
 
@@ -742,11 +747,11 @@ Produce monitoring dashboards, health reports, security audits, and infrastructu
 - **Chronicler** (chronicler): Platform docs. Runbooks, deploy guides, status pages.
 
 ## HOW TO DELEGATE
-\`sessions_send(sessionKey: "agent:builder:main", message: "BUILD a system health dashboard. Check OpenClaw (wget -qO- http://localhost:18789/openclaw/), LiteLLM (wget -qO- http://litellm:4000/health/liveliness), memory (cat /proc/meminfo), disk (df -h /). Write to /workspace/staging/health-dashboard.html. Dark theme, mobile-first. Update staging/index.json. Log to activity. Confirm back.")\`
+\`sessions_send(sessionKey: "agent:builder:main", message: "BUILD a system health dashboard. Check OpenClaw (wget -qO- http://localhost:18789/openclaw/), LiteLLM (wget -qO- ${LITELLM_URL}/health/liveliness), memory (cat /proc/meminfo), disk (df -h /). Write to /workspace/staging/health-dashboard.html. Dark theme, mobile-first. Update staging/index.json. Log to activity. Confirm back.")\`
 
 ## HEALTH MONITORING COMMANDS
 - OpenClaw: \`exec wget -qO- http://localhost:18789/openclaw/\`
-- LiteLLM: \`exec wget -qO- http://litellm:4000/health/liveliness\`
+- LiteLLM: \`exec wget -qO- ${LITELLM_URL}/health/liveliness\`
 - Memory: \`exec cat /proc/meminfo | grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree'\`
 - Disk: \`exec df -h /\`
 - Processes: \`exec ps aux --sort=-%mem | head -10\`
@@ -827,7 +832,7 @@ Find problems before they find the owner. Produce security reports and monitorin
 
 ## MONITORING COMMANDS (run these on EVERY activation)
 - \`exec wget -qO- http://localhost:18789/openclaw/\`
-- \`exec wget -qO- http://litellm:4000/health/liveliness\`
+- \`exec wget -qO- ${LITELLM_URL}/health/liveliness\`
 - \`exec cat /proc/meminfo | grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree'\`
 - \`exec df -h /\`
 - \`exec ps aux --sort=-%mem | head -10\`

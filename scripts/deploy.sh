@@ -233,6 +233,40 @@ if [ -z "${ORACLE_ARM_IP:-}" ] && [ -n "${OLLAMA_BASE_URL:-}" ]; then
         log_ok "Auto-derived ORACLE_ARM_IP=$DERIVED_IP from OLLAMA_BASE_URL"
     fi
 fi
+# Auto-populate Oracle service URLs from ORACLE_ARM_IP if not already set
+if [ -n "${ORACLE_ARM_IP:-}" ]; then
+    if [ -z "${ORACLE_LITELLM_URL:-}" ]; then
+        ORACLE_LITELLM_URL="http://${ORACLE_ARM_IP}:4000"
+        if grep -q "^ORACLE_LITELLM_URL=" .env; then
+            sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
+        else
+            echo "ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL" >> .env
+        fi
+        export ORACLE_LITELLM_URL
+        log_ok "Auto-derived ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL"
+    fi
+    if [ -z "${ORACLE_SCRAPLING_URL:-}" ]; then
+        ORACLE_SCRAPLING_URL="http://${ORACLE_ARM_IP}:8000"
+        if grep -q "^ORACLE_SCRAPLING_URL=" .env; then
+            sed -i "s|^ORACLE_SCRAPLING_URL=.*|ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL|" .env
+        else
+            echo "ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL" >> .env
+        fi
+        export ORACLE_SCRAPLING_URL
+        log_ok "Auto-derived ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL"
+    fi
+    if [ -z "${ORACLE_SEARXNG_URL:-}" ]; then
+        ORACLE_SEARXNG_URL="http://${ORACLE_ARM_IP}:8080"
+        if grep -q "^ORACLE_SEARXNG_URL=" .env; then
+            sed -i "s|^ORACLE_SEARXNG_URL=.*|ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL|" .env
+        else
+            echo "ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL" >> .env
+        fi
+        export ORACLE_SEARXNG_URL
+        log_ok "Auto-derived ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL"
+    fi
+fi
+
 if [ -z "${ORACLE_ARM_IP_2:-}" ] && [ -n "${OLLAMA_BASE_URL_2:-}" ]; then
     DERIVED_IP_2=$(echo "$OLLAMA_BASE_URL_2" | sed -E 's|https?://([^:/]+).*|\1|')
     if [ -n "$DERIVED_IP_2" ] && [ "$DERIVED_IP_2" != "localhost" ] && [ "$DERIVED_IP_2" != "127.0.0.1" ]; then
@@ -256,10 +290,10 @@ log_ok "Image cleanup complete"
 ###############################################################################
 # 5. Pull latest images
 ###############################################################################
-log_info "Pulling latest container images (excluding locally-built services)..."
+log_info "Pulling latest container images..."
 PULL_ATTEMPTS=3
-# Explicitly list services that use pre-built images (not caddy/scrapling which have build:)
-PULL_SERVICES="litellm litellm-db openclaw watchtower searxng"
+# LiteLLM, Scrapling, SearXNG migrated to Oracle ARM — only pull EC2 services
+PULL_SERVICES="openclaw watchtower"
 for i in $(seq 1 $PULL_ATTEMPTS); do
     if docker compose pull $PULL_SERVICES; then
         break
@@ -285,14 +319,6 @@ else
     exit 1
 fi
 
-log_info "Building scrapling API service..."
-if docker compose build scrapling; then
-    log_ok "Scrapling API image built"
-else
-    log_error "Scrapling build failed — check scrapling/Dockerfile"
-    exit 1
-fi
-
 log_info "Building webhook handler..."
 if docker compose build webhook; then
     log_ok "Webhook handler image built"
@@ -301,20 +327,14 @@ else
     exit 1
 fi
 
-# Paperclip is optional (docker compose profile). Only build when COMPOSE_PROFILES
-# includes "paperclip" or --profile paperclip is passed.
-if echo "${COMPOSE_PROFILES:-}" | grep -q paperclip; then
-    log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
-    if docker compose build paperclip; then
-        log_ok "Paperclip image built"
-    else
-        log_warn "Paperclip build failed (non-fatal — core services will still start)"
-    fi
-    log_info "Pulling Paperclip database image..."
-    docker compose pull paperclip-db || true
+log_info "Building Paperclip (from source — this may take a few minutes on first build)..."
+if docker compose build paperclip; then
+    log_ok "Paperclip image built"
 else
-    log_info "Skipping Paperclip (optional). Enable with: COMPOSE_PROFILES=paperclip bash scripts/deploy.sh"
+    log_warn "Paperclip build failed (non-fatal — core services will still start)"
 fi
+log_info "Pulling Paperclip database image..."
+docker compose pull paperclip-db || true
 
 ###############################################################################
 # 6. Start the stack
@@ -328,17 +348,18 @@ log_ok "Stack started"
 ###############################################################################
 log_info "Waiting for services to become healthy..."
 
-# Wait for LiteLLM
-for i in $(seq 1 30); do
-    if docker compose exec -T litellm curl -sf http://localhost:4000/health/liveliness > /dev/null 2>&1; then
-        log_ok "LiteLLM is healthy"
-        break
+# Check LiteLLM on Oracle ARM (remote health check)
+LITELLM_URL="${ORACLE_LITELLM_URL:-}"
+if [ -n "$LITELLM_URL" ]; then
+    log_info "Checking LiteLLM on Oracle ARM ($LITELLM_URL)..."
+    if curl -sf "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; then
+        log_ok "LiteLLM is healthy on Oracle ARM"
+    else
+        log_warn "LiteLLM on Oracle ARM not responding — run: bash scripts/deploy-oracle.sh"
     fi
-    if [ "$i" -eq 30 ]; then
-        log_warn "LiteLLM health check timed out (may still be starting)"
-    fi
-    sleep 3
-done
+else
+    log_warn "ORACLE_LITELLM_URL not set — LiteLLM must be deployed to Oracle ARM"
+fi
 
 # Wait for OpenClaw
 for i in $(seq 1 30); do
