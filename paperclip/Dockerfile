@@ -85,6 +85,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Enable pnpm so `pnpm paperclipai auth bootstrap-ceo` works in exec sessions
+RUN corepack enable
+
 WORKDIR /app
 
 # Copy entire monorepo — pnpm workspace symlinks in node_modules reference
