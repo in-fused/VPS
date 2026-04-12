@@ -39,12 +39,11 @@ config.gateway.controlUi.allowInsecureAuth = true;
 // Host-header fallback flag. Set both.
 var domain = process.env.DOMAIN || '';
 config.gateway.controlUi.allowedOrigins = domain
-  ? ['https://' + domain, 'http://openclaw:18789']
-  : ['http://openclaw:18789'];
-// http://openclaw:18789 is the Docker-internal origin for Paperclip's gateway adapter.
-// When Paperclip connects as 'webchat' clientId to ws://openclaw:18789/, the Host
-// header is openclaw:18789 and dangerouslyAllowHostHeaderOriginFallback constructs
-// the effective origin as http://openclaw:18789 — must be in this list.
+  ? ['https://' + domain, 'http://openclaw:18789', 'openclaw:18789']
+  : ['http://openclaw:18789', 'openclaw:18789'];
+// http://openclaw:18789 and openclaw:18789 cover both formats that
+// dangerouslyAllowHostHeaderOriginFallback may construct from the Host header
+// when Paperclip's gateway adapter connects internally via Docker bridge.
 config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
 
 // Remove any unknown keys that cause config validation errors
