@@ -231,6 +231,14 @@ async function registerAgents(companyId) {
         clientMode: 'webchat',         // → webchat mode; requires openclaw:18789 in controlUi.allowedOrigins
         clientVersion: 'paperclip',
         scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
+        // Paperclip connects directly to OpenClaw (bypassing Caddy). Without Caddy,
+        // OpenClaw never sees X-Forwarded-Proto: https, so it refuses operator.write scope.
+        // Injecting these headers via ctx.config.headers (execute.ts:1036) tells OpenClaw
+        // this is a trusted HTTPS connection and grants full write scopes.
+        headers: {
+          'origin': `https://${process.env.DOMAIN || 'in-fused.org'}`,
+          'x-forwarded-proto': 'https',
+        },
         sessionKeyStrategy: 'issue',
         timeoutSec: 120,
         waitTimeoutMs: 30000,
