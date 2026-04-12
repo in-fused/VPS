@@ -97,6 +97,11 @@ COPY --from=build /build ./
 
 # Data directory
 RUN mkdir -p /paperclip && chown node:node /paperclip
+
+# Allow node user to write Vite temp files — needed by `paperclipai onboard`
+# which starts a temporary server for verification. Without this the onboard
+# command fails with EACCES on /app/ui/node_modules/.vite-temp/.
+RUN mkdir -p /app/ui/node_modules/.vite-temp && chown node:node /app/ui/node_modules/.vite-temp
 VOLUME /paperclip
 
 ENV NODE_ENV=production
