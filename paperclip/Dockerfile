@@ -73,7 +73,7 @@ RUN test -f server/dist/index.js || (echo "Server build failed" && exit 1)
 # imports @paperclipai/db/src/index.ts (and other workspace packages) via the tsx loader.
 # pnpm symlinks server/node_modules/@paperclipai/* → packages/*, so deleting
 # packages/*/src breaks the runtime module resolution.
-RUN rm -rf .git .github docs cli/src ui/src \
+RUN rm -rf .git .github docs ui/src \
     && find . -name '*.md' -not -path './node_modules/*' -delete 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
