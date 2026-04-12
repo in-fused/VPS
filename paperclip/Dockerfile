@@ -43,11 +43,22 @@ RUN NODE_OPTIONS="--max-old-space-size=1024" pnpm --filter @paperclipai/ui build
     && pnpm --filter @paperclipai/server build
 
 # Patch API paths in compiled JS for /paperclip/ sub-directory deployment
-# Source has: const BASE = "/api" (client.ts) and `/api/auth${path}` (auth.ts)
-# Minified output may use double quotes, single quotes, or backtick templates
-# All must be prefixed with /paperclip so Caddy routes them correctly
+# Caddy handle_path strips /paperclip/ so the Paperclip server receives clean
+# /api/* and /assets/* paths. Browser requests must include the /paperclip/
+# prefix so Caddy routes them; these sed rewrites add that prefix.
+#
+# Two pattern sets:
+#   1. "/api/"  and '/api/'  — catches hardcoded sub-paths: "/api/trpc", "/api/auth", etc.
+#   2. "/api"   and '/api'   — catches the BASE constant: const BASE = "/api"
+#   3. backtick — catches template literals: `/api/auth${path}`
+#
+# Order matters: apply "/api/" (with slash) before "/api" (without) to avoid
+# double-patching. A string like "/api/trpc" would be caught by rule 1 and
+# left alone by rule 2 (no plain "/api" remains after rule 1 patches it).
 RUN find ui/dist -name '*.js' -exec sed -i \
+        -e 's|"/api/|"/paperclip/api/|g' \
         -e 's|"/api"|"/paperclip/api"|g' \
+        -e "s|'/api/|'/paperclip/api/|g" \
         -e "s|'/api'|'/paperclip/api'|g" \
         {} + \
     && find ui/dist -name '*.js' -exec sed -i \
