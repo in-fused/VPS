@@ -39,7 +39,7 @@ RUN sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.confi
     || sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.config.js \
     || true
 
-RUN NODE_OPTIONS="--max-old-space-size=1024" pnpm --filter @paperclipai/ui build \
+RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @paperclipai/ui build \
     && pnpm --filter @paperclipai/server build
 
 # Patch API paths in compiled JS for /paperclip/ sub-directory deployment
