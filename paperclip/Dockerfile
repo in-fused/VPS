@@ -39,6 +39,12 @@ RUN sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.confi
     || sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.config.js \
     || true
 
+# Patch React Router basename so routes match under /paperclip/ sub-path.
+# BrowserRouter has no basename by default — router sees the full path
+# /paperclip/invite/TOKEN and no route matches. Setting basename="/paperclip"
+# tells react-router to strip the prefix before matching, so /invite/:token works.
+RUN sed -i 's|<BrowserRouter>|<BrowserRouter basename="/paperclip">|g' ui/src/main.tsx
+
 RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @paperclipai/ui build \
     && pnpm --filter @paperclipai/server build
 
