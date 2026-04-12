@@ -182,7 +182,7 @@
 	# The reverse_proxy directive handles DNS resolution errors gracefully.
 	@paperclipbare path /paperclip
 	redir @paperclipbare /paperclip/ 301
-	handle_path /paperclip/* {
+	handle /paperclip/* {
 		@pc_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @pc_noauth {
 			reverse_proxy paperclip:3100 {
