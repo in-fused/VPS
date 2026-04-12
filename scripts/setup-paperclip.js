@@ -227,7 +227,8 @@ async function registerAgents(companyId) {
         password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
         disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
         autoPairOnFirstConnect: true,
-        clientMode: 'backend',
+        clientId: 'webchat',           // → grants full operator scopes (backend default only gets admin)
+        clientMode: 'webchat',         // → webchat mode; requires openclaw:18789 in controlUi.allowedOrigins
         clientVersion: 'paperclip',
         scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
         sessionKeyStrategy: 'issue',
