@@ -141,8 +141,10 @@ async function waitForHealth() {
   for (let i = 1; i <= MAX_RETRIES; i++) {
     try {
       const res = await fetch(`${PAPERCLIP_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
-      if (res.ok) {
-        console.log(`${PREFIX} Paperclip healthy (attempt ${i}/${MAX_RETRIES})`);
+      // 200 = healthy (pre-onboarding), 403 = healthy (post-onboarding, auth-protected)
+      // Both mean Paperclip is running and accepting connections
+      if (res.ok || res.status === 403) {
+        console.log(`${PREFIX} Paperclip healthy (attempt ${i}/${MAX_RETRIES}, status ${res.status})`);
         return true;
       }
     } catch {}
@@ -221,8 +223,9 @@ async function registerAgents(companyId) {
       adapterConfig: {
         url: `ws://openclaw:18789`,
         agentId: agent.openclawAgentId,
-        authToken: OPENCLAW_PASSWORD,
-        disableDeviceAuth: true,
+        authToken: OPENCLAW_PASSWORD,  // → HTTP Authorization header + auth.token in WS connect
+        password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
+        disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
         autoPairOnFirstConnect: true,
         clientMode: 'backend',
         clientVersion: 'paperclip',
