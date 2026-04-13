@@ -236,7 +236,13 @@ async function registerAgents(companyId) {
         clientMode: 'ui',
         clientVersion: 'paperclip',
         scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
-        sessionKeyStrategy: 'issue',
+        // Use 'fixed' strategy with a pre-formatted session key that already starts with
+        // "agent:". The prefixSessionKeyForAgent() helper in execute.ts returns keys that
+        // start with "agent:" unchanged, bypassing the argument-order bug that produces
+        // "agent:main:lead" (wrong) instead of "agent:lead:main" (correct) when a bare
+        // session name like "main" is passed through the prefixer.
+        sessionKeyStrategy: 'fixed',
+        sessionKey: `agent:${agent.openclawAgentId}:main`,
         timeoutSec: 120,
         waitTimeoutMs: 30000,
       },
