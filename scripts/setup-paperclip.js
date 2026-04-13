@@ -236,6 +236,12 @@ async function registerAgents(companyId) {
         clientMode: 'ui',
         clientVersion: 'paperclip',
         scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
+        // Origin header is required even for openclaw-control-ui mode — OpenClaw enforces
+        // the allowedOrigins check regardless of client ID. The origin must be in
+        // gateway.controlUi.allowedOrigins (set by patch-openclaw-config.js).
+        headers: {
+          origin: `https://${process.env.DOMAIN || 'in-fused.org'}`,
+        },
         // Use 'fixed' strategy with a pre-formatted session key that already starts with
         // "agent:". The prefixSessionKeyForAgent() helper in execute.ts returns keys that
         // start with "agent:" unchanged, bypassing the argument-order bug that produces
