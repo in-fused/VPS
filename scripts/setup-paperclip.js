@@ -249,8 +249,8 @@ async function registerAgents(companyId) {
         // session name like "main" is passed through the prefixer.
         sessionKeyStrategy: 'fixed',
         sessionKey: `agent:${agent.openclawAgentId}:main`,
-        timeoutSec: 120,
-        waitTimeoutMs: 30000,
+        timeoutSec: 600,      // agent turns involve bootstrap, file reads, model inference — needs >2min
+        waitTimeoutMs: 60000,
       },
     };
 
