@@ -227,18 +227,15 @@ async function registerAgents(companyId) {
         password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
         disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
         autoPairOnFirstConnect: true,
-        clientId: 'webchat',           // → grants full operator scopes (backend default only gets admin)
-        clientMode: 'webchat',         // → webchat mode; requires openclaw:18789 in controlUi.allowedOrigins
+        // openclaw-control-ui is the only clientId that triggers Control UI scope grants.
+        // v2026.3.12+ calls clearUnboundScopes() for all other clientIds (webchat, gateway-client,
+        // etc.) on device-less shared-auth connections, reducing scopes to operator.admin only.
+        // With openclaw-control-ui + allowInsecureAuth=true + dangerouslyDisableDeviceAuth=true,
+        // full write scopes are granted even over plain ws:// on the Docker bridge.
+        clientId: 'openclaw-control-ui',
+        clientMode: 'ui',
         clientVersion: 'paperclip',
         scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
-        // Paperclip connects directly to OpenClaw (bypassing Caddy). Without Caddy,
-        // OpenClaw never sees X-Forwarded-Proto: https, so it refuses operator.write scope.
-        // Injecting these headers via ctx.config.headers (execute.ts:1036) tells OpenClaw
-        // this is a trusted HTTPS connection and grants full write scopes.
-        headers: {
-          'origin': `https://${process.env.DOMAIN || 'in-fused.org'}`,
-          'x-forwarded-proto': 'https',
-        },
         sessionKeyStrategy: 'issue',
         timeoutSec: 120,
         waitTimeoutMs: 30000,
