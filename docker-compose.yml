@@ -78,35 +78,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./oracle-instance-key:/root/.ssh/oracle-key:ro
+      - ./scripts:/opt/scripts:ro
     environment:
       - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
-    command: >
-      sh -c "
-        if [ -z \"$$ORACLE_ARM_IP\" ]; then
-          echo '[oracle-tunnel] ORACLE_ARM_IP not set — tunnel disabled, sleeping';
-          exec sleep infinity;
-        fi;
-        if [ ! -s /root/.ssh/oracle-key ]; then
-          echo '[oracle-tunnel] oracle-instance-key is empty — tunnel disabled, sleeping';
-          exec sleep infinity;
-        fi;
-        apk add --no-cache openssh-client > /dev/null 2>&1;
-        chmod 600 /root/.ssh/oracle-key;
-        echo '[oracle-tunnel] Starting SSH tunnel to ubuntu@'$$ORACLE_ARM_IP;
-        while true; do
-          ssh -o StrictHostKeyChecking=no
-              -o ServerAliveInterval=30
-              -o ServerAliveCountMax=3
-              -o ExitOnForwardFailure=yes
-              -o ConnectTimeout=10
-              -i /root/.ssh/oracle-key
-              -L 0.0.0.0:4000:localhost:4000
-              -L 0.0.0.0:8000:localhost:8000
-              -L 0.0.0.0:8080:localhost:8080
-              -N ubuntu@$$ORACLE_ARM_IP || true;
-          echo '[oracle-tunnel] Disconnected — retrying in 5s...';
-          sleep 5;
-        done"
+    command: ["/bin/sh", "/opt/scripts/oracle-tunnel.sh"]
     networks:
       - ai-net
     deploy:
