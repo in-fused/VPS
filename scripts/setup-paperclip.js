@@ -182,10 +182,10 @@ async function findOrCreateCompany() {
     return res.json.id;
   }
 
-  // May need onboarding first
+  // 401/403 = Paperclip is in authenticated mode — not a missing onboarding.
+  // Agent registration via direct DB is handled by scripts/setup-paperclip-db.sh in deploy.sh.
   if (res.status === 401 || res.status === 403) {
-    console.log(`${PREFIX} Paperclip needs initial onboarding. Visit https://in-fused.org/paperclip/ to complete setup.`);
-    console.log(`${PREFIX} After onboarding, re-run this script or restart the stack.`);
+    console.log(`${PREFIX} Paperclip API requires auth (${res.status}) — agents registered via deploy.sh DB setup.`);
     return null;
   }
 

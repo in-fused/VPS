@@ -44,13 +44,6 @@ node /opt/scripts/seed-agent-workspaces.js
 # burn out before the gateway is even listening.
 (sleep 45 && node /opt/scripts/seed-via-rpc.js && sleep 5 && node /opt/scripts/auto-kickoff.js) &
 
-# Step 3b: Register agents in Paperclip (background, non-blocking).
-# Waits for Paperclip to be healthy, creates company + agents + goals.
-# Idempotent — skips existing resources. Non-fatal on failure.
-# The script handles its own health-wait (treats 403 as healthy post-onboarding).
-# Note: wget exits 8 on HTTP errors (including 403), so we check TCP reachability
-# with a quick connect attempt instead of gating on HTTP status.
-(sleep 60 && node /opt/scripts/setup-paperclip.js || echo "[entrypoint] Paperclip setup failed — skipping agent registration") &
 
 # Step 4: Start gateway. Do NOT pass --bind on CLI — it bypasses config file
 # validation for controlUi.allowedOrigins. Let openclaw.json handle it.

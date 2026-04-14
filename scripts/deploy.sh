@@ -425,6 +425,23 @@ for i in $(seq 1 30); do
 done
 
 ###############################################################################
+# 7b. Register agents in Paperclip via direct DB access
+###############################################################################
+# Bypasses Better Auth by writing directly to PostgreSQL.
+# Runs after the stack is up; paperclip-db healthcheck ensures it's ready.
+# Non-fatal — core services work even if this step fails.
+if docker compose exec -T paperclip-db psql -U paperclip paperclip -c "SELECT 1;" > /dev/null 2>&1; then
+    log_info "Registering OpenClaw agents in Paperclip DB..."
+    if bash scripts/setup-paperclip-db.sh; then
+        log_ok "Paperclip agents registered"
+    else
+        log_warn "Paperclip DB setup encountered errors (check output above)"
+    fi
+else
+    log_warn "Paperclip DB not ready — skipping agent registration (retry: bash scripts/setup-paperclip-db.sh)"
+fi
+
+###############################################################################
 # 8. Status Report
 ###############################################################################
 echo ""
