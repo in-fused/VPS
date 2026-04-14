@@ -63,8 +63,17 @@ config.gateway.trustedProxies = ['172.16.0.0/12', '10.0.0.0/8', '192.168.0.0/16'
 config.models = config.models || {};
 config.models.mode = 'merge';
 config.models.providers = config.models.providers || {};
+// Resolve LiteLLM base URL: prefer OPENAI_API_BASE_URL (set from ORACLE_LITELLM_URL in
+// docker-compose), then ORACLE_LITELLM_URL directly (in case the compose env chain broke),
+// then fall back to the Oracle ARM hardcoded host, and last resort the old Docker service name.
+// The 'litellm' Docker service no longer exists on EC2 — it runs on Oracle ARM.
+var litellmBaseUrl = process.env.OPENAI_API_BASE_URL
+  || (process.env.ORACLE_LITELLM_URL ? process.env.ORACLE_LITELLM_URL + '/v1' : null)
+  || 'http://litellm:4000/v1';
+console.log('[config-patch] LiteLLM baseUrl:', litellmBaseUrl);
+
 config.models.providers.litellm = {
-  baseUrl: process.env.OPENAI_API_BASE_URL || 'http://litellm:4000/v1',
+  baseUrl: litellmBaseUrl,
   apiKey: process.env.OPENAI_API_KEY || '',
   api: 'openai-completions',
   models: [

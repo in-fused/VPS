@@ -343,6 +343,23 @@ log_info "Starting AI Hub stack..."
 docker compose up -d
 log_ok "Stack started"
 
+# Force-recreate Caddy to ensure ORACLE_LITELLM_URL env var is picked up.
+# Docker Compose normally detects env changes, but reverse-proxy upstream bugs
+# (e.g. stale {$ORACLE_LITELLM_HOST} pointing at localhost:4000) are invisible
+# from the outside — MC just shows "API disconnected" with no hint why.
+# Recreating Caddy on every deploy is cheap (<5s) and guarantees fresh env.
+if [ -n "${ORACLE_LITELLM_URL:-}" ]; then
+    log_info "Recreating caddy to apply ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL ..."
+    docker compose up -d --force-recreate --no-deps caddy > /dev/null 2>&1 || true
+    # Prove the container actually got the var
+    CADDY_UPSTREAM=$(docker compose exec -T caddy printenv ORACLE_LITELLM_URL 2>/dev/null || echo "")
+    if [ "$CADDY_UPSTREAM" = "$ORACLE_LITELLM_URL" ]; then
+        log_ok "Caddy upstream: $CADDY_UPSTREAM"
+    else
+        log_warn "Caddy ORACLE_LITELLM_URL mismatch (got: '$CADDY_UPSTREAM', expected: '$ORACLE_LITELLM_URL')"
+    fi
+fi
+
 ###############################################################################
 # 7. Wait for health checks
 ###############################################################################

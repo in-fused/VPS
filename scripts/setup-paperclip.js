@@ -193,6 +193,36 @@ async function findOrCreateCompany() {
   return null;
 }
 
+function buildAdapterConfig(agent) {
+  return {
+    url: 'ws://openclaw:18789',
+    agentId: agent.openclawAgentId,
+    authToken: OPENCLAW_PASSWORD,  // → HTTP Authorization header + auth.token in WS connect
+    password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
+    disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
+    autoPairOnFirstConnect: true,
+    // openclaw-control-ui is the only clientId that triggers Control UI scope grants.
+    // v2026.3.12+ calls clearUnboundScopes() for all other clientIds, reducing scopes to
+    // operator.admin only. With openclaw-control-ui + allowInsecureAuth=true +
+    // dangerouslyDisableDeviceAuth=true, full write scopes work over Docker bridge ws://.
+    clientId: 'openclaw-control-ui',
+    clientMode: 'ui',
+    clientVersion: 'paperclip',
+    scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
+    // Origin header is required — OpenClaw enforces allowedOrigins regardless of clientId.
+    // Must match gateway.controlUi.allowedOrigins (set by patch-openclaw-config.js).
+    headers: {
+      origin: `https://${process.env.DOMAIN || 'in-fused.org'}`,
+    },
+    // 'fixed' strategy bypasses the prefixSessionKeyForAgent() arg-order bug in execute.ts
+    // that would produce "agent:main:lead" instead of "agent:lead:main".
+    sessionKeyStrategy: 'fixed',
+    sessionKey: `agent:${agent.openclawAgentId}:main`,
+    timeoutSec: 600,       // agent bootstrap + file reads + inference easily takes >60s
+    waitTimeoutMs: 120000, // 2 min WS response wait — allow agent to start reasoning
+  };
+}
+
 async function registerAgents(companyId) {
   // Get existing agents
   const existing = await api('GET', `/api/companies/${companyId}/agents`);
@@ -205,11 +235,25 @@ async function registerAgents(companyId) {
     }
   }
 
-  // Register agents in order (CEO first, then reports)
-  // First pass: create all agents without reportsTo
+  // First pass: create missing agents, patch existing ones.
+  // We ALWAYS patch existing agents because Paperclip bug #44493 means authToken
+  // may not be persisted correctly on first creation. Patching on every restart
+  // ensures the live adapter config always matches what we expect.
   for (const agent of AGENTS) {
+    const adapterConfig = buildAdapterConfig(agent);
+
     if (existingNames.has(agent.name)) {
-      console.log(`${PREFIX} Agent "${agent.name}" already registered`);
+      // Patch the adapter config to keep authToken, timeouts, etc. in sync
+      const agentId = nameToId[agent.name];
+      const patch = await api('PATCH', `/api/agents/${agentId}`, {
+        adapterType: 'openclaw_gateway',
+        adapterConfig,
+      });
+      if (patch.ok) {
+        console.log(`${PREFIX} Patched adapter config for "${agent.name}" (${agentId})`);
+      } else {
+        console.log(`${PREFIX} Agent "${agent.name}" patch returned ${patch.status} — may be OK`);
+      }
       continue;
     }
 
@@ -220,41 +264,9 @@ async function registerAgents(companyId) {
       capabilities: agent.capabilities,
       budgetMonthlyCents: agent.budgetMonthlyCents,
       adapterType: 'openclaw_gateway',
-      adapterConfig: {
-        url: `ws://openclaw:18789`,
-        agentId: agent.openclawAgentId,
-        authToken: OPENCLAW_PASSWORD,  // → HTTP Authorization header + auth.token in WS connect
-        password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
-        disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
-        autoPairOnFirstConnect: true,
-        // openclaw-control-ui is the only clientId that triggers Control UI scope grants.
-        // v2026.3.12+ calls clearUnboundScopes() for all other clientIds (webchat, gateway-client,
-        // etc.) on device-less shared-auth connections, reducing scopes to operator.admin only.
-        // With openclaw-control-ui + allowInsecureAuth=true + dangerouslyDisableDeviceAuth=true,
-        // full write scopes are granted even over plain ws:// on the Docker bridge.
-        clientId: 'openclaw-control-ui',
-        clientMode: 'ui',
-        clientVersion: 'paperclip',
-        scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
-        // Origin header is required even for openclaw-control-ui mode — OpenClaw enforces
-        // the allowedOrigins check regardless of client ID. The origin must be in
-        // gateway.controlUi.allowedOrigins (set by patch-openclaw-config.js).
-        headers: {
-          origin: `https://${process.env.DOMAIN || 'in-fused.org'}`,
-        },
-        // Use 'fixed' strategy with a pre-formatted session key that already starts with
-        // "agent:". The prefixSessionKeyForAgent() helper in execute.ts returns keys that
-        // start with "agent:" unchanged, bypassing the argument-order bug that produces
-        // "agent:main:lead" (wrong) instead of "agent:lead:main" (correct) when a bare
-        // session name like "main" is passed through the prefixer.
-        sessionKeyStrategy: 'fixed',
-        sessionKey: `agent:${agent.openclawAgentId}:main`,
-        timeoutSec: 600,      // agent turns involve bootstrap, file reads, model inference — needs >2min
-        waitTimeoutMs: 60000,
-      },
+      adapterConfig,
     };
 
-    // Set reportsTo if the manager was already created
     if (agent.reportsTo && nameToId[agent.reportsTo]) {
       payload.reportsTo = nameToId[agent.reportsTo];
     }
@@ -272,7 +284,6 @@ async function registerAgents(companyId) {
   for (const agent of AGENTS) {
     if (!agent.reportsTo || !nameToId[agent.name] || !nameToId[agent.reportsTo]) continue;
 
-    // Check if reportsTo was set during creation
     const agentRes = await api('GET', `/api/agents/${nameToId[agent.name]}`);
     if (agentRes.ok && agentRes.json?.reportsTo) continue;
 
@@ -282,11 +293,7 @@ async function registerAgents(companyId) {
     console.log(`${PREFIX} Set "${agent.name}" reports to "${agent.reportsTo}"`);
   }
 
-  // Apply SQL workaround for openclaw_gateway token bug (#44493)
-  // The x-openclaw-token header may not be auto-populated during agent creation
-  console.log(`${PREFIX} Agent registration complete. If heartbeats fail, apply the SQL workaround:`);
-  console.log(`${PREFIX}   UPDATE agents SET adapter_config = adapter_config || '{"authToken":"${OPENCLAW_PASSWORD}"}'::jsonb WHERE adapter_type = 'openclaw_gateway';`);
-
+  console.log(`${PREFIX} All agents registered and adapter configs synced.`);
   return nameToId;
 }
 

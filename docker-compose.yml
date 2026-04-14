@@ -109,6 +109,8 @@ services:
       # Route everything through LiteLLM on Oracle ARM
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=${ORACLE_LITELLM_URL:-http://localhost:4000}/v1
+      # Pass raw URL too — patch-openclaw-config.js uses it as fallback if OPENAI_API_BASE_URL is empty
+      - ORACLE_LITELLM_URL=${ORACLE_LITELLM_URL:-}
       # v2026.3.2: plaintext ws:// restricted to loopback by default.
       # Docker bridge network is private (not loopback) — Caddy proxies
       # to openclaw:18789 via ws:// on the bridge. Without this, internal
