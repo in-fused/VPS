@@ -390,11 +390,23 @@ log_info "Waiting for services to become healthy..."
 # Check LiteLLM on Oracle ARM (remote health check)
 LITELLM_URL="${ORACLE_LITELLM_URL:-}"
 if [ -n "$LITELLM_URL" ]; then
-    log_info "Checking LiteLLM on Oracle ARM ($LITELLM_URL)..."
-    if curl -sf "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; then
-        log_ok "LiteLLM is healthy on Oracle ARM"
+    # oracle-tunnel URLs (docker service names) are only resolvable inside Docker,
+    # not from the host shell. Test via docker compose exec instead.
+    if echo "$LITELLM_URL" | grep -q "oracle-tunnel"; then
+        log_info "Checking LiteLLM via oracle-tunnel ($LITELLM_URL)..."
+        if docker compose exec -T caddy wget -qO- http://oracle-tunnel:4000/health/liveliness > /dev/null 2>&1; then
+            log_ok "LiteLLM is reachable through oracle-tunnel SSH tunnel"
+        else
+            log_warn "oracle-tunnel not responding yet — check: docker compose logs oracle-tunnel"
+            log_warn "If SSH key is valid, tunnel connects within 30s of container start"
+        fi
     else
-        log_warn "LiteLLM on Oracle ARM not responding — run: bash scripts/deploy-oracle.sh"
+        log_info "Checking LiteLLM on Oracle ARM ($LITELLM_URL)..."
+        if curl -sf "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; then
+            log_ok "LiteLLM is healthy on Oracle ARM"
+        else
+            log_warn "LiteLLM on Oracle ARM not responding — run: bash scripts/deploy-oracle.sh"
+        fi
     fi
 else
     log_warn "ORACLE_LITELLM_URL not set — LiteLLM must be deployed to Oracle ARM"
