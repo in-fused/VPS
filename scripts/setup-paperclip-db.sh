@@ -66,13 +66,13 @@ DECLARE
 BEGIN
 
   -- -------------------------------------------------------------------------
-  -- 1. Discover table names
+  -- 1. Discover table names (exact match: 'companies'/'company', 'agents'/'agent')
   -- -------------------------------------------------------------------------
   SELECT tablename INTO co_table
-  FROM pg_tables WHERE schemaname='public' AND tablename ~ '^compan' LIMIT 1;
+  FROM pg_tables WHERE schemaname='public' AND tablename IN ('companies','company') LIMIT 1;
 
   SELECT tablename INTO ag_table
-  FROM pg_tables WHERE schemaname='public' AND tablename ~ '^agent' LIMIT 1;
+  FROM pg_tables WHERE schemaname='public' AND tablename IN ('agents','agent') LIMIT 1;
 
   IF co_table IS NULL OR ag_table IS NULL THEN
     RAISE NOTICE '[paperclip-db] Tables not found (co=%, ag=%) — Paperclip migrations not run yet',
