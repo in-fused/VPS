@@ -24,7 +24,10 @@ fi
 
 apk add --no-cache openssh-client > /dev/null 2>&1
 
-chmod 600 /root/.ssh/oracle-key
+# Copy key to a writable location so chmod works
+# (the bind mount is :ro — can't chmod the mounted file directly)
+cp /root/.ssh/oracle-key /tmp/oracle-key
+chmod 600 /tmp/oracle-key
 
 echo "[oracle-tunnel] Starting SSH tunnel to ubuntu@${ORACLE_ARM_IP}"
 echo '[oracle-tunnel] Forwarding: :4000 (LiteLLM), :8000 (Scrapling), :8080 (SearXNG)'
@@ -36,7 +39,7 @@ while true; do
         -o ServerAliveCountMax=3 \
         -o ExitOnForwardFailure=yes \
         -o ConnectTimeout=10 \
-        -i /root/.ssh/oracle-key \
+        -i /tmp/oracle-key \
         -L 0.0.0.0:4000:localhost:4000 \
         -L 0.0.0.0:8000:localhost:8000 \
         -L 0.0.0.0:8080:localhost:8080 \
