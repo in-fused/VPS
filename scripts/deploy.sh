@@ -233,37 +233,59 @@ if [ -z "${ORACLE_ARM_IP:-}" ] && [ -n "${OLLAMA_BASE_URL:-}" ]; then
         log_ok "Auto-derived ORACLE_ARM_IP=$DERIVED_IP from OLLAMA_BASE_URL"
     fi
 fi
-# Auto-populate Oracle service URLs from ORACLE_ARM_IP if not already set
+# Auto-populate Oracle service URLs from ORACLE_ARM_IP if not already set.
+# IMPORTANT: Use the oracle-tunnel Docker service name (not the direct IP) so all
+# Oracle traffic flows through the SSH tunnel. Oracle Cloud VCN Security Lists block
+# inbound traffic on ports 4000/8000/8080 by default — the tunnel bypasses this
+# by routing through SSH port 22 (which is always open).
 if [ -n "${ORACLE_ARM_IP:-}" ]; then
     if [ -z "${ORACLE_LITELLM_URL:-}" ]; then
-        ORACLE_LITELLM_URL="http://${ORACLE_ARM_IP}:4000"
+        ORACLE_LITELLM_URL="http://oracle-tunnel:4000"
         if grep -q "^ORACLE_LITELLM_URL=" .env; then
             sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
         else
             echo "ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL" >> .env
         fi
         export ORACLE_LITELLM_URL
-        log_ok "Auto-derived ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL"
+        log_ok "Auto-derived ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL (via SSH tunnel)"
+    elif [[ "$ORACLE_LITELLM_URL" == "http://${ORACLE_ARM_IP}:"* ]]; then
+        # Migrate from old direct-IP URL to tunnel URL (Oracle VCN blocks direct access)
+        log_warn "ORACLE_LITELLM_URL points to Oracle IP directly ($ORACLE_LITELLM_URL)"
+        log_warn "Migrating to SSH tunnel URL (Oracle VCN Security Lists block port 4000)"
+        ORACLE_LITELLM_URL="http://oracle-tunnel:4000"
+        sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
+        export ORACLE_LITELLM_URL
+        log_ok "Updated ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL"
     fi
     if [ -z "${ORACLE_SCRAPLING_URL:-}" ]; then
-        ORACLE_SCRAPLING_URL="http://${ORACLE_ARM_IP}:8000"
+        ORACLE_SCRAPLING_URL="http://oracle-tunnel:8000"
         if grep -q "^ORACLE_SCRAPLING_URL=" .env; then
             sed -i "s|^ORACLE_SCRAPLING_URL=.*|ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL|" .env
         else
             echo "ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL" >> .env
         fi
         export ORACLE_SCRAPLING_URL
-        log_ok "Auto-derived ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL"
+        log_ok "Auto-derived ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL (via SSH tunnel)"
+    elif [[ "$ORACLE_SCRAPLING_URL" == "http://${ORACLE_ARM_IP}:"* ]]; then
+        ORACLE_SCRAPLING_URL="http://oracle-tunnel:8000"
+        sed -i "s|^ORACLE_SCRAPLING_URL=.*|ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL|" .env
+        export ORACLE_SCRAPLING_URL
+        log_ok "Updated ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL"
     fi
     if [ -z "${ORACLE_SEARXNG_URL:-}" ]; then
-        ORACLE_SEARXNG_URL="http://${ORACLE_ARM_IP}:8080"
+        ORACLE_SEARXNG_URL="http://oracle-tunnel:8080"
         if grep -q "^ORACLE_SEARXNG_URL=" .env; then
             sed -i "s|^ORACLE_SEARXNG_URL=.*|ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL|" .env
         else
             echo "ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL" >> .env
         fi
         export ORACLE_SEARXNG_URL
-        log_ok "Auto-derived ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL"
+        log_ok "Auto-derived ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL (via SSH tunnel)"
+    elif [[ "$ORACLE_SEARXNG_URL" == "http://${ORACLE_ARM_IP}:"* ]]; then
+        ORACLE_SEARXNG_URL="http://oracle-tunnel:8080"
+        sed -i "s|^ORACLE_SEARXNG_URL=.*|ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL|" .env
+        export ORACLE_SEARXNG_URL
+        log_ok "Updated ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL"
     fi
 fi
 
