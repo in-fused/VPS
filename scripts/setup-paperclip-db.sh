@@ -152,7 +152,7 @@ BEGIN
       'clientMode',             'ui',
       'clientVersion',          'paperclip',
       'scopes',   '["operator.admin","operator.read","operator.write","operator.pairing"]'::jsonb,
-      'headers',                jsonb_build_object('origin', 'https://' || dom),
+      'headers',                jsonb_build_object('origin', 'https://' || dom, 'x-openclaw-token', pw),
       'sessionKeyStrategy',     'fixed',
       'sessionKey',             'agent:' || (ag->>'k') || ':main',
       'timeoutSec',             600,

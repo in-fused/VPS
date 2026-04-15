@@ -209,9 +209,10 @@ function buildAdapterConfig(agent) {
     clientMode: 'ui',
     clientVersion: 'paperclip',
     scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
+    // x-openclaw-token is the primary auth header checked during WS upgrade.
     // Origin header is required — OpenClaw enforces allowedOrigins regardless of clientId.
-    // Must match gateway.controlUi.allowedOrigins (set by patch-openclaw-config.js).
     headers: {
+      'x-openclaw-token': OPENCLAW_PASSWORD,
       origin: `https://${process.env.DOMAIN || 'in-fused.org'}`,
     },
     // 'fixed' strategy bypasses the prefixSessionKeyForAgent() arg-order bug in execute.ts
