@@ -187,11 +187,20 @@ BEGIN
       RAISE NOTICE '[paperclip-db] Updated "%": %', ag->>'n', ag_id;
     END IF;
 
-    -- Activate agent if a status/state column exists (direct SQL insert skips the
-    -- Paperclip "Hire Agent" flow which normally sets status → active)
+    -- Reset agent to idle so heartbeats can run.
+    -- Paperclip's invocation gate is a denylist: blocks ('paused','terminated','pending_approval').
+    -- Valid statuses: idle | running | error. Default on insert is 'idle', but we also clear
+    -- pause fields in case a prior run left the agent paused, and normalize any unknown status.
     IF st_col IS NOT NULL AND ag_id IS NOT NULL THEN
-      EXECUTE format('UPDATE %I SET %I=\$1 WHERE id=\$2', ag_table, st_col)
-      USING 'active', ag_id;
+      BEGIN
+        EXECUTE format(
+          'UPDATE %I SET %I=\$1, pause_reason=NULL, paused_at=NULL, updated_at=NOW() WHERE id=\$2',
+          ag_table, st_col
+        ) USING 'idle', ag_id;
+      EXCEPTION WHEN OTHERS THEN
+        EXECUTE format('UPDATE %I SET %I=\$1 WHERE id=\$2', ag_table, st_col)
+        USING 'idle', ag_id;
+      END;
     END IF;
 
     name_ids := name_ids || jsonb_build_object(ag->>'n', ag_id::TEXT);
