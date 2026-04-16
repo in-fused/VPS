@@ -53,6 +53,7 @@ DECLARE
   at_col     TEXT;
   ac_col     TEXT;
   rt_col     TEXT;
+  st_col     TEXT;
 
   agents_json JSONB := '[
     {"n":"Lead",       "k":"lead",       "role":"ceo",        "t":"Core Team Lead",          "r":null},
@@ -109,8 +110,12 @@ BEGIN
   WHERE table_schema='public' AND table_name=ag_table
     AND column_name IN ('reports_to','reportsTo') LIMIT 1;
 
-  RAISE NOTICE '[paperclip-db] Agent cols: %=%s, adapter_type=%, adapter_config=%, reports_to=%',
-    'company_id', co_id_col, at_col, ac_col, COALESCE(rt_col,'none');
+  SELECT column_name INTO st_col FROM information_schema.columns
+  WHERE table_schema='public' AND table_name=ag_table
+    AND column_name IN ('status','state') LIMIT 1;
+
+  RAISE NOTICE '[paperclip-db] Agent cols: %=%s, adapter_type=%, adapter_config=%, reports_to=%, status=%',
+    'company_id', co_id_col, at_col, ac_col, COALESCE(rt_col,'none'), COALESCE(st_col,'none');
 
   -- -------------------------------------------------------------------------
   -- 3. Find or create company
@@ -180,6 +185,13 @@ BEGIN
       EXECUTE format('UPDATE %I SET %I=\$1,%I=\$2 WHERE id=\$3', ag_table, at_col, ac_col)
       USING 'openclaw_gateway', adapter, ag_id;
       RAISE NOTICE '[paperclip-db] Updated "%": %', ag->>'n', ag_id;
+    END IF;
+
+    -- Activate agent if a status/state column exists (direct SQL insert skips the
+    -- Paperclip "Hire Agent" flow which normally sets status → active)
+    IF st_col IS NOT NULL AND ag_id IS NOT NULL THEN
+      EXECUTE format('UPDATE %I SET %I=\$1 WHERE id=\$2', ag_table, st_col)
+      USING 'active', ag_id;
     END IF;
 
     name_ids := name_ids || jsonb_build_object(ag->>'n', ag_id::TEXT);
