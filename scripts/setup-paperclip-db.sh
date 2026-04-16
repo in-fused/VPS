@@ -143,7 +143,23 @@ BEGIN
 
   -- -------------------------------------------------------------------------
   -- 4. Upsert agents (pass 1: create/update without reportsTo)
+  -- Searches by name+adapter_type so we update agents created under any
+  -- company (avoids duplicates when Paperclip UI created its own company).
+  -- After updating, moves agent under our company for consistency.
+  -- Also deletes extra duplicate rows keeping only the newest per name.
   -- -------------------------------------------------------------------------
+
+  -- Cleanup: delete older duplicates (keep newest per name for openclaw_gateway agents)
+  EXECUTE format(
+    'DELETE FROM %I WHERE adapter_type=\$1 AND id NOT IN (
+       SELECT DISTINCT ON (name) id FROM %I
+       WHERE adapter_type=\$1
+       ORDER BY name, updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+     )',
+    ag_table, ag_table
+  ) USING 'openclaw_gateway';
+  RAISE NOTICE '[paperclip-db] Cleaned up duplicate openclaw_gateway agents';
+
   FOR ag IN SELECT * FROM jsonb_array_elements(agents_json) LOOP
 
     adapter := jsonb_build_object(
@@ -164,8 +180,11 @@ BEGIN
       'waitTimeoutMs',          120000
     );
 
-    EXECUTE format('SELECT id FROM %I WHERE name=\$1 AND %I=\$2 LIMIT 1', ag_table, co_id_col)
-    INTO ag_id USING ag->>'n', co_id;
+    -- Find by name+adapter_type (works regardless of which company created it)
+    EXECUTE format(
+      'SELECT id FROM %I WHERE name=\$1 AND adapter_type=\$2 LIMIT 1',
+      ag_table
+    ) INTO ag_id USING ag->>'n', 'openclaw_gateway';
 
     IF ag_id IS NULL THEN
       BEGIN
@@ -182,8 +201,11 @@ BEGIN
       END;
       RAISE NOTICE '[paperclip-db] Created "%": %', ag->>'n', ag_id;
     ELSE
-      EXECUTE format('UPDATE %I SET %I=\$1,%I=\$2 WHERE id=\$3', ag_table, at_col, ac_col)
-      USING 'openclaw_gateway', adapter, ag_id;
+      -- Update adapter config + move to our company so heartbeats fire correctly
+      EXECUTE format(
+        'UPDATE %I SET %I=\$1,%I=\$2,%I=\$3,updated_at=NOW() WHERE id=\$4',
+        ag_table, at_col, ac_col, co_id_col
+      ) USING 'openclaw_gateway', adapter, co_id, ag_id;
       RAISE NOTICE '[paperclip-db] Updated "%": %', ag->>'n', ag_id;
     END IF;
 
