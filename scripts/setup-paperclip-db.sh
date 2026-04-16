@@ -14,8 +14,23 @@
 set -euo pipefail
 
 PREFIX="[paperclip-db]"
+
+# Source .env from the repo root if vars aren't already in the environment.
+# Needed when running directly with sudo (which strips env vars).
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE="$(dirname "$SCRIPT_DIR")/.env"
+if [ -f "$ENV_FILE" ] && [ -z "${OPENCLAW_PASSWORD:-}" ]; then
+  set -a; source "$ENV_FILE"; set +a
+  echo "$PREFIX Loaded env from $ENV_FILE"
+fi
+
 DOMAIN="${DOMAIN:-in-fused.org}"
 OPENCLAW_PASSWORD="${OPENCLAW_PASSWORD:-}"
+
+if [ -z "$OPENCLAW_PASSWORD" ]; then
+  echo "$PREFIX ERROR: OPENCLAW_PASSWORD is empty — cannot set agent auth tokens"
+  exit 1
+fi
 
 PSQL_CMD="docker compose exec -T paperclip-db psql -U paperclip paperclip"
 
@@ -143,22 +158,9 @@ BEGIN
 
   -- -------------------------------------------------------------------------
   -- 4. Upsert agents (pass 1: create/update without reportsTo)
-  -- Searches by name+adapter_type so we update agents created under any
-  -- company (avoids duplicates when Paperclip UI created its own company).
-  -- After updating, moves agent under our company for consistency.
-  -- Also deletes extra duplicate rows keeping only the newest per name.
+  -- Update ALL rows matching name+adapter_type (handles duplicates; cannot
+  -- DELETE dupes because heartbeat_runs has a FK on agents.id).
   -- -------------------------------------------------------------------------
-
-  -- Cleanup: delete older duplicates (keep newest per name for openclaw_gateway agents)
-  EXECUTE format(
-    'DELETE FROM %I WHERE adapter_type=\$1 AND id NOT IN (
-       SELECT DISTINCT ON (name) id FROM %I
-       WHERE adapter_type=\$1
-       ORDER BY name, updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-     )',
-    ag_table, ag_table
-  ) USING 'openclaw_gateway';
-  RAISE NOTICE '[paperclip-db] Cleaned up duplicate openclaw_gateway agents';
 
   FOR ag IN SELECT * FROM jsonb_array_elements(agents_json) LOOP
 
@@ -180,7 +182,13 @@ BEGIN
       'waitTimeoutMs',          120000
     );
 
-    -- Find by name+adapter_type (works regardless of which company created it)
+    -- Update ALL existing rows for this agent (may be >1 due to past duplicates)
+    EXECUTE format(
+      'UPDATE %I SET %I=\$1,%I=\$2,%I=\$3,updated_at=NOW() WHERE name=\$4 AND adapter_type=\$5',
+      ag_table, at_col, ac_col, co_id_col
+    ) USING 'openclaw_gateway', adapter, co_id, ag->>'n', 'openclaw_gateway';
+
+    -- Get one id for status update + reports_to tracking
     EXECUTE format(
       'SELECT id FROM %I WHERE name=\$1 AND adapter_type=\$2 LIMIT 1',
       ag_table
@@ -201,27 +209,21 @@ BEGIN
       END;
       RAISE NOTICE '[paperclip-db] Created "%": %', ag->>'n', ag_id;
     ELSE
-      -- Update adapter config + move to our company so heartbeats fire correctly
-      EXECUTE format(
-        'UPDATE %I SET %I=\$1,%I=\$2,%I=\$3,updated_at=NOW() WHERE id=\$4',
-        ag_table, at_col, ac_col, co_id_col
-      ) USING 'openclaw_gateway', adapter, co_id, ag_id;
-      RAISE NOTICE '[paperclip-db] Updated "%": %', ag->>'n', ag_id;
+      RAISE NOTICE '[paperclip-db] Updated all "%" rows: one id=%', ag->>'n', ag_id;
     END IF;
 
-    -- Reset agent to idle so heartbeats can run.
-    -- Paperclip's invocation gate is a denylist: blocks ('paused','terminated','pending_approval').
-    -- Valid statuses: idle | running | error. Default on insert is 'idle', but we also clear
-    -- pause fields in case a prior run left the agent paused, and normalize any unknown status.
-    IF st_col IS NOT NULL AND ag_id IS NOT NULL THEN
+    -- Reset ALL rows for this agent to idle (Paperclip blocks paused/terminated/pending_approval)
+    IF st_col IS NOT NULL THEN
       BEGIN
         EXECUTE format(
-          'UPDATE %I SET %I=\$1, pause_reason=NULL, paused_at=NULL, updated_at=NOW() WHERE id=\$2',
+          'UPDATE %I SET %I=\$1,pause_reason=NULL,paused_at=NULL,updated_at=NOW() WHERE name=\$2 AND adapter_type=\$3',
           ag_table, st_col
-        ) USING 'idle', ag_id;
+        ) USING 'idle', ag->>'n', 'openclaw_gateway';
       EXCEPTION WHEN OTHERS THEN
-        EXECUTE format('UPDATE %I SET %I=\$1 WHERE id=\$2', ag_table, st_col)
-        USING 'idle', ag_id;
+        EXECUTE format(
+          'UPDATE %I SET %I=\$1 WHERE name=\$2 AND adapter_type=\$3',
+          ag_table, st_col
+        ) USING 'idle', ag->>'n', 'openclaw_gateway';
       END;
     END IF;
 
