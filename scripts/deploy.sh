@@ -239,8 +239,27 @@ fi
 # and non-empty; fall back to direct IP when the key is missing (requires VCN ingress
 # rules to be open for ports 4000/8000/8080 — applied manually in Oracle Console).
 TUNNEL_AVAILABLE=false
-if [ -s oracle-instance-key ]; then
-    TUNNEL_AVAILABLE=true
+if [ -s oracle-instance-key ] && [ -n "${ORACLE_ARM_IP:-}" ]; then
+    # Actually verify SSH can connect — a non-empty key file is not proof the
+    # tunnel will come up. A stale/invalid key or blocked SSH would otherwise
+    # cause us to rewrite ORACLE_*_URL to http://oracle-tunnel:* and leave the
+    # stack unable to reach Oracle at all (direct IP access is discarded).
+    # ORACLE_SSH_USER defaults to "ubuntu" to match oracle-tunnel service.
+    ORACLE_SSH_USER="${ORACLE_SSH_USER:-ubuntu}"
+    if command -v ssh >/dev/null 2>&1 && \
+       ssh -i oracle-instance-key \
+           -o BatchMode=yes \
+           -o StrictHostKeyChecking=no \
+           -o UserKnownHostsFile=/dev/null \
+           -o ConnectTimeout=5 \
+           -o LogLevel=ERROR \
+           "${ORACLE_SSH_USER}@${ORACLE_ARM_IP}" \
+           true >/dev/null 2>&1; then
+        TUNNEL_AVAILABLE=true
+        log_ok "SSH to ${ORACLE_ARM_IP} succeeded — oracle-tunnel will be used"
+    else
+        log_warn "oracle-instance-key present but SSH to ${ORACLE_ARM_IP} failed — falling back to direct IP"
+    fi
 fi
 
 if [ -n "${ORACLE_ARM_IP:-}" ]; then
