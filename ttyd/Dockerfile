@@ -1,18 +1,17 @@
 ###############################################################################
-# Webhook Handler — Lightweight Node.js HTTP server for workflow triggers
+# ttyd — Browser-based terminal for server management
 ###############################################################################
-# Receives POST requests from external services, validates per-webhook tokens,
-# and triggers workflow execution via OpenClaw. Zero external dependencies
-# beyond the ws library for OpenClaw WebSocket communication.
-#
-# Also handles auto-deploy: POST /deploy validates GitHub webhook signatures
-# and runs git pull + docker compose up -d on push. Requires docker.sock mount.
+# Adds git + docker CLI on top of ttyd so you can run:
+#   docker compose ps / logs / restart
+#   git pull && docker compose up -d --build
+# Accessible at https://in-fused.org/terminal/ behind site auth.
 ###############################################################################
 
-FROM node:20-alpine
+FROM tsl0922/ttyd:latest
 
-# git + docker CLI for the auto-deploy endpoint
-RUN apk add --no-cache git curl && \
+# Install git + docker CLI + docker compose plugin
+RUN apt-get update -qq && apt-get install -y --no-install-recommends curl git ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
     ARCH=$(uname -m) && \
     DOCKER_VER=27.3.1 && \
     curl -fsSL "https://download.docker.com/linux/static/stable/${ARCH}/docker-${DOCKER_VER}.tgz" \
@@ -22,10 +21,3 @@ RUN apk add --no-cache git curl && \
     curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-${COMPOSE_ARCH}" \
         -o /usr/local/lib/docker/cli-plugins/docker-compose && \
     chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-
-WORKDIR /app
-COPY package.json ./
-RUN npm install --production
-COPY handler.js ./
-
-CMD ["node", "handler.js"]

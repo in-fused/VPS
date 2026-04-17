@@ -127,39 +127,22 @@ ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "sudo mkdir -p $REMOTE_DIR && sudo chown -R
 log_info "Syncing repo files to Oracle ARM..."
 
 # Use rsync if available (much faster for large workspace/), fall back to scp
+RSYNC_SSH="-e ssh $SSH_OPTS"
+DIRS="caddy scripts scrapling searxng webhook paperclip workspace ttyd"
+
 if command -v rsync >/dev/null 2>&1; then
-    RSYNC_OPTS="-az --delete --exclude='.git' --exclude='*.log' --exclude='node_modules' -e \"ssh $SSH_OPTS\""
-    eval "rsync $RSYNC_OPTS \
-        Caddyfile \
-        litellm_config.yaml \
-        caddy/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/caddy/ \
-        2>/dev/null" || true
-    eval "rsync $RSYNC_OPTS \
-        caddy/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/caddy/" || true
-    eval "rsync $RSYNC_OPTS \
-        scripts/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/scripts/" || true
-    eval "rsync $RSYNC_OPTS \
-        scrapling/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/" || true
-    eval "rsync $RSYNC_OPTS \
-        searxng/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/searxng/" || true
-    eval "rsync $RSYNC_OPTS \
-        webhook/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/webhook/" || true
-    eval "rsync $RSYNC_OPTS \
-        paperclip/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/paperclip/" || true
-    eval "rsync $RSYNC_OPTS \
-        workspace/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/workspace/" || true
+    RSYNC_OPTS="-az --delete --exclude='.git' --exclude='*.log' --exclude='node_modules'"
     scp $SCP_OPTS Caddyfile litellm_config.yaml "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/"
+    for dir in $DIRS; do
+        eval "rsync $RSYNC_OPTS $RSYNC_SSH $dir/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/$dir/"
+    done
 else
-    # scp fallback — create dirs first
-    ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "mkdir -p $REMOTE_DIR/{caddy,scripts,scrapling,searxng,webhook,paperclip,workspace}"
+    # scp fallback
+    ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "mkdir -p $(echo $DIRS | sed "s|[^ ]*|$REMOTE_DIR/&|g")"
     scp $SCP_OPTS Caddyfile litellm_config.yaml "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/"
-    scp -r $SCP_OPTS caddy/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/caddy/"
-    scp -r $SCP_OPTS scripts/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scripts/"
-    scp -r $SCP_OPTS scrapling/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/scrapling/"
-    scp -r $SCP_OPTS searxng/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/searxng/"
-    scp -r $SCP_OPTS webhook/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/webhook/"
-    scp -r $SCP_OPTS paperclip/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/paperclip/"
-    scp -r $SCP_OPTS workspace/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/workspace/"
+    for dir in $DIRS; do
+        scp -r $SCP_OPTS $dir/ "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/$dir/"
+    done
 fi
 
 # Copy oracle/docker-compose.yml as the main compose file
@@ -229,6 +212,10 @@ TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
 WEBHOOK_ARCHIVE_URL=${WEBHOOK_ARCHIVE_URL:-}
 WEBHOOK_ARCHIVE_TOKEN=${WEBHOOK_ARCHIVE_TOKEN:-}
 
+# Auto-deploy webhook (GitHub push → git pull + docker compose up -d)
+GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+DEPLOY_BRANCH=${DEPLOY_BRANCH:-claude/fix-critical-failures-4RPWm}
+
 # Auto-kickoff (send startup message to agents on restart)
 OPENCLAW_AUTO_KICKOFF=${OPENCLAW_AUTO_KICKOFF:-1}
 
@@ -252,7 +239,7 @@ ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "
     docker compose pull litellm litellm-db searxng openclaw watchtower paperclip-db
 
     echo '[deploy] Building custom images...'
-    docker compose build caddy scrapling webhook paperclip
+    docker compose build caddy scrapling webhook paperclip ttyd
 
     echo '[deploy] Stopping old stack (if any)...'
     docker compose down --remove-orphans 2>/dev/null || true

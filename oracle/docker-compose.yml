@@ -254,7 +254,7 @@ services:
     restart: "no"
 
   # ===========================================================================
-  # Webhook Handler — External workflow triggers
+  # Webhook Handler — External workflow triggers + auto-deploy endpoint
   # ===========================================================================
   webhook:
     build:
@@ -265,12 +265,18 @@ services:
     restart: unless-stopped
     volumes:
       - agent-workspace:/workspace
+      # Required for /deploy endpoint — runs git pull + docker compose up -d
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/ai-hub:/opt/ai-hub
     environment:
       - OPENCLAW_PASSWORD=${OPENCLAW_PASSWORD}
       - DOMAIN=${DOMAIN:-in-fused.org}
       - WEBHOOK_ARCHIVE_URL=${WEBHOOK_ARCHIVE_URL:-}
       - WEBHOOK_ARCHIVE_TOKEN=${WEBHOOK_ARCHIVE_TOKEN:-}
       - WEBHOOK_ARCHIVE_AFTER_MINS=${WEBHOOK_ARCHIVE_AFTER_MINS:-30}
+      # GitHub push webhook auto-deploy — set in .env
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - DEPLOY_BRANCH=${DEPLOY_BRANCH:-claude/fix-critical-failures-4RPWm}
     networks:
       - ai-net
     depends_on:
@@ -279,13 +285,40 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # ===========================================================================
+  # ttyd — Browser-based terminal for server management
+  # ===========================================================================
+  # Accessible at https://in-fused.org/terminal/ behind site auth.
+  # Has git + docker CLI so you can run deploys, check logs, restart services
+  # directly from Safari on iPhone — no SSH app needed.
+  ttyd:
+    build:
+      context: ./ttyd
+      dockerfile: Dockerfile
+    image: in-fused/ttyd:latest
+    container_name: ttyd
+    restart: unless-stopped
+    working_dir: /opt/ai-hub
+    command: ["ttyd", "--port", "7681", "--writable", "--cwd", "/opt/ai-hub", "bash"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/ai-hub:/opt/ai-hub
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   # ===========================================================================
   # Paperclip Database

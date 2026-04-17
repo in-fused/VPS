@@ -94,6 +94,15 @@ function parseBody(req) {
   });
 }
 
+function parseRawBody(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', () => resolve(Buffer.alloc(0)));
+  });
+}
+
 function sendJSON(res, status, data) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -429,6 +438,50 @@ const server = http.createServer(async (req, res) => {
     }));
 
     return sendJSON(res, 200, { webhooks: list });
+  }
+
+  // -----------------------------------------------------------------------
+  // DEPLOY — POST /deploy
+  // GitHub push webhook — validates X-Hub-Signature-256, then runs:
+  //   git pull origin <DEPLOY_BRANCH> && docker compose up -d --build
+  // Public endpoint (GitHub can't send cookies). Auth via HMAC signature.
+  // Requires GITHUB_WEBHOOK_SECRET in env, docker.sock + /opt/ai-hub mounted.
+  // -----------------------------------------------------------------------
+  if (pathname === '/deploy' && req.method === 'POST') {
+    const secret = process.env.GITHUB_WEBHOOK_SECRET || '';
+    if (!secret) return sendJSON(res, 503, { error: 'GITHUB_WEBHOOK_SECRET not configured' });
+
+    const rawBody = await parseRawBody(req);
+    const sig = req.headers['x-hub-signature-256'] || '';
+    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+    if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return sendJSON(res, 403, { error: 'Invalid signature' });
+    }
+
+    const event = req.headers['x-github-event'] || '';
+    if (event !== 'push') return sendJSON(res, 200, { skipped: true, reason: 'not a push event' });
+
+    let pushData;
+    try { pushData = JSON.parse(rawBody.toString()); } catch { pushData = {}; }
+
+    const branch = (pushData.ref || '').replace('refs/heads/', '');
+    const targetBranch = process.env.DEPLOY_BRANCH || 'main';
+    if (branch !== targetBranch) {
+      return sendJSON(res, 200, { skipped: true, reason: `branch ${branch} !== ${targetBranch}` });
+    }
+
+    // Respond immediately — GitHub times out after 10s
+    sendJSON(res, 200, { deploying: true, branch });
+
+    const { exec } = require('child_process');
+    const cmd = `cd /opt/ai-hub && git pull origin ${targetBranch} && docker compose up -d --build 2>&1`;
+    console.log(`[deploy] Push to ${branch} — running: ${cmd}`);
+    exec(cmd, { timeout: 600000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+      if (err) console.error('[deploy] Failed:', err.message, '\n', stdout);
+      else console.log('[deploy] Succeeded:\n', stdout.slice(-3000));
+    });
+    return;
   }
 
   // 404 fallback
