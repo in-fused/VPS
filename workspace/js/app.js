@@ -538,6 +538,8 @@ class ServiceHealth {
   constructor() {
     this.litellm = false;
     this.openclaw = false;
+    this.litellmError = null;   // surface last failure reason to Monitor
+    this.openclawError = null;
     this._interval = null;
   }
 
@@ -548,22 +550,45 @@ class ServiceHealth {
     ]);
     this.litellm = results[0].status === 'fulfilled' && results[0].value;
     this.openclaw = results[1].status === 'fulfilled' && results[1].value;
-    return { litellm: this.litellm, openclaw: this.openclaw };
+    return { litellm: this.litellm, openclaw: this.openclaw, litellmError: this.litellmError, openclawError: this.openclawError };
   }
 
   async _checkLiteLLM() {
-    const r = await fetch('/api/litellm/health/liveliness', {
-      signal: AbortSignal.timeout(5000),
-    });
-    return r.ok;
+    try {
+      const r = await fetch('/api/litellm/health/liveliness', {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.ok) {
+        this.litellmError = null;
+        return true;
+      }
+      this.litellmError = `HTTP ${r.status} ${r.statusText || ''}`.trim();
+      return false;
+    } catch (err) {
+      // Network error, timeout, or Caddy upstream unreachable
+      this.litellmError = err.name === 'TimeoutError'
+        ? 'Timeout after 5s — Caddy cannot reach Oracle ARM LiteLLM'
+        : (err.message || String(err));
+      return false;
+    }
   }
 
   async _checkOpenClaw() {
-    const r = await fetch('/openclaw/', {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(5000),
-    });
-    return r.ok;
+    try {
+      const r = await fetch('/openclaw/', {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.ok) {
+        this.openclawError = null;
+        return true;
+      }
+      this.openclawError = `HTTP ${r.status} ${r.statusText || ''}`.trim();
+      return false;
+    } catch (err) {
+      this.openclawError = err.message || String(err);
+      return false;
+    }
   }
 
   startPolling(callback, intervalMs = 30000) {
@@ -1819,7 +1844,8 @@ document.addEventListener('alpine:init', () => {
             monitor.systemHealth.modelsAvailable = models.length;
           }
         } else {
-          monitor.addLog('warn', 'LiteLLM unreachable — staying in demo mode');
+          const why = health.litellmError ? ` (${health.litellmError})` : '';
+          monitor.addLog('warn', `LiteLLM unreachable${why} — staying in demo mode`);
         }
 
         if (health.openclaw) {

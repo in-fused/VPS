@@ -59,6 +59,37 @@ services:
           memory: 64M
 
   # ===========================================================================
+  # Oracle Tunnel — SSH port-forward for Oracle ARM services
+  # ===========================================================================
+  # Oracle Cloud VCN Security Lists block inbound traffic on ports 4000/8000/8080
+  # even when VM-level iptables allows it. This container tunnels those ports
+  # through SSH (port 22, which IS open) so Caddy and OpenClaw can reach
+  # LiteLLM, Scrapling, and SearXNG without needing Oracle Console firewall changes.
+  #
+  # Forwards:  oracle-tunnel:4000 → Oracle:4000 (LiteLLM)
+  #            oracle-tunnel:8000 → Oracle:8000 (Scrapling)
+  #            oracle-tunnel:8080 → Oracle:8080 (SearXNG)
+  #
+  # Requires: oracle-instance-key (SSH private key for ubuntu@ORACLE_ARM_IP)
+  # If key is empty/missing, the tunnel sleeps — other services degrade gracefully.
+  oracle-tunnel:
+    image: alpine:3
+    container_name: oracle-tunnel
+    restart: unless-stopped
+    volumes:
+      - ./oracle-instance-key:/root/.ssh/oracle-key:ro
+      - ./scripts:/opt/scripts:ro
+    environment:
+      - ORACLE_ARM_IP=${ORACLE_ARM_IP:-}
+    command: ["/bin/sh", "/opt/scripts/oracle-tunnel.sh"]
+    networks:
+      - ai-net
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
+  # ===========================================================================
   # OpenClaw Init — Fix volume ownership on fresh deploys
   # ===========================================================================
   # Named volumes are root-owned when first created. OpenClaw runs as the
@@ -109,6 +140,8 @@ services:
       # Route everything through LiteLLM on Oracle ARM
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - OPENAI_API_BASE_URL=${ORACLE_LITELLM_URL:-http://localhost:4000}/v1
+      # Pass raw URL too — patch-openclaw-config.js uses it as fallback if OPENAI_API_BASE_URL is empty
+      - ORACLE_LITELLM_URL=${ORACLE_LITELLM_URL:-}
       # v2026.3.2: plaintext ws:// restricted to loopback by default.
       # Docker bridge network is private (not loopback) — Caddy proxies
       # to openclaw:18789 via ws:// on the bridge. Without this, internal
@@ -212,11 +245,11 @@ services:
       - PAPERCLIP_DEPLOYMENT_MODE=authenticated
       - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
       - PAPERCLIP_PUBLIC_URL=https://${DOMAIN:-localhost}/paperclip
-      # Better Auth URL must include the /paperclip path because Caddy handle
-      # (no prefix stripping) passes the full /paperclip/* path to Paperclip.
-      # Better Auth registers routes at /paperclip/api/auth/* which matches
-      # what the server receives from the browser.
-      - BETTER_AUTH_URL=https://${DOMAIN:-localhost}/paperclip
+      # Better Auth URL must be the origin only (no /paperclip path) because
+      # Caddy handle_path strips the /paperclip/ prefix before proxying.
+      # If the path is included, Better Auth registers routes at /paperclip/api/auth/*
+      # which never match (server only sees /api/auth/* after Caddy strip).
+      - BETTER_AUTH_URL=https://${DOMAIN:-localhost}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_TRUSTED_ORIGINS=https://${DOMAIN:-localhost}
     volumes:

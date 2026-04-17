@@ -22,9 +22,18 @@ if [ -n "${WORKSPACE_PASSWORD:-}" ]; then
     export WORKSPACE_AUTH_ENABLED=true
 fi
 
-# Parse ORACLE_LITELLM_URL into host:port for Caddy reverse_proxy upstream
-LITELLM_URL="${ORACLE_LITELLM_URL:-http://litellm:4000}"
-ORACLE_LITELLM_HOST=$(echo "$LITELLM_URL" | sed -E 's|https?://||')
+# Parse ORACLE_LITELLM_URL into host:port for Caddy reverse_proxy upstream.
+# NOTE: The 'litellm' Docker service no longer exists on EC2 — it runs on Oracle ARM.
+# If ORACLE_LITELLM_URL is empty, Caddy would silently route /api/* to localhost:4000
+# (nothing there) and Mission Control would show "API disconnected". Fail loudly instead.
+if [ -z "${ORACLE_LITELLM_URL:-}" ]; then
+    echo "[caddy-entrypoint] WARNING: ORACLE_LITELLM_URL is not set!"
+    echo "[caddy-entrypoint] Set it in .env: ORACLE_LITELLM_URL=http://<oracle-ip>:4000"
+    echo "[caddy-entrypoint] Falling back to localhost:4000 — /api/litellm/* will return 502"
+    ORACLE_LITELLM_HOST="localhost:4000"
+else
+    ORACLE_LITELLM_HOST=$(echo "$ORACLE_LITELLM_URL" | sed -E 's|https?://||')
+fi
 export ORACLE_LITELLM_HOST
 echo "[caddy-entrypoint] LiteLLM upstream: $ORACLE_LITELLM_HOST"
 

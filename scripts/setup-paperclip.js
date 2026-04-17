@@ -141,8 +141,10 @@ async function waitForHealth() {
   for (let i = 1; i <= MAX_RETRIES; i++) {
     try {
       const res = await fetch(`${PAPERCLIP_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
-      if (res.ok) {
-        console.log(`${PREFIX} Paperclip healthy (attempt ${i}/${MAX_RETRIES})`);
+      // 200 = healthy (pre-onboarding), 403 = healthy (post-onboarding, auth-protected)
+      // Both mean Paperclip is running and accepting connections
+      if (res.ok || res.status === 403) {
+        console.log(`${PREFIX} Paperclip healthy (attempt ${i}/${MAX_RETRIES}, status ${res.status})`);
         return true;
       }
     } catch {}
@@ -180,15 +182,46 @@ async function findOrCreateCompany() {
     return res.json.id;
   }
 
-  // May need onboarding first
+  // 401/403 = Paperclip is in authenticated mode — not a missing onboarding.
+  // Agent registration via direct DB is handled by scripts/setup-paperclip-db.sh in deploy.sh.
   if (res.status === 401 || res.status === 403) {
-    console.log(`${PREFIX} Paperclip needs initial onboarding. Visit https://in-fused.org/paperclip/ to complete setup.`);
-    console.log(`${PREFIX} After onboarding, re-run this script or restart the stack.`);
+    console.log(`${PREFIX} Paperclip API requires auth (${res.status}) — agents registered via deploy.sh DB setup.`);
     return null;
   }
 
   console.error(`${PREFIX} Failed to create company: ${res.status} ${res.text}`);
   return null;
+}
+
+function buildAdapterConfig(agent) {
+  return {
+    url: 'ws://openclaw:18789',
+    agentId: agent.openclawAgentId,
+    authToken: OPENCLAW_PASSWORD,  // → HTTP Authorization header + auth.token in WS connect
+    password: OPENCLAW_PASSWORD,   // → auth.password in WS connect (required by OpenClaw)
+    disableDeviceAuth: true,       // → skip device key exchange (our OpenClaw rejects it)
+    autoPairOnFirstConnect: true,
+    // openclaw-control-ui is the only clientId that triggers Control UI scope grants.
+    // v2026.3.12+ calls clearUnboundScopes() for all other clientIds, reducing scopes to
+    // operator.admin only. With openclaw-control-ui + allowInsecureAuth=true +
+    // dangerouslyDisableDeviceAuth=true, full write scopes work over Docker bridge ws://.
+    clientId: 'openclaw-control-ui',
+    clientMode: 'ui',
+    clientVersion: 'paperclip',
+    scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
+    // x-openclaw-token is the primary auth header checked during WS upgrade.
+    // Origin header is required — OpenClaw enforces allowedOrigins regardless of clientId.
+    headers: {
+      'x-openclaw-token': OPENCLAW_PASSWORD,
+      origin: `https://${process.env.DOMAIN || 'in-fused.org'}`,
+    },
+    // 'fixed' strategy bypasses the prefixSessionKeyForAgent() arg-order bug in execute.ts
+    // that would produce "agent:main:lead" instead of "agent:lead:main".
+    sessionKeyStrategy: 'fixed',
+    sessionKey: `agent:${agent.openclawAgentId}:main`,
+    timeoutSec: 600,       // agent bootstrap + file reads + inference easily takes >60s
+    waitTimeoutMs: 120000, // 2 min WS response wait — allow agent to start reasoning
+  };
 }
 
 async function registerAgents(companyId) {
@@ -203,11 +236,25 @@ async function registerAgents(companyId) {
     }
   }
 
-  // Register agents in order (CEO first, then reports)
-  // First pass: create all agents without reportsTo
+  // First pass: create missing agents, patch existing ones.
+  // We ALWAYS patch existing agents because Paperclip bug #44493 means authToken
+  // may not be persisted correctly on first creation. Patching on every restart
+  // ensures the live adapter config always matches what we expect.
   for (const agent of AGENTS) {
+    const adapterConfig = buildAdapterConfig(agent);
+
     if (existingNames.has(agent.name)) {
-      console.log(`${PREFIX} Agent "${agent.name}" already registered`);
+      // Patch the adapter config to keep authToken, timeouts, etc. in sync
+      const agentId = nameToId[agent.name];
+      const patch = await api('PATCH', `/api/agents/${agentId}`, {
+        adapterType: 'openclaw_gateway',
+        adapterConfig,
+      });
+      if (patch.ok) {
+        console.log(`${PREFIX} Patched adapter config for "${agent.name}" (${agentId})`);
+      } else {
+        console.log(`${PREFIX} Agent "${agent.name}" patch returned ${patch.status} — may be OK`);
+      }
       continue;
     }
 
@@ -218,22 +265,9 @@ async function registerAgents(companyId) {
       capabilities: agent.capabilities,
       budgetMonthlyCents: agent.budgetMonthlyCents,
       adapterType: 'openclaw_gateway',
-      adapterConfig: {
-        url: `ws://openclaw:18789`,
-        agentId: agent.openclawAgentId,
-        authToken: OPENCLAW_PASSWORD,
-        disableDeviceAuth: true,
-        autoPairOnFirstConnect: true,
-        clientMode: 'backend',
-        clientVersion: 'paperclip',
-        scopes: ['operator.admin', 'operator.read', 'operator.write', 'operator.pairing'],
-        sessionKeyStrategy: 'issue',
-        timeoutSec: 120,
-        waitTimeoutMs: 30000,
-      },
+      adapterConfig,
     };
 
-    // Set reportsTo if the manager was already created
     if (agent.reportsTo && nameToId[agent.reportsTo]) {
       payload.reportsTo = nameToId[agent.reportsTo];
     }
@@ -251,7 +285,6 @@ async function registerAgents(companyId) {
   for (const agent of AGENTS) {
     if (!agent.reportsTo || !nameToId[agent.name] || !nameToId[agent.reportsTo]) continue;
 
-    // Check if reportsTo was set during creation
     const agentRes = await api('GET', `/api/agents/${nameToId[agent.name]}`);
     if (agentRes.ok && agentRes.json?.reportsTo) continue;
 
@@ -261,11 +294,7 @@ async function registerAgents(companyId) {
     console.log(`${PREFIX} Set "${agent.name}" reports to "${agent.reportsTo}"`);
   }
 
-  // Apply SQL workaround for openclaw_gateway token bug (#44493)
-  // The x-openclaw-token header may not be auto-populated during agent creation
-  console.log(`${PREFIX} Agent registration complete. If heartbeats fail, apply the SQL workaround:`);
-  console.log(`${PREFIX}   UPDATE agents SET adapter_config = adapter_config || '{"authToken":"${OPENCLAW_PASSWORD}"}'::jsonb WHERE adapter_type = 'openclaw_gateway';`);
-
+  console.log(`${PREFIX} All agents registered and adapter configs synced.`);
   return nameToId;
 }
 

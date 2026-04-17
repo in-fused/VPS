@@ -233,10 +233,48 @@ if [ -z "${ORACLE_ARM_IP:-}" ] && [ -n "${OLLAMA_BASE_URL:-}" ]; then
         log_ok "Auto-derived ORACLE_ARM_IP=$DERIVED_IP from OLLAMA_BASE_URL"
     fi
 fi
-# Auto-populate Oracle service URLs from ORACLE_ARM_IP if not already set
+# Auto-populate Oracle service URLs from ORACLE_ARM_IP if not already set.
+# IMPORTANT: Use the oracle-tunnel Docker service name (not the direct IP) so all
+# Oracle service URL routing: prefer SSH tunnel when oracle-instance-key is present
+# and non-empty; fall back to direct IP when the key is missing (requires VCN ingress
+# rules to be open for ports 4000/8000/8080 — applied manually in Oracle Console).
+TUNNEL_AVAILABLE=false
+if [ -s oracle-instance-key ] && [ -n "${ORACLE_ARM_IP:-}" ]; then
+    # Actually verify SSH can connect — a non-empty key file is not proof the
+    # tunnel will come up. A stale/invalid key or blocked SSH would otherwise
+    # cause us to rewrite ORACLE_*_URL to http://oracle-tunnel:* and leave the
+    # stack unable to reach Oracle at all (direct IP access is discarded).
+    # ORACLE_SSH_USER defaults to "ubuntu" to match oracle-tunnel service.
+    ORACLE_SSH_USER="${ORACLE_SSH_USER:-ubuntu}"
+    if command -v ssh >/dev/null 2>&1 && \
+       ssh -i oracle-instance-key \
+           -o BatchMode=yes \
+           -o StrictHostKeyChecking=no \
+           -o UserKnownHostsFile=/dev/null \
+           -o ConnectTimeout=5 \
+           -o LogLevel=ERROR \
+           "${ORACLE_SSH_USER}@${ORACLE_ARM_IP}" \
+           true >/dev/null 2>&1; then
+        TUNNEL_AVAILABLE=true
+        log_ok "SSH to ${ORACLE_ARM_IP} succeeded — oracle-tunnel will be used"
+    else
+        log_warn "oracle-instance-key present but SSH to ${ORACLE_ARM_IP} failed — falling back to direct IP"
+    fi
+fi
+
 if [ -n "${ORACLE_ARM_IP:-}" ]; then
+    # Helper: pick tunnel or direct-IP URL based on key availability
+    _oracle_url() {
+        local port="$1"
+        if [ "$TUNNEL_AVAILABLE" = true ]; then
+            echo "http://oracle-tunnel:${port}"
+        else
+            echo "http://${ORACLE_ARM_IP}:${port}"
+        fi
+    }
+
     if [ -z "${ORACLE_LITELLM_URL:-}" ]; then
-        ORACLE_LITELLM_URL="http://${ORACLE_ARM_IP}:4000"
+        ORACLE_LITELLM_URL="$(_oracle_url 4000)"
         if grep -q "^ORACLE_LITELLM_URL=" .env; then
             sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
         else
@@ -244,9 +282,25 @@ if [ -n "${ORACLE_ARM_IP:-}" ]; then
         fi
         export ORACLE_LITELLM_URL
         log_ok "Auto-derived ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL"
+    elif [ "$TUNNEL_AVAILABLE" = true ] && [[ "$ORACLE_LITELLM_URL" == "http://${ORACLE_ARM_IP}:"* ]]; then
+        # Key present — migrate from direct IP to tunnel
+        log_warn "ORACLE_LITELLM_URL points to Oracle IP directly — migrating to SSH tunnel"
+        ORACLE_LITELLM_URL="http://oracle-tunnel:4000"
+        sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
+        export ORACLE_LITELLM_URL
+        log_ok "Updated ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL"
+    elif [ "$TUNNEL_AVAILABLE" = false ] && [[ "$ORACLE_LITELLM_URL" == "http://oracle-tunnel:"* ]]; then
+        # No key — fall back to direct IP (VCN ingress rules must be open)
+        log_warn "oracle-instance-key is empty — oracle-tunnel will not connect"
+        log_warn "Reverting ORACLE_LITELLM_URL to direct IP (requires VCN ingress rules on ports 4000/8000/8080)"
+        ORACLE_LITELLM_URL="http://${ORACLE_ARM_IP}:4000"
+        sed -i "s|^ORACLE_LITELLM_URL=.*|ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL|" .env
+        export ORACLE_LITELLM_URL
+        log_ok "Using direct IP: $ORACLE_LITELLM_URL"
     fi
+
     if [ -z "${ORACLE_SCRAPLING_URL:-}" ]; then
-        ORACLE_SCRAPLING_URL="http://${ORACLE_ARM_IP}:8000"
+        ORACLE_SCRAPLING_URL="$(_oracle_url 8000)"
         if grep -q "^ORACLE_SCRAPLING_URL=" .env; then
             sed -i "s|^ORACLE_SCRAPLING_URL=.*|ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL|" .env
         else
@@ -254,9 +308,15 @@ if [ -n "${ORACLE_ARM_IP:-}" ]; then
         fi
         export ORACLE_SCRAPLING_URL
         log_ok "Auto-derived ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL"
+    elif [ "$TUNNEL_AVAILABLE" = false ] && [[ "$ORACLE_SCRAPLING_URL" == "http://oracle-tunnel:"* ]]; then
+        ORACLE_SCRAPLING_URL="http://${ORACLE_ARM_IP}:8000"
+        sed -i "s|^ORACLE_SCRAPLING_URL=.*|ORACLE_SCRAPLING_URL=$ORACLE_SCRAPLING_URL|" .env
+        export ORACLE_SCRAPLING_URL
+        log_ok "Using direct IP: $ORACLE_SCRAPLING_URL"
     fi
+
     if [ -z "${ORACLE_SEARXNG_URL:-}" ]; then
-        ORACLE_SEARXNG_URL="http://${ORACLE_ARM_IP}:8080"
+        ORACLE_SEARXNG_URL="$(_oracle_url 8080)"
         if grep -q "^ORACLE_SEARXNG_URL=" .env; then
             sed -i "s|^ORACLE_SEARXNG_URL=.*|ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL|" .env
         else
@@ -264,6 +324,11 @@ if [ -n "${ORACLE_ARM_IP:-}" ]; then
         fi
         export ORACLE_SEARXNG_URL
         log_ok "Auto-derived ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL"
+    elif [ "$TUNNEL_AVAILABLE" = false ] && [[ "$ORACLE_SEARXNG_URL" == "http://oracle-tunnel:"* ]]; then
+        ORACLE_SEARXNG_URL="http://${ORACLE_ARM_IP}:8080"
+        sed -i "s|^ORACLE_SEARXNG_URL=.*|ORACLE_SEARXNG_URL=$ORACLE_SEARXNG_URL|" .env
+        export ORACLE_SEARXNG_URL
+        log_ok "Using direct IP: $ORACLE_SEARXNG_URL"
     fi
 fi
 
@@ -343,6 +408,23 @@ log_info "Starting AI Hub stack..."
 docker compose up -d
 log_ok "Stack started"
 
+# Force-recreate Caddy to ensure ORACLE_LITELLM_URL env var is picked up.
+# Docker Compose normally detects env changes, but reverse-proxy upstream bugs
+# (e.g. stale {$ORACLE_LITELLM_HOST} pointing at localhost:4000) are invisible
+# from the outside — MC just shows "API disconnected" with no hint why.
+# Recreating Caddy on every deploy is cheap (<5s) and guarantees fresh env.
+if [ -n "${ORACLE_LITELLM_URL:-}" ]; then
+    log_info "Recreating caddy to apply ORACLE_LITELLM_URL=$ORACLE_LITELLM_URL ..."
+    docker compose up -d --force-recreate --no-deps caddy > /dev/null 2>&1 || true
+    # Prove the container actually got the var
+    CADDY_UPSTREAM=$(docker compose exec -T caddy printenv ORACLE_LITELLM_URL 2>/dev/null || echo "")
+    if [ "$CADDY_UPSTREAM" = "$ORACLE_LITELLM_URL" ]; then
+        log_ok "Caddy upstream: $CADDY_UPSTREAM"
+    else
+        log_warn "Caddy ORACLE_LITELLM_URL mismatch (got: '$CADDY_UPSTREAM', expected: '$ORACLE_LITELLM_URL')"
+    fi
+fi
+
 ###############################################################################
 # 7. Wait for health checks
 ###############################################################################
@@ -351,11 +433,23 @@ log_info "Waiting for services to become healthy..."
 # Check LiteLLM on Oracle ARM (remote health check)
 LITELLM_URL="${ORACLE_LITELLM_URL:-}"
 if [ -n "$LITELLM_URL" ]; then
-    log_info "Checking LiteLLM on Oracle ARM ($LITELLM_URL)..."
-    if curl -sf "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; then
-        log_ok "LiteLLM is healthy on Oracle ARM"
+    # oracle-tunnel URLs (docker service names) are only resolvable inside Docker,
+    # not from the host shell. Test via docker compose exec instead.
+    if echo "$LITELLM_URL" | grep -q "oracle-tunnel"; then
+        log_info "Checking LiteLLM via oracle-tunnel ($LITELLM_URL)..."
+        if docker compose exec -T caddy wget -qO- http://oracle-tunnel:4000/health/liveliness > /dev/null 2>&1; then
+            log_ok "LiteLLM is reachable through oracle-tunnel SSH tunnel"
+        else
+            log_warn "oracle-tunnel not responding yet — check: docker compose logs oracle-tunnel"
+            log_warn "If SSH key is valid, tunnel connects within 30s of container start"
+        fi
     else
-        log_warn "LiteLLM on Oracle ARM not responding — run: bash scripts/deploy-oracle.sh"
+        log_info "Checking LiteLLM on Oracle ARM ($LITELLM_URL)..."
+        if curl -sf "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; then
+            log_ok "LiteLLM is healthy on Oracle ARM"
+        else
+            log_warn "LiteLLM on Oracle ARM not responding — run: bash scripts/deploy-oracle.sh"
+        fi
     fi
 else
     log_warn "ORACLE_LITELLM_URL not set — LiteLLM must be deployed to Oracle ARM"
@@ -372,6 +466,23 @@ for i in $(seq 1 30); do
     fi
     sleep 3
 done
+
+###############################################################################
+# 7b. Register agents in Paperclip via direct DB access
+###############################################################################
+# Bypasses Better Auth by writing directly to PostgreSQL.
+# Runs after the stack is up; paperclip-db healthcheck ensures it's ready.
+# Non-fatal — core services work even if this step fails.
+if docker compose exec -T paperclip-db psql -U paperclip paperclip -c "SELECT 1;" > /dev/null 2>&1; then
+    log_info "Registering OpenClaw agents in Paperclip DB..."
+    if bash scripts/setup-paperclip-db.sh; then
+        log_ok "Paperclip agents registered"
+    else
+        log_warn "Paperclip DB setup encountered errors (check output above)"
+    fi
+else
+    log_warn "Paperclip DB not ready — skipping agent registration (retry: bash scripts/setup-paperclip-db.sh)"
+fi
 
 ###############################################################################
 # 8. Status Report

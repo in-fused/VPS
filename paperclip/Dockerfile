@@ -39,15 +39,32 @@ RUN sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.confi
     || sed -i "s|defineConfig({|defineConfig({ base: '/paperclip/',|" ui/vite.config.js \
     || true
 
-RUN NODE_OPTIONS="--max-old-space-size=1024" pnpm --filter @paperclipai/ui build \
+# Patch React Router basename so routes match under /paperclip/ sub-path.
+# BrowserRouter has no basename by default — router sees the full path
+# /paperclip/invite/TOKEN and no route matches. Setting basename="/paperclip"
+# tells react-router to strip the prefix before matching, so /invite/:token works.
+RUN sed -i 's|<BrowserRouter>|<BrowserRouter basename="/paperclip">|g' ui/src/main.tsx
+
+RUN NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @paperclipai/ui build \
     && pnpm --filter @paperclipai/server build
 
 # Patch API paths in compiled JS for /paperclip/ sub-directory deployment
-# Source has: const BASE = "/api" (client.ts) and `/api/auth${path}` (auth.ts)
-# Minified output may use double quotes, single quotes, or backtick templates
-# All must be prefixed with /paperclip so Caddy routes them correctly
+# Caddy handle_path strips /paperclip/ so the Paperclip server receives clean
+# /api/* and /assets/* paths. Browser requests must include the /paperclip/
+# prefix so Caddy routes them; these sed rewrites add that prefix.
+#
+# Two pattern sets:
+#   1. "/api/"  and '/api/'  — catches hardcoded sub-paths: "/api/trpc", "/api/auth", etc.
+#   2. "/api"   and '/api'   — catches the BASE constant: const BASE = "/api"
+#   3. backtick — catches template literals: `/api/auth${path}`
+#
+# Order matters: apply "/api/" (with slash) before "/api" (without) to avoid
+# double-patching. A string like "/api/trpc" would be caught by rule 1 and
+# left alone by rule 2 (no plain "/api" remains after rule 1 patches it).
 RUN find ui/dist -name '*.js' -exec sed -i \
+        -e 's|"/api/|"/paperclip/api/|g' \
         -e 's|"/api"|"/paperclip/api"|g' \
+        -e "s|'/api/|'/paperclip/api/|g" \
         -e "s|'/api'|'/paperclip/api'|g" \
         {} + \
     && find ui/dist -name '*.js' -exec sed -i \
@@ -62,7 +79,7 @@ RUN test -f server/dist/index.js || (echo "Server build failed" && exit 1)
 # imports @paperclipai/db/src/index.ts (and other workspace packages) via the tsx loader.
 # pnpm symlinks server/node_modules/@paperclipai/* → packages/*, so deleting
 # packages/*/src breaks the runtime module resolution.
-RUN rm -rf .git .github docs cli/src ui/src \
+RUN rm -rf .git .github docs ui/src \
     && find . -name '*.md' -not -path './node_modules/*' -delete 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
@@ -74,6 +91,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Enable pnpm so `pnpm paperclipai auth bootstrap-ceo` works in exec sessions
+RUN corepack enable
+
 WORKDIR /app
 
 # Copy entire monorepo — pnpm workspace symlinks in node_modules reference
@@ -83,6 +103,11 @@ COPY --from=build /build ./
 
 # Data directory
 RUN mkdir -p /paperclip && chown node:node /paperclip
+
+# Allow node user to write Vite temp files — needed by `paperclipai onboard`
+# which starts a temporary server for verification. Without this the onboard
+# command fails with EACCES on /app/ui/node_modules/.vite-temp/.
+RUN mkdir -p /app/ui/node_modules/.vite-temp && chown node:node /app/ui/node_modules/.vite-temp
 VOLUME /paperclip
 
 ENV NODE_ENV=production
