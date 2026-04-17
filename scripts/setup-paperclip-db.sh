@@ -184,14 +184,14 @@ BEGIN
 
     -- Update ALL existing rows for this agent (may be >1 due to past duplicates)
     EXECUTE format(
-      'UPDATE %I SET %I=\$1,%I=\$2,%I=\$3,updated_at=NOW() WHERE name=\$4 AND adapter_type=\$5',
-      ag_table, at_col, ac_col, co_id_col
+      'UPDATE %I SET %I=\$1,%I=\$2,%I=\$3,updated_at=NOW() WHERE name=\$4 AND %I=\$5',
+      ag_table, at_col, ac_col, co_id_col, at_col
     ) USING 'openclaw_gateway', adapter, co_id, ag->>'n', 'openclaw_gateway';
 
     -- Get one id for status update + reports_to tracking
     EXECUTE format(
-      'SELECT id FROM %I WHERE name=\$1 AND adapter_type=\$2 LIMIT 1',
-      ag_table
+      'SELECT id FROM %I WHERE name=\$1 AND %I=\$2 LIMIT 1',
+      ag_table, at_col
     ) INTO ag_id USING ag->>'n', 'openclaw_gateway';
 
     IF ag_id IS NULL THEN
@@ -216,13 +216,13 @@ BEGIN
     IF st_col IS NOT NULL THEN
       BEGIN
         EXECUTE format(
-          'UPDATE %I SET %I=\$1,pause_reason=NULL,paused_at=NULL,updated_at=NOW() WHERE name=\$2 AND adapter_type=\$3',
-          ag_table, st_col
+          'UPDATE %I SET %I=\$1,pause_reason=NULL,paused_at=NULL,updated_at=NOW() WHERE name=\$2 AND %I=\$3',
+          ag_table, st_col, at_col
         ) USING 'idle', ag->>'n', 'openclaw_gateway';
       EXCEPTION WHEN OTHERS THEN
         EXECUTE format(
-          'UPDATE %I SET %I=\$1 WHERE name=\$2 AND adapter_type=\$3',
-          ag_table, st_col
+          'UPDATE %I SET %I=\$1 WHERE name=\$2 AND %I=\$3',
+          ag_table, st_col, at_col
         ) USING 'idle', ag->>'n', 'openclaw_gateway';
       END;
     END IF;
