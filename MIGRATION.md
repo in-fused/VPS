@@ -137,19 +137,53 @@ Then:
 
 **Cost:** $0/month infra | **Risk:** Oracle free tier policy enforcement
 
-### Current Oracle ARM state
+### Current Oracle ARM state — Accurate RAM accounting
 
-The ARM instance (4 OCPU / 24 GB) currently runs:
-- LiteLLM + LiteLLM-DB (2 GB limit)
-- Scrapling (512 MB limit)
-- SearXNG (256 MB limit)
-- Ollama native: qwen3.5:9b (6.6 GB) + qwen3-coder:30b (18.6 GB)
+The ARM instance (4 OCPU / 24 GB total RAM):
 
-**Remaining headroom:** ~24 GB - (2 + 0.5 + 0.25 + 6.6 + 18.6) ≈ **~3.5 GB free**
+| Component | RAM |
+|-----------|-----|
+| LiteLLM | 2,048 MB |
+| LiteLLM-DB | 128 MB |
+| Scrapling | 512 MB |
+| SearXNG | 256 MB |
+| OS + system | ~512 MB |
+| **Docker + OS subtotal** | **~3.5 GB** |
 
-OpenClaw needs 1.5 GB. Caddy needs 64 MB. Webhook: 64 MB. Paperclip: 256 MB. Paperclip-DB: 128 MB. Watchtower: 64 MB.
+Ollama loads models **on demand** and evicts after 5 min idle — they are NOT all in RAM simultaneously:
 
-**Total additional:** ~2.1 GB → fits within the 3.5 GB headroom — barely.
+| Model | RAM when loaded |
+|-------|----------------|
+| qwen3.5:9b | 6.6 GB |
+| qwen3-coder:30b (MoE) | **18.6 GB** (full weights in RAM, even though only 3.3B params fire per token) |
+| *(qwen3:14b was removed — freed 9.3 GB)* | — |
+
+**Services we'd be moving from EC2:**
+
+| Service | RAM |
+|---------|-----|
+| OpenClaw | 1,536 MB |
+| Caddy | 64 MB |
+| Webhook | 64 MB |
+| Paperclip | 256 MB |
+| Paperclip-DB | 128 MB |
+| Watchtower | 64 MB |
+| **EC2 services subtotal** | **~2.1 GB** |
+
+**Honest headroom analysis:**
+
+| Scenario | RAM used | Free | Verdict |
+|----------|----------|------|---------|
+| 30B model active + all services | 3.5 + 18.6 + 2.1 = **24.2 GB** | -200 MB | ❌ OOM |
+| 9B model active + all services | 3.5 + 6.6 + 2.1 = **12.2 GB** | 11.8 GB | ✅ Fine |
+| No model loaded + all services | 3.5 + 2.1 = **5.6 GB** | 18.4 GB | ✅ Fine |
+
+**The qwen3-coder:30b model (18.6 GB) cannot coexist with the full service stack.** If it gets loaded while OpenClaw is running, Linux will OOM-kill the lowest-priority process — most likely LiteLLM or Scrapling.
+
+**Options to make Option B work:**
+1. **Drop qwen3-coder:30b** — remove from `litellm_config.yaml`. The 9B model handles most coding tasks.
+2. **Keep the 30B but accept the constraint** — it works fine when OpenClaw is idle, which is most of the time. The 5-minute Ollama eviction means they rarely collide.
+3. **Reduce LiteLLM memory limit from 2G to 1G** — LiteLLM rarely hits 2 GB in practice. This gives back 1 GB and makes the 30B scenario ~800 MB short instead of OOM territory.
 
 ### Risks
 
