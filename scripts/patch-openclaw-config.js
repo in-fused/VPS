@@ -144,7 +144,7 @@ if (ollamaUrl) {
 // =========================================================================
 config.agents = config.agents || {};
 config.agents.defaults = config.agents.defaults || {};
-config.agents.defaults.model = { primary: 'litellm/cerebras-gpt-oss-120b' };
+config.agents.defaults.model = { primary: 'litellm/groq-llama-3.3-70b' };
 // Allowlist litellm + ollama providers (prevents anthropic fallback)
 config.agents.defaults.models = ollamaUrl
   ? { litellm: {}, ollama: {} }
@@ -252,23 +252,26 @@ config.agents.list = config.agents.list || [];
 
 // Only seed agents if none exist yet (preserve user-created agents)
 // Models here match MODEL_MAP below (FREE-FIRST strategy):
-//   Leads/developers: cerebras-gpt-oss-120b (free, 3000 t/s)
+//   Leads/developers: groq-llama-3.3-70b (free, ~500 t/s, verified end-to-end)
 //   Research/security: groq-gpt-oss-120b (free, 500 t/s)
 //   Doc writers: gemini-flash-lite (free, high RPD)
+// NOTE: cerebras-gpt-oss-120b was the previous default, but agents hit
+// MidStreamFallbackError in production because LiteLLM's fallback for the
+// cerebras chain routes to exhausted vertex_ai_beta quota.
 if (config.agents.list.length === 0) {
   config.agents.list = [
     // CORE TEAM
     {
       id: 'lead', workspace: 'Lead',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: { name: 'Lead', emoji: '\u{1F9E0}' },
-      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
+      subagents: { allowAgents: ['codecraft', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/groq-llama-3.3-70b' } },
     },
     {
       id: 'codecraft', workspace: 'CodeCraft',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: { name: 'CodeCraft', emoji: '\u26A1' },
-      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
+      subagents: { allowAgents: ['lead', 'scout', 'scribe', 'ops-lead', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/groq-llama-3.3-70b' } },
     },
     {
       id: 'scout', workspace: 'Scout',
@@ -285,15 +288,15 @@ if (config.agents.list.length === 0) {
     // PLATFORM TEAM
     {
       id: 'ops-lead', workspace: 'Ops Lead',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: { name: 'Ops Lead', emoji: '\u{1F3AF}' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'builder', 'sentinel', 'chronicler'], model: { primary: 'litellm/groq-llama-3.3-70b' } },
     },
     {
       id: 'builder', workspace: 'Builder',
-      model: { primary: 'litellm/cerebras-gpt-oss-120b' },
+      model: { primary: 'litellm/groq-llama-3.3-70b' },
       identity: { name: 'Builder', emoji: '\u{1F528}' },
-      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/cerebras-gpt-oss-120b' } },
+      subagents: { allowAgents: ['lead', 'codecraft', 'scout', 'scribe', 'ops-lead', 'sentinel', 'chronicler'], model: { primary: 'litellm/groq-llama-3.3-70b' } },
     },
     {
       id: 'sentinel', workspace: 'Sentinel',
@@ -351,31 +354,31 @@ var TOOL_RESTRICTIONS = {
 // Clean unrecognized agent keys + force model assignments
 // FREE-FIRST strategy: all agents use free providers as primary.
 // DeepSeek is ONLY in the LiteLLM fallback chain (triggers on 429/failures).
-// Leads/developers: cerebras-gpt-oss-120b (GPT-OSS 120B, production, 3000 t/s)
+// Leads/developers: groq-llama-3.3-70b (Llama 3.3 70B on Groq, production, ~500 t/s)
 // Research/security: groq-gpt-oss-120b (GPT-OSS 120B on Groq, production, 500 t/s)
 // Doc writers: gemini-flash-lite (free, high RPD)
 var MODEL_MAP = {
-  'lead': 'litellm/cerebras-gpt-oss-120b',
-  'codecraft': 'litellm/cerebras-gpt-oss-120b',
+  'lead': 'litellm/groq-llama-3.3-70b',
+  'codecraft': 'litellm/groq-llama-3.3-70b',
   'scout': 'litellm/groq-gpt-oss-120b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-gpt-oss-120b',
-  'builder': 'litellm/cerebras-gpt-oss-120b',
+  'ops-lead': 'litellm/groq-llama-3.3-70b',
+  'builder': 'litellm/groq-llama-3.3-70b',
   'sentinel': 'litellm/groq-gpt-oss-120b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
 // Subagent models match parent — prevents capability mismatches during parallel execution
 var SUBAGENT_MODEL_MAP = {
-  'lead': 'litellm/cerebras-gpt-oss-120b',
-  'codecraft': 'litellm/cerebras-gpt-oss-120b',
+  'lead': 'litellm/groq-llama-3.3-70b',
+  'codecraft': 'litellm/groq-llama-3.3-70b',
   'scout': 'litellm/groq-gpt-oss-120b',
   'scribe': 'litellm/gemini-flash-lite',
-  'ops-lead': 'litellm/cerebras-gpt-oss-120b',
-  'builder': 'litellm/cerebras-gpt-oss-120b',
+  'ops-lead': 'litellm/groq-llama-3.3-70b',
+  'builder': 'litellm/groq-llama-3.3-70b',
   'sentinel': 'litellm/groq-gpt-oss-120b',
   'chronicler': 'litellm/gemini-flash-lite',
 };
-var SUBAGENT_FALLBACK = 'litellm/cerebras-gpt-oss-120b';
+var SUBAGENT_FALLBACK = 'litellm/groq-llama-3.3-70b';
 if (Array.isArray(config.agents && config.agents.list)) {
   config.agents.list.forEach(function(agent) {
     if (agent.identity) delete agent.identity.description;
