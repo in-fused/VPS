@@ -127,14 +127,13 @@ ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "sudo mkdir -p $REMOTE_DIR && sudo chown -R
 log_info "Syncing repo files to Oracle ARM..."
 
 # Use rsync if available (much faster for large workspace/), fall back to scp
-RSYNC_SSH="-e ssh $SSH_OPTS"
 DIRS="caddy scripts scrapling searxng webhook paperclip workspace ttyd"
 
 if command -v rsync >/dev/null 2>&1; then
     RSYNC_OPTS="-az --delete --exclude='.git' --exclude='*.log' --exclude='node_modules'"
     scp $SCP_OPTS Caddyfile litellm_config.yaml "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/"
     for dir in $DIRS; do
-        eval "rsync $RSYNC_OPTS $RSYNC_SSH $dir/ $SSH_USER@$ORACLE_IP:$REMOTE_DIR/$dir/"
+        rsync $RSYNC_OPTS -e "ssh $SSH_OPTS" "$dir/" "$SSH_USER@$ORACLE_IP:$REMOTE_DIR/$dir/"
     done
 else
     # scp fallback
