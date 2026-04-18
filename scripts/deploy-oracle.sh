@@ -237,8 +237,12 @@ ssh $SSH_OPTS "$SSH_USER@$ORACLE_IP" "
     echo '[deploy] Pulling standard images...'
     docker compose pull litellm litellm-db searxng openclaw watchtower paperclip-db
 
-    echo '[deploy] Building custom images...'
-    docker compose build caddy scrapling webhook paperclip ttyd
+    echo '[deploy] Building custom images (sequential to avoid disk pressure)...'
+    for svc in caddy scrapling webhook paperclip ttyd; do
+        echo "[deploy] Building \$svc..."
+        docker compose build \$svc
+        docker builder prune -f --filter type=exec.cachemount 2>/dev/null || true
+    done
 
     echo '[deploy] Stopping old stack (if any)...'
     docker compose down --remove-orphans 2>/dev/null || true
