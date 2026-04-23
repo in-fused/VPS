@@ -1,92 +1,79 @@
 #!/usr/bin/env bash
 ###############################################################################
-# provision-oracle-arm.sh — Fully Automated Oracle ARM Instance Provisioner
+# provision-oracle-arm.sh — Oracle ARM Auto-Provisioner (4 OCPU / 24GB)
 ###############################################################################
-# Run this on your EC2 server. It will:
-#   1. Install OCI CLI (if needed)
-#   2. Configure OCI credentials
-#   3. Create networking (VCN, subnet, internet gateway, security rules)
-#   4. Retry instance creation every 60s until capacity opens up
-#   5. Wait for instance to boot
-#   6. SSH in and run setup-ollama-server.sh
-#   7. Update EC2 .env with OLLAMA_BASE_URL
-#   8. Restart the Docker stack
+# Provisions a full Oracle Cloud Always Free ARM instance:
+#   - VM.Standard.A1.Flex: 4 OCPUs, 24GB RAM, 200GB boot volume
+#   - Ubuntu 22.04 aarch64
+#   - VCN + subnet + internet gateway + security list (ports 22, 80, 443, 2222)
+#   - Retries every 20s across all ADs until capacity opens (up to 24h)
 #
-# Usage:
-#   sudo bash scripts/provision-oracle-arm.sh
+# Run from EC2 or any machine with the OCI API key:
+#   bash scripts/provision-oracle-arm.sh
 #
 # Prerequisites:
-#   - OCI API private key at /home/VPS/oci_api_key.pem
-#   - Run from /home/VPS directory
+#   - OCI API private key at ./oci_api_key.pem
+#   - OCI credentials filled in below (user, fingerprint, tenancy, region)
 #
-# This script is designed to run unattended — start it and walk away.
-# It will retry instance creation indefinitely until capacity opens up.
-# Progress is logged to /home/VPS/oracle-provision.log
+# After provisioning completes:
+#   1. Update ORACLE_ARM_IP in .env with the printed IP
+#   2. Copy oracle-instance-key to your deployment machine
+#   3. Run: bash scripts/deploy-oracle.sh
+#
+# This script runs unattended — start it and walk away.
+# Progress is logged to ./oracle-provision.log
 ###############################################################################
 
 set -euo pipefail
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
-# OCI credentials (from your API key config preview)
+# ── OCI Credentials — fill these in before running ────────────────────────────
+# Find these in Oracle Cloud Console → Profile → API keys
 OCI_USER="ocid1.user.oc1..aaaaaaaat2mw5f3sxvlwcnqv6gizayboosqkq4ihrc7ukc7np3w5rtj5ky5a"
 OCI_FINGERPRINT="18:64:d7:eb:27:cf:7f:2d:f8:cb:93:92:24:cb:a1:c2"
 OCI_TENANCY="ocid1.tenancy.oc1..aaaaaaaa7skrn7sa5tbenz745ooy42uq6puv62xjnwen5zg6swhzdnkasgua"
 OCI_REGION="us-ashburn-1"
-OCI_KEY_FILE="/home/VPS/oci_api_key.pem"
+OCI_KEY_FILE="${OCI_KEY_FILE:-./oci_api_key.pem}"
 
-# Instance configuration
-# Strategy: start with smaller instance (easier to land), grab second later
-# Free tier allows 4 OCPUs / 24GB total — split across instances if needed
+# ── Instance Configuration ─────────────────────────────────────────────────────
+# Oracle Always Free: 4 OCPUs + 24GB RAM total — use it all on one instance
 SHAPE="VM.Standard.A1.Flex"
-OCPUS=2
-MEMORY_GB=12
-BOOT_VOLUME_GB=100
+OCPUS=4
+MEMORY_GB=24
+BOOT_VOLUME_GB=200
+
+# Ubuntu 22.04 aarch64 — Ashburn (us-ashburn-1)
+# Update this OCID if Oracle releases a newer Ubuntu image in your region:
+#   oci compute image list --compartment-id <tenancy> --operating-system "Canonical Ubuntu" --shape VM.Standard.A1.Flex
 IMAGE_OCID="ocid1.image.oc1.iad.aaaaaaaa2qup33kak66ll3loslunng52zk5haq4pggre5gg7y3snr5wh55rq"
-# Ubuntu 22.04 aarch64 (2025.07.24)
 
-# EC2 details
-EC2_IP="13.222.43.154"
-VPS_DIR="/home/VPS"
-ENV_FILE="$VPS_DIR/.env"
-LOG_FILE="$VPS_DIR/oracle-provision.log"
-SSH_KEY_FILE="$VPS_DIR/oracle-instance-key"
+# ── Local Paths ────────────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+LOG_FILE="$REPO_DIR/oracle-provision.log"
+SSH_KEY_FILE="$REPO_DIR/oracle-instance-key"
 
-# Retry settings — aggressive to compete with other provisioners
-RETRY_INTERVAL=20  # seconds between full AD rotation cycles
-MAX_RETRIES=4320   # 24 hours of retries at 20s intervals
+# ── Retry Settings ─────────────────────────────────────────────────────────────
+RETRY_INTERVAL=20   # seconds between full AD rotation cycles
+MAX_RETRIES=4320    # 24 hours at 20s intervals
 
-# ── Logging ───────────────────────────────────────────────────────────────────
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-    echo -e "$msg" | tee -a "$LOG_FILE"
-}
+# ── Colors ─────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+log()       { echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 log_info()  { log "${BLUE}[INFO]${NC}  $1"; }
 log_ok()    { log "${GREEN}[OK]${NC}    $1"; }
 log_warn()  { log "${YELLOW}[WARN]${NC}  $1"; }
 log_error() { log "${RED}[ERROR]${NC} $1"; }
 
-# Initialize log
 echo "" > "$LOG_FILE"
-log_info "Oracle ARM Auto-Provisioner started"
-log_info "Log file: $LOG_FILE"
+log_info "Oracle ARM Provisioner — 4 OCPU / 24GB / 200GB"
+log_info "Log: $LOG_FILE"
 
 ###############################################################################
 # 1. Validate prerequisites
 ###############################################################################
-log_info "Checking prerequisites..."
-
 if [ ! -f "$OCI_KEY_FILE" ]; then
-    log_error "OCI API key not found at $OCI_KEY_FILE"
-    log_error "Copy your .pem file there first:"
-    log_error "  cp /path/to/your-api-key.pem $OCI_KEY_FILE"
+    log_error "OCI API key not found: $OCI_KEY_FILE"
+    log_error "Download your API key from Oracle Cloud → Profile → API keys"
     exit 1
 fi
 chmod 600 "$OCI_KEY_FILE"
@@ -95,58 +82,34 @@ log_ok "OCI API key found"
 ###############################################################################
 # 2. Install OCI CLI (if needed)
 ###############################################################################
-# Check known install locations first (sudo may not inherit PATH)
 for p in "$HOME/bin/oci" "/root/bin/oci" "/home/deploy/bin/oci" "/usr/local/bin/oci" \
          "$HOME/lib/oracle-cli/bin/oci" "/root/lib/oracle-cli/bin/oci"; do
-    if [ -x "$p" ]; then
-        export PATH="$(dirname "$p"):$PATH"
-        break
-    fi
+    [ -x "$p" ] && export PATH="$(dirname "$p"):$PATH" && break
 done
 
 if command -v oci &>/dev/null; then
-    log_ok "OCI CLI already installed: $(oci --version 2>&1 | head -1)"
+    log_ok "OCI CLI: $(oci --version 2>&1 | head -1)"
 else
     log_info "Installing OCI CLI..."
-    # Non-interactive install — remove stale dirs first
     for d in "$HOME/lib/oracle-cli" "/root/lib/oracle-cli" "/home/deploy/lib/oracle-cli"; do
         [ -d "$d" ] && rm -rf "$d"
     done
-
     curl -fsSL https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh | \
         bash -s -- --accept-all-defaults
-
-    # Add to PATH for this session
     export PATH="$HOME/bin:$PATH"
-    if [ -f "$HOME/.bashrc" ]; then
-        source "$HOME/.bashrc" 2>/dev/null || true
-    fi
-
-    if ! command -v oci &>/dev/null; then
-        for p in "$HOME/bin/oci" "/root/bin/oci" "/usr/local/bin/oci"; do
-            if [ -x "$p" ]; then
-                export PATH="$(dirname "$p"):$PATH"
-                break
-            fi
-        done
-    fi
-
-    if command -v oci &>/dev/null; then
-        log_ok "OCI CLI installed: $(oci --version 2>&1 | head -1)"
-    else
-        log_error "OCI CLI installation failed. Install manually:"
-        log_error "  bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)\" -- --accept-all-defaults"
-        exit 1
-    fi
+    [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc" 2>/dev/null || true
+    for p in "$HOME/bin/oci" "/root/bin/oci" "/usr/local/bin/oci"; do
+        [ -x "$p" ] && export PATH="$(dirname "$p"):$PATH" && break
+    done
+    command -v oci &>/dev/null || { log_error "OCI CLI install failed"; exit 1; }
+    log_ok "OCI CLI installed"
 fi
 
 ###############################################################################
 # 3. Configure OCI CLI
 ###############################################################################
-log_info "Configuring OCI CLI..."
-
 mkdir -p "$HOME/.oci"
-cat > "$HOME/.oci/config" << OCIEOF
+cat > "$HOME/.oci/config" <<OCIEOF
 [DEFAULT]
 user=$OCI_USER
 fingerprint=$OCI_FINGERPRINT
@@ -155,69 +118,49 @@ region=$OCI_REGION
 key_file=$OCI_KEY_FILE
 OCIEOF
 chmod 600 "$HOME/.oci/config"
-log_ok "OCI CLI configured"
 
-# Quick validation
 log_info "Validating OCI credentials..."
-if oci iam region list --output table 2>/dev/null | grep -q "$OCI_REGION"; then
-    log_ok "OCI credentials valid"
-else
-    log_error "OCI credential validation failed. Check your API key and config."
+if ! oci iam region list --output table 2>/dev/null | grep -q "$OCI_REGION"; then
+    log_error "OCI credential validation failed — check your API key and OCIDs"
     exit 1
 fi
+log_ok "OCI credentials valid"
 
 ###############################################################################
-# 4. Generate SSH key for Oracle instance
+# 4. Generate SSH key
 ###############################################################################
-if [ -f "$SSH_KEY_FILE" ]; then
-    log_warn "SSH key already exists at $SSH_KEY_FILE — reusing"
+if [ -f "$SSH_KEY_FILE" ] && [ -s "$SSH_KEY_FILE" ]; then
+    log_warn "SSH key exists at $SSH_KEY_FILE — reusing"
 else
-    log_info "Generating SSH keypair for Oracle instance..."
-    ssh-keygen -t ed25519 -f "$SSH_KEY_FILE" -N "" -C "oracle-arm-ollama"
+    log_info "Generating SSH keypair..."
+    ssh-keygen -t ed25519 -f "$SSH_KEY_FILE" -N "" -C "oracle-arm"
     log_ok "SSH keypair generated: $SSH_KEY_FILE"
 fi
 SSH_PUBLIC_KEY=$(cat "${SSH_KEY_FILE}.pub")
 
 ###############################################################################
-# 5. Get compartment (use root compartment = tenancy)
+# 5. Compartment + Availability Domains
 ###############################################################################
 COMPARTMENT_ID="$OCI_TENANCY"
-log_info "Using root compartment: $COMPARTMENT_ID"
 
-###############################################################################
-# 6. Get Availability Domain
-###############################################################################
 log_info "Fetching availability domains..."
-AD_NAME=$(oci iam availability-domain list \
-    --compartment-id "$COMPARTMENT_ID" \
-    --query 'data[0].name' \
-    --raw-output 2>/dev/null)
-
-if [ -z "$AD_NAME" ] || [ "$AD_NAME" = "null" ]; then
-    log_error "Failed to fetch availability domains"
-    exit 1
-fi
-log_ok "Availability Domain: $AD_NAME"
-
-# Get all ADs for fallback
 ALL_ADS=$(oci iam availability-domain list \
     --compartment-id "$COMPARTMENT_ID" \
     --query 'data[*].name' \
     --raw-output 2>/dev/null)
-log_info "All ADs available: $ALL_ADS"
+log_info "Available ADs: $ALL_ADS"
 
 ###############################################################################
-# 7. Create or find VCN
+# 6. VCN
 ###############################################################################
 log_info "Checking for existing VCN..."
-EXISTING_VCN=$(oci network vcn list \
+VCN_ID=$(oci network vcn list \
     --compartment-id "$COMPARTMENT_ID" \
-    --query 'data[?contains("display-name", `ollama`) || contains("display-name", `Ollama`)].id | [0]' \
+    --query 'data[?contains("display-name", `ollama`) || contains("display-name", `Ollama`) || contains("display-name", `ai-hub`)].id | [0]' \
     --raw-output 2>/dev/null || echo "null")
 
-if [ "$EXISTING_VCN" != "null" ] && [ -n "$EXISTING_VCN" ]; then
-    VCN_ID="$EXISTING_VCN"
-    log_ok "Found existing VCN: $VCN_ID"
+if [ "$VCN_ID" != "null" ] && [ -n "$VCN_ID" ]; then
+    log_ok "Reusing existing VCN: $VCN_ID"
 else
     log_info "Creating VCN..."
     VCN_ID=$(oci network vcn create \
@@ -227,16 +170,12 @@ else
         --dns-label "ollamavcn" \
         --query 'data.id' \
         --raw-output 2>/dev/null)
-
-    if [ -z "$VCN_ID" ] || [ "$VCN_ID" = "null" ]; then
-        log_error "Failed to create VCN"
-        exit 1
-    fi
+    [ -z "$VCN_ID" ] || [ "$VCN_ID" = "null" ] && { log_error "VCN create failed"; exit 1; }
     log_ok "VCN created: $VCN_ID"
 fi
 
 ###############################################################################
-# 8. Create Internet Gateway (if needed)
+# 7. Internet Gateway
 ###############################################################################
 log_info "Checking for internet gateway..."
 IGW_ID=$(oci network internet-gateway list \
@@ -246,7 +185,7 @@ IGW_ID=$(oci network internet-gateway list \
     --raw-output 2>/dev/null || echo "null")
 
 if [ "$IGW_ID" != "null" ] && [ -n "$IGW_ID" ]; then
-    log_ok "Found existing internet gateway: $IGW_ID"
+    log_ok "Reusing existing internet gateway: $IGW_ID"
 else
     log_info "Creating internet gateway..."
     IGW_ID=$(oci network internet-gateway create \
@@ -260,7 +199,7 @@ else
 fi
 
 ###############################################################################
-# 9. Create/Update Route Table
+# 8. Route Table
 ###############################################################################
 log_info "Configuring route table..."
 RT_ID=$(oci network route-table list \
@@ -268,59 +207,58 @@ RT_ID=$(oci network route-table list \
     --vcn-id "$VCN_ID" \
     --query 'data[0].id' \
     --raw-output 2>/dev/null)
+[ -z "$RT_ID" ] || [ "$RT_ID" = "null" ] && { log_error "No route table found"; exit 1; }
 
-if [ -n "$RT_ID" ] && [ "$RT_ID" != "null" ]; then
-    oci network route-table update \
-        --rt-id "$RT_ID" \
-        --route-rules "[{\"destination\": \"0.0.0.0/0\", \"destinationType\": \"CIDR_BLOCK\", \"networkEntityId\": \"$IGW_ID\"}]" \
-        --force 2>/dev/null
-    log_ok "Route table updated: $RT_ID"
-else
-    log_error "No route table found in VCN"
-    exit 1
-fi
+oci network route-table update \
+    --rt-id "$RT_ID" \
+    --route-rules "[{\"destination\": \"0.0.0.0/0\", \"destinationType\": \"CIDR_BLOCK\", \"networkEntityId\": \"$IGW_ID\"}]" \
+    --force 2>/dev/null
+log_ok "Route table updated"
 
 ###############################################################################
-# 10. Create Security List
+# 9. Security List — open 22, 80, 443, 2222 from anywhere
+#    (Baked in from the start — avoids manual port opening later)
 ###############################################################################
-log_info "Checking for security list..."
+log_info "Configuring security list (ports 22, 80, 443, 2222)..."
 SL_ID=$(oci network security-list list \
     --compartment-id "$COMPARTMENT_ID" \
     --vcn-id "$VCN_ID" \
     --query 'data[0].id' \
     --raw-output 2>/dev/null)
+[ -z "$SL_ID" ] || [ "$SL_ID" = "null" ] && { log_error "No security list found"; exit 1; }
 
-if [ -n "$SL_ID" ] && [ "$SL_ID" != "null" ]; then
-    log_info "Updating security list with SSH + Ollama rules..."
-    oci network security-list update \
-        --security-list-id "$SL_ID" \
-        --ingress-security-rules "[
-            {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false, \"tcpOptions\": {\"destinationPortRange\": {\"min\": 22, \"max\": 22}}},
-            {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false, \"tcpOptions\": {\"destinationPortRange\": {\"min\": 2222, \"max\": 2222}}},
-            {\"source\": \"$EC2_IP/32\", \"protocol\": \"6\", \"isStateless\": false, \"tcpOptions\": {\"destinationPortRange\": {\"min\": 11434, \"max\": 11434}}}
-        ]" \
-        --egress-security-rules "[
-            {\"destination\": \"0.0.0.0/0\", \"protocol\": \"all\", \"isStateless\": false}
-        ]" \
-        --force 2>/dev/null
-    log_ok "Security list updated: $SL_ID"
-else
-    log_error "No security list found in VCN"
-    exit 1
-fi
+oci network security-list update \
+    --security-list-id "$SL_ID" \
+    --ingress-security-rules "[
+        {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false,
+         \"tcpOptions\": {\"destinationPortRange\": {\"min\": 22, \"max\": 22}}},
+        {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false,
+         \"tcpOptions\": {\"destinationPortRange\": {\"min\": 80, \"max\": 80}}},
+        {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false,
+         \"tcpOptions\": {\"destinationPortRange\": {\"min\": 443, \"max\": 443}}},
+        {\"source\": \"0.0.0.0/0\", \"protocol\": \"6\", \"isStateless\": false,
+         \"tcpOptions\": {\"destinationPortRange\": {\"min\": 2222, \"max\": 2222}}},
+        {\"source\": \"0.0.0.0/0\", \"protocol\": \"1\", \"isStateless\": false,
+         \"icmpOptions\": {\"type\": 3, \"code\": 4}}
+    ]" \
+    --egress-security-rules "[
+        {\"destination\": \"0.0.0.0/0\", \"protocol\": \"all\", \"isStateless\": false}
+    ]" \
+    --force 2>/dev/null
+log_ok "Security list updated: ports 22, 80, 443, 2222 open"
 
 ###############################################################################
-# 11. Create Subnet (if needed)
+# 10. Subnet
 ###############################################################################
 log_info "Checking for public subnet..."
 SUBNET_ID=$(oci network subnet list \
     --compartment-id "$COMPARTMENT_ID" \
     --vcn-id "$VCN_ID" \
-    --query 'data[?contains("display-name", `public`) || contains("display-name", `Public`) || contains("display-name", `ollama`)].id | [0]' \
+    --query 'data[0].id' \
     --raw-output 2>/dev/null || echo "null")
 
 if [ "$SUBNET_ID" != "null" ] && [ -n "$SUBNET_ID" ]; then
-    log_ok "Found existing subnet: $SUBNET_ID"
+    log_ok "Reusing existing subnet: $SUBNET_ID"
 else
     log_info "Creating public subnet..."
     SUBNET_ID=$(oci network subnet create \
@@ -333,40 +271,32 @@ else
         --security-list-ids "[\"$SL_ID\"]" \
         --query 'data.id' \
         --raw-output 2>/dev/null)
-
-    if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "null" ]; then
-        log_error "Failed to create subnet"
-        exit 1
-    fi
+    [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "null" ] && { log_error "Subnet create failed"; exit 1; }
     log_ok "Subnet created: $SUBNET_ID"
 fi
 
 ###############################################################################
-# 12. Retry Instance Creation Until Capacity Opens Up
+# 11. Retry Instance Creation Until Capacity Opens
 ###############################################################################
 echo ""
 log_info "============================================================"
-log_info "  Starting instance creation retry loop"
-log_info "  Shape: $SHAPE ($OCPUS OCPUs, ${MEMORY_GB}GB RAM)"
-log_info "  Retrying every ${RETRY_INTERVAL}s (max ${MAX_RETRIES} attempts = 24h)"
-log_info "  You can safely close this terminal — check $LOG_FILE for progress"
+log_info "  Launching: $SHAPE — $OCPUS OCPUs / ${MEMORY_GB}GB / ${BOOT_VOLUME_GB}GB"
+log_info "  Retrying every ${RETRY_INTERVAL}s across all ADs (max 24h)"
+log_info "  Safe to close terminal — tail -f $LOG_FILE to monitor"
 log_info "============================================================"
 echo ""
 
 INSTANCE_ID=""
 ATTEMPT=0
 
-# Try each AD in rotation — blast all ADs quickly, then sleep
-readarray -t AD_ARRAY < <(echo "$ALL_ADS" | tr -d '[]"' | tr ',' '\n' | sed 's/^ *//')
+readarray -t AD_ARRAY < <(echo "$ALL_ADS" | tr -d '[]"' | tr ',' '\n' | sed 's/^ *//' | grep -v '^$')
 AD_COUNT=${#AD_ARRAY[@]}
 
-while [ -z "$INSTANCE_ID" ] && [ $ATTEMPT -lt $MAX_RETRIES ]; do
-    # Try ALL availability domains in rapid succession (no sleep between ADs)
+while [ -z "$INSTANCE_ID" ] && [ "$ATTEMPT" -lt "$MAX_RETRIES" ]; do
     for CURRENT_AD in "${AD_ARRAY[@]}"; do
         [ -n "$INSTANCE_ID" ] && break
         ATTEMPT=$((ATTEMPT + 1))
-
-        log_info "Attempt $ATTEMPT/$MAX_RETRIES — AD: $CURRENT_AD"
+        log_info "Attempt $ATTEMPT — AD: $CURRENT_AD"
 
         RESULT=$(oci compute instance launch \
             --compartment-id "$COMPARTMENT_ID" \
@@ -375,7 +305,7 @@ while [ -z "$INSTANCE_ID" ] && [ $ATTEMPT -lt $MAX_RETRIES ]; do
             --shape-config "{\"ocpus\": $OCPUS, \"memoryInGBs\": $MEMORY_GB}" \
             --image-id "$IMAGE_OCID" \
             --subnet-id "$SUBNET_ID" \
-            --display-name "ollama-arm-server" \
+            --display-name "ai-hub-arm" \
             --assign-public-ip true \
             --boot-volume-size-in-gbs "$BOOT_VOLUME_GB" \
             --metadata "{\"ssh_authorized_keys\": \"$SSH_PUBLIC_KEY\"}" \
@@ -384,30 +314,26 @@ while [ -z "$INSTANCE_ID" ] && [ $ATTEMPT -lt $MAX_RETRIES ]; do
 
         if [[ "$RESULT" == ocid1.instance* ]]; then
             INSTANCE_ID="$RESULT"
-            log_ok "Instance created! ID: $INSTANCE_ID"
-        elif echo "$RESULT" | grep -qi "out of.*capacity\|InternalError\|LimitExceeded\|capacity"; then
-            log_warn "Out of capacity in $CURRENT_AD"
-        elif echo "$RESULT" | grep -qi "limit\|quota\|exceeded"; then
-            log_warn "Limit/quota issue: $(echo "$RESULT" | head -1)"
+            log_ok "Instance created: $INSTANCE_ID"
+        elif echo "$RESULT" | grep -qi "capacity\|InternalError\|LimitExceeded"; then
+            log_warn "No capacity in $CURRENT_AD"
+        elif echo "$RESULT" | grep -qi "limit\|quota"; then
+            log_warn "Limit: $(echo "$RESULT" | head -1)"
         else
-            log_warn "Unexpected response: $(echo "$RESULT" | head -3)"
+            log_warn "Response: $(echo "$RESULT" | head -2)"
         fi
     done
 
-    # Sleep only after trying all ADs
     if [ -z "$INSTANCE_ID" ]; then
-        log_info "All $AD_COUNT ADs exhausted — waiting ${RETRY_INTERVAL}s before next round..."
+        log_info "All $AD_COUNT ADs exhausted — waiting ${RETRY_INTERVAL}s..."
         sleep "$RETRY_INTERVAL"
     fi
 done
 
-if [ -z "$INSTANCE_ID" ]; then
-    log_error "Failed to create instance after $MAX_RETRIES attempts"
-    exit 1
-fi
+[ -z "$INSTANCE_ID" ] && { log_error "Failed after $MAX_RETRIES attempts"; exit 1; }
 
 ###############################################################################
-# 13. Wait for Instance to be Running
+# 12. Wait for RUNNING state
 ###############################################################################
 log_info "Waiting for instance to reach RUNNING state..."
 for i in $(seq 1 60); do
@@ -415,21 +341,15 @@ for i in $(seq 1 60); do
         --instance-id "$INSTANCE_ID" \
         --query 'data."lifecycle-state"' \
         --raw-output 2>/dev/null || echo "UNKNOWN")
-
-    if [ "$STATE" = "RUNNING" ]; then
-        log_ok "Instance is RUNNING"
-        break
-    fi
+    [ "$STATE" = "RUNNING" ] && { log_ok "Instance RUNNING"; break; }
     log_info "  State: $STATE (waiting 30s...)"
     sleep 30
 done
 
 ###############################################################################
-# 14. Get Public IP
+# 13. Get Public IP
 ###############################################################################
 log_info "Fetching public IP..."
-
-# Get VNIC attachment
 VNIC_ID=""
 for i in $(seq 1 10); do
     VNIC_ID=$(oci compute vnic-attachment list \
@@ -437,116 +357,74 @@ for i in $(seq 1 10); do
         --instance-id "$INSTANCE_ID" \
         --query 'data[0]."vnic-id"' \
         --raw-output 2>/dev/null || echo "null")
-
-    if [ "$VNIC_ID" != "null" ] && [ -n "$VNIC_ID" ]; then
-        break
-    fi
+    [ "$VNIC_ID" != "null" ] && [ -n "$VNIC_ID" ] && break
     sleep 10
 done
-
-if [ "$VNIC_ID" = "null" ] || [ -z "$VNIC_ID" ]; then
-    log_error "Could not find VNIC for instance"
-    exit 1
-fi
+[ "$VNIC_ID" = "null" ] || [ -z "$VNIC_ID" ] && { log_error "No VNIC found"; exit 1; }
 
 ORACLE_IP=$(oci network vnic get \
     --vnic-id "$VNIC_ID" \
     --query 'data."public-ip"' \
     --raw-output 2>/dev/null)
-
-if [ -z "$ORACLE_IP" ] || [ "$ORACLE_IP" = "null" ]; then
-    log_error "Instance has no public IP"
-    exit 1
-fi
-
-log_ok "Oracle instance public IP: $ORACLE_IP"
+[ -z "$ORACLE_IP" ] || [ "$ORACLE_IP" = "null" ] && { log_error "No public IP assigned"; exit 1; }
+log_ok "Public IP: $ORACLE_IP"
 
 ###############################################################################
-# 15. Wait for SSH to be ready
+# 14. Wait for SSH
 ###############################################################################
-log_info "Waiting for SSH to be available (this can take 2-5 minutes)..."
+log_info "Waiting for SSH (up to 10 min)..."
 for i in $(seq 1 30); do
     if ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-        ubuntu@"$ORACLE_IP" "echo ssh-ready" 2>/dev/null | grep -q "ssh-ready"; then
-        log_ok "SSH is ready"
+        ubuntu@"$ORACLE_IP" "echo ok" 2>/dev/null | grep -q "ok"; then
+        log_ok "SSH ready"
         break
     fi
-    log_info "  SSH not ready yet (attempt $i/30, waiting 20s...)"
+    log_info "  Not ready yet ($i/30, waiting 20s...)"
     sleep 20
 done
 
 ###############################################################################
-# 16. Copy and run setup script on Oracle instance
+# 15. Open iptables on the instance (OS-level firewall)
 ###############################################################################
-log_info "Copying setup script to Oracle instance..."
-scp -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
-    "$VPS_DIR/scripts/setup-ollama-server.sh" \
-    ubuntu@"$ORACLE_IP":/tmp/setup-ollama-server.sh
-
-log_info "Waiting for apt lock to clear (Ubuntu auto-updates on first boot)..."
-ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
-    ubuntu@"$ORACLE_IP" \
-    "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do echo 'waiting for apt lock...'; sleep 5; done" 2>&1 | tee -a "$LOG_FILE"
-
-log_info "Running setup-ollama-server.sh on Oracle instance (this takes 15-20 min)..."
-ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no \
-    ubuntu@"$ORACLE_IP" \
-    "sudo bash /tmp/setup-ollama-server.sh $EC2_IP" 2>&1 | tee -a "$LOG_FILE"
-
-log_ok "Ollama setup complete on Oracle instance"
-
-###############################################################################
-# 17. Verify Ollama is reachable from EC2
-###############################################################################
-log_info "Verifying Ollama is reachable from EC2..."
-for i in $(seq 1 10); do
-    if curl -sf "http://$ORACLE_IP:11434/api/tags" > /dev/null 2>&1; then
-        log_ok "Ollama is reachable at http://$ORACLE_IP:11434"
-        break
+log_info "Opening iptables for ports 80 and 443 on the instance..."
+ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@"$ORACLE_IP" "
+    for PORT in 80 443; do
+        if ! sudo iptables -C INPUT -p tcp --dport \$PORT -j ACCEPT 2>/dev/null; then
+            sudo iptables -I INPUT -p tcp --dport \$PORT -j ACCEPT
+        fi
+    done
+    if command -v netfilter-persistent >/dev/null 2>&1; then
+        sudo netfilter-persistent save 2>/dev/null || true
+    elif command -v iptables-save >/dev/null 2>&1; then
+        sudo iptables-save | sudo tee /etc/iptables/rules.v4 >/dev/null 2>/dev/null || true
     fi
-    log_warn "  Ollama not reachable yet (attempt $i/10, waiting 15s...)"
-    sleep 15
-done
-
-###############################################################################
-# 18. Update EC2 .env with OLLAMA_BASE_URL
-###############################################################################
-log_info "Updating EC2 .env..."
-if grep -q "^OLLAMA_BASE_URL=" "$ENV_FILE" 2>/dev/null; then
-    sed -i "s|^OLLAMA_BASE_URL=.*|OLLAMA_BASE_URL=http://$ORACLE_IP:11434|" "$ENV_FILE"
-    log_ok "Updated existing OLLAMA_BASE_URL in .env"
-else
-    echo "OLLAMA_BASE_URL=http://$ORACLE_IP:11434" >> "$ENV_FILE"
-    log_ok "Added OLLAMA_BASE_URL to .env"
-fi
-
-###############################################################################
-# 19. Restart Docker stack
-###############################################################################
-log_info "Restarting Docker stack to pick up new OLLAMA_BASE_URL..."
-cd "$VPS_DIR"
-docker compose down 2>&1 | tee -a "$LOG_FILE"
-docker compose up -d 2>&1 | tee -a "$LOG_FILE"
-log_ok "Docker stack restarted"
+" 2>/dev/null || true
+log_ok "iptables updated"
 
 ###############################################################################
 # Done!
 ###############################################################################
 echo ""
 echo "============================================================"
-log_ok "ORACLE ARM PROVISIONING COMPLETE!"
+log_ok "ORACLE ARM INSTANCE READY!"
 echo "============================================================"
 echo ""
-echo "  Oracle Instance IP:  $ORACLE_IP"
-echo "  Instance ID:         $INSTANCE_ID"
-echo "  Ollama URL:          http://$ORACLE_IP:11434"
-echo "  SSH access:          ssh -i $SSH_KEY_FILE -p 2222 deploy@$ORACLE_IP"
+echo "  IP:          $ORACLE_IP"
+echo "  Instance ID: $INSTANCE_ID"
+echo "  SSH key:     $SSH_KEY_FILE"
 echo ""
-echo "  EC2 .env updated:    OLLAMA_BASE_URL=http://$ORACLE_IP:11434"
-echo "  Docker stack:        Restarted with Ollama models available"
+echo "  ── Next steps ───────────────────────────────────────────"
 echo ""
-echo "  Models available:    qwen3.5:9b, qwen3:14b, qwen3-coder:30b"
+echo "  1. Add to .env:"
+echo "       ORACLE_ARM_IP=$ORACLE_IP"
 echo ""
-echo "  Full log:            $LOG_FILE"
+echo "  2. Deploy the full stack:"
+echo "       bash scripts/deploy-oracle.sh"
 echo ""
+echo "  3. Update DNS A record → $ORACLE_IP"
+echo ""
+echo "  SSH access:"
+echo "    ssh -i $SSH_KEY_FILE -o StrictHostKeyChecking=no ubuntu@$ORACLE_IP"
+echo ""
+echo "  Full log: $LOG_FILE"
 echo "============================================================"
