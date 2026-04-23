@@ -173,7 +173,7 @@ function kickoff() {
           auth: { token: PASSWORD, password: PASSWORD },
           role: 'operator',
           scopes: ['operator.read', 'operator.write', 'operator.admin'],
-          client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'backend' },
+          client: { id: 'webchat', version: '1.0.0', platform: 'web', mode: 'webchat' },
         },
       }));
       rpcPending.set(id, {

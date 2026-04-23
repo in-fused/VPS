@@ -27,6 +27,7 @@ config.gateway.bind = 'lan';
 // Auth — password mode via OPENCLAW_GATEWAY_PASSWORD env var
 config.gateway.auth = config.gateway.auth || {};
 config.gateway.auth.mode = 'password';
+config.gateway.auth.allowedScopes = ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing'];
 
 // Control UI basePath for reverse proxy at /openclaw/
 config.gateway.controlUi = config.gateway.controlUi || {};

@@ -152,6 +152,14 @@
 			}
 		}
 
+		# Deploy endpoint — public, HMAC-validated by webhook handler (GitHub webhooks)
+		@wh_deploy path /deploy
+		handle @wh_deploy {
+			reverse_proxy webhook:9090 {
+				flush_interval -1
+			}
+		}
+
 		# Management endpoints — cookie-gated
 		@wh_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
 		handle @wh_noauth {
@@ -333,6 +341,43 @@
 			header Cache-Control "no-store, no-cache, must-revalidate"
 			root * /srv/workspace
 			file_server
+		}
+
+		handle {
+			rewrite * /auth.html
+			header Cache-Control "no-store, no-cache, must-revalidate"
+			root * /srv/workspace
+			file_server
+		}
+	}
+
+	# =========================================================================
+	# Browser Terminal — /terminal/ (ttyd, site-auth gated)
+	# =========================================================================
+	# Gives browser-based shell access for server management (git pull,
+	# docker compose logs, etc.). Requires site auth cookie — same as all
+	# other protected routes. ttyd handles WebSocket terminal data internally.
+	@termbare path /terminal
+	redir @termbare /terminal/ 301
+	handle_path /terminal/* {
+		@term_noauth expression `"{$WORKSPACE_AUTH_ENABLED}" == "false"`
+		handle @term_noauth {
+			reverse_proxy ttyd:7681 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				flush_interval -1
+			}
+		}
+
+		@term_authed header Cookie *mc_oc={$WORKSPACE_PASS_SHA256}*
+		handle @term_authed {
+			reverse_proxy ttyd:7681 {
+				header_up X-Real-IP {remote_host}
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Proto {scheme}
+				flush_interval -1
+			}
 		}
 
 		handle {
